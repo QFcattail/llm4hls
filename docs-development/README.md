@@ -1,0 +1,64 @@
+# 开发文档中心 (Development Documentation Hub)
+
+本目录存放项目管理和工程过程相关的所有文档。目标是：**即使开发者中途更换，接手的人也能零压力地看懂“现在做到哪一步、为什么这么设计、接下来要做什么”**。
+
+## 目录结构说明 (Folder Structure)
+
+| 目录 | 内容 | 谁会看 |
+|---|---|---|
+| [`requirements/`](requirements/) | 需求分析：赛道要求拆解 + 评审记录 | 所有人，尤其是新接手的人 |
+| [`design/`](design/) | 详细设计：agent 架构、知识库 schema、控制循环 | 开发者 |
+| [`engineering-plan/`](engineering-plan/) | 工程计划：阶段划分 + 原子任务清单，**项目进度的唯一真相来源** | 所有人，最高频访问 |
+| [`dev-log/`](dev-log/) | 开发日志：按时间顺序记录每次开发会话做了什么、遇到什么问题、如何解决 | 所有人 |
+| [`reviews/`](reviews/) | 需求评审、设计评审的记录 | 所有人 |
+| [`test-plan/`](test-plan/) | 测试用例与测试策略 | 开发/测试 |
+| [`internal-notes/`](internal-notes/) | 探索性笔记、临时决策、踩坑记录，不追求排版精美，但要真实 | 仅开发者自己 |
+
+## 软件工程流程 (SDLC Process)
+
+本项目按以下顺序推进，**每个阶段结束都需要确认后才能进入下一阶段**：
+
+```mermaid
+flowchart LR
+    A[需求分析\nRequirements] -->|评审通过| B[详细设计\nDetailed Design]
+    B -->|评审通过| C[测试用例编写\nTest Case Writing]
+    C --> D[编码实现\nImplementation]
+    D --> E[按用例测试\nTesting]
+    E --> F[总结文档/README\nSummary & README]
+```
+
+- 需求分析和详细设计都要写到“细到不能再细”，并经过评审（记录在 `reviews/`）。
+- 每完成一个阶段/一个原子任务，都会执行一次 git 提交并推送到 Gitee 远程仓库。
+
+## 工程计划与原子任务 (Engineering Plan & Atomic Tasks)
+
+进度管理的核心原则：**计划文档里不能只写“今天要做什么”，必须能让人一眼看到“整个项目被拆成了哪些原子任务、每个任务目前是什么状态”**。
+
+详见 [`engineering-plan/engineering-plan.md`](engineering-plan/engineering-plan.md)。每进入一个阶段先把该阶段拆成原子任务，原子任务一定要细。
+
+## 文档与代码规范 (Documentation & Coding Conventions)
+
+### 代码注释规范
+
+- 统一用 `/** ... */` 块注释（Javadoc 风格），含 `@param`、`@return` 等标签（即使不是 Java，C/Python/JS 都用这种风格）。
+- **所有代码注释必须是纯 ASCII 英文**，避免跨平台（尤其 Windows）编码问题。
+
+### 代码配套文档规范
+
+- 每个代码文件配一份 `<同名>.doc.md` 说明文档，中英双语（先中文后英文）。
+
+### 项目管理文档语言约定
+
+- 需求、设计、工程计划、开发日志等管理类文档以**中文为主**，关键术语标注英文。
+
+### 目录命名规范
+
+- 顶层目录单一职责，英文小写 + 连字符（如 `knowledge-base`），避免中文路径跨平台编码问题。
+
+## 如何贡献一次开发记录 (How to Log Your Work)
+
+每次开发会话结束前：
+
+1. 在 `dev-log/` 下追加一篇日志（模板见该目录 README）。
+2. 在 `engineering-plan/engineering-plan.md` 中更新对应原子任务的状态。
+3. `git add` + `git commit`（提交信息清晰描述本次完成了什么）+ `git push` 到 Gitee。

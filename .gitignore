@@ -1,0 +1,65 @@
+# ---- General ----
+*.log
+*.tmp
+*.bak
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---- Editors / IDE ----
+.vscode/
+.idea/
+*.swp
+
+# ---- Python (agent, tools) ----
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+.env.*
+
+# ---- Node.js (if any tooling) ----
+node_modules/
+npm-debug.log*
+dist/
+build/
+
+# ---- Vitis HLS / Vivado build artifacts ----
+*.jou
+*.wdb
+*.pcap
+*.vcd
+*.xvcd
+*.as
+*.dat
+.Xil/
+**/solution*/
+**/syn/
+**/impl/
+**/sim/
+**/csim/
+**/hls_*.prj/
+*.cache/
+*.hw/
+*.ip_user_files/
+
+# ---- Local LLM / agent caches ----
+.cache/
+.cache_*/
+*.db
+*.sqlite
+*.sqlite3
+
+# ---- Secrets (never commit) ----
+**/secrets.*
+**/*.pfx
+**/*.pem
+**/*.key
+!**/*.pub.key
+**/api_keys.*
+**/.env
+
+# ---- Local debug artifacts ----
+tmp/
