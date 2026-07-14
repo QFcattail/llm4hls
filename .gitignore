@@ -1,65 +1,59 @@
-# ---- General ----
-*.log
-*.tmp
+
+**/api_keys.*
+*.as
 *.bak
-*.swp
+build/
+*.cache/
+.cache/
+.cache_*/
+**/csim/
+*.dat
+*.db
+dist/
 .DS_Store
-Thumbs.db
-
 # ---- Editors / IDE ----
-.vscode/
-.idea/
-*.swp
-
-# ---- Python (agent, tools) ----
-__pycache__/
-*.pyc
-*.pyo
-.venv/
-venv/
+**/.env
 .env
 .env.*
-
+# ---- General ----
+**/hls_*.prj/
+*.hw/
+.idea/
+**/impl/
+*.ip_user_files/
+*.jou
+**/*.key
+# ---- Local debug artifacts ----
+# ---- Local LLM / agent caches ----
+*.log
 # ---- Node.js (if any tooling) ----
 node_modules/
 npm-debug.log*
-dist/
-build/
-
-# ---- Vitis HLS / Vivado build artifacts ----
-*.jou
-*.wdb
 *.pcap
-*.vcd
-*.xvcd
-*.as
-*.dat
-.Xil/
-**/solution*/
-**/syn/
-**/impl/
+**/*.pem
+**/*.pfx
+!**/*.pub.key
+*.pyc
+__pycache__/
+*.pyo
+# ---- Python (agent, tools) ----
+runs/
+**/secrets.*
+# ---- Secrets (never commit) ----
 **/sim/
-**/csim/
-**/hls_*.prj/
-*.cache/
-*.hw/
-*.ip_user_files/
-
-# ---- Local LLM / agent caches ----
-.cache/
-.cache_*/
-*.db
+**/solution*/
 *.sqlite
 *.sqlite3
-
-# ---- Secrets (never commit) ----
-**/secrets.*
-**/*.pfx
-**/*.pem
-**/*.key
-!**/*.pub.key
-**/api_keys.*
-**/.env
-
-# ---- Local debug artifacts ----
+*.swp
+**/syn/
+Thumbs.db
+*.tmp
 tmp/
+*.vcd
+.venv/
+venv/
+# ---- Vitis HLS / Vivado build artifacts ----
+.vscode/
+*.wdb
+.Xil/
+*.xvcd
