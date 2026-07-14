@@ -16,6 +16,7 @@ from pathlib import Path
 from .checkpoint import Checkpoint, Level
 from .feedback import build_feedback
 from .llm_client import HLSLLMClient
+from .mechanical_checks import mechanical_review
 from .observability import Heartbeat, Logger
 from .router import RunPlan, route
 
@@ -139,12 +140,27 @@ class Agent:
         return ckpt.level >= Level.CORRECT
 
     def _repair_with_review(self, code: str, feedback_text: str, kb_text: str) -> str | None:
-        """Generate a repair, then cross-check before returning it."""
+        """Generate a repair, then cross-check before returning it.
+
+        Two gates: (1) mechanical checks (deterministic, catches signature/
+        header changes the LLM misses), (2) LLM review (catches semantic bugs).
+        """
         for retry in range(self.llm.max_review_retries + 1):
             self.hb.set_stage("llm", self.server.budget.remaining())
             new_code = self.llm.repair(self.task, code, feedback_text, kb_text)
             if new_code is None:
                 return None
+
+            # Gate 1: mechanical (hard) checks
+            mech_ok, mech_issues = mechanical_review(code, new_code, self.task)
+            self.log.event("mechanical_review", passed=mech_ok,
+                           issues=mech_issues if not mech_ok else [])
+            if not mech_ok:
+                # feed the mechanical issues back into the next repair attempt
+                feedback_text = feedback_text + "\n\nMUST FIX: " + "; ".join(mech_issues)
+                continue
+
+            # Gate 2: LLM review (self-check)
             passed, issues = self.llm.review(
                 self.task, new_code,
                 focus="signature/interface unchanged; no new bugs; pragma hazards",

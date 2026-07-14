@@ -57,3 +57,7 @@ venv/
 *.wdb
 .Xil/
 *.xvcd
+.env
+config.local.*
+.env
+config.local.*

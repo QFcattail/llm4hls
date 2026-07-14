@@ -31,7 +31,7 @@ from agent.main_loop import Agent                          # noqa: E402
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("task_dir")
-    ap.add_argument("--backend", choices=["scripted", "openrouter"],
+    ap.add_argument("--backend", choices=["scripted", "openrouter", "deepseek"],
                     default="scripted")
     ap.add_argument("--budget", type=int, default=None)
     ap.add_argument("--work", default=None)
@@ -46,6 +46,9 @@ def main() -> int:
 
     if args.backend == "openrouter":
         backend = OpenRouterClient()
+    elif args.backend == "deepseek":
+        from agent.deepseek_client import DeepSeekClient
+        backend = DeepSeekClient()
     else:
         if task.reference_code is None:
             print("scripted backend requires a reference/ solution",
@@ -61,6 +64,11 @@ def main() -> int:
 
     agent = Agent(task, server, llm, kb=kb, run_dir=work_root)
     final = agent.run()
+
+    # report LLM usage if the backend tracks it
+    summary = getattr(backend, "usage_summary", None)
+    if summary:
+        print(f"\n{summary()}")
 
     print("\n--- metered tool transcript ---")
     for e in server.transcript:
