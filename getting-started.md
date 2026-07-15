@@ -142,43 +142,12 @@ done
 
 ## 4. 代码怎么读
 
-### 4.1 推荐阅读顺序
+代码导览（模块职责、调用关系、阅读五遍法、函数清单）在 **[agent/README.md](agent/README.md)**，和代码放一起。
 
-按**从外到内、从简单到核心**的顺序：
+快速一句话理解每个模块：
 
-```
-第一遍（了解全貌）：
-  1. docs-development/design/agent-architecture.md     ← 架构设计（先看 Mermaid 图）
-  2. scripts/run_agent.py                              ← 入口，看怎么组装
-  3. agent/main_loop.py 的 run() 方法                  ← 主循环骨架
-
-第二遍（看数据结构）：
-  4. agent/router.py                                   ← RunPlan 是什么
-  5. agent/checkpoint.py                               ← Level/Checkpoint 三规则
-  6. agent/feedback.py                                 ← Feedback 数据结构
-
-第三遍（看核心逻辑）：
-  7. agent/main_loop.py 的 _reach_correctness          ← 修复循环
-  8. agent/main_loop.py 的 _repair_with_review         ← 双层 review
-  9. agent/mechanical_checks.py                        ← 硬性检查
-  10. agent/llm_client.py 的 repair/review             ← LLM 调用
-
-第四遍（看基建）：
-  11. agent/observability.py                           ← 日志+心跳
-  12. agent/deepseek_client.py                         ← API 对接
-  13. agent/knowledge_base/retriever.py                ← RAG 检索
-
-第五遍（看外部依赖）：
-  14. contest/fpt26-harness/llm4hls/harness.py         ← ToolServer
-  15. contest/fpt26-harness/llm4hls/tools.py           ← CSimTool/SynthTool
-  16. contest/fpt26-harness/llm4hls/scoring.py         ← 评分公式
-```
-
-### 4.2 代码分几个部分
-
-| 部分 | 文件 | 一句话 |
+| 比喻 | 文件 | 职责 |
 |---|---|---|
-| **入口** | `scripts/run_agent.py` | CLI 入口，组装 agent |
 | **大脑** | `agent/main_loop.py` | 主循环：correctness → synth → optimize |
 | **决策** | `agent/router.py` | 读题目类型，选关卡路径 |
 | **记忆** | `agent/checkpoint.py` | 存档：哪个版本最好 |
@@ -189,17 +158,6 @@ done
 | **日记** | `agent/observability.py` | 日志 + 心跳 |
 | **字典** | `agent/knowledge_base/` | bug→修法知识库 |
 | **工具** | `contest/fpt26-harness/` | 官方 harness（csim/synth/cosim） |
-
-### 4.3 一句话理解每个模块
-
-- **router**："这道题是 repair 还是 optimize？要不要 cosim？"
-- **checkpoint**："这个新版本比之前的好吗？好的话存下来。"
-- **feedback**："csim 跑挂了，把错误信息整理成 LLM 能看懂的。"
-- **llm_client**："给 LLM 源码+反馈+知识库，让它改代码。改完再审一遍。"
-- **mechanical_checks**："签名变没变？include 还在吗？"（不信任 LLM 的地方）
-- **deepseek_client**："调 DeepSeek API，记 token。"
-- **observability**："agent 现在在哪一步？卡死了吗？"
-- **knowledge_base**："这个错误码之前见过吗？怎么修的？"
 - **main_loop**："把上面所有模块串起来，修到 csim 过，再 synth，再 optimize。"
 
 ---
