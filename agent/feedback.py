@@ -28,7 +28,16 @@ _LOG_TAIL_CHARS = 3000   # mirror ReferenceAgent._feedback truncation
 
 @dataclass
 class Feedback:
-    """Structured feedback distilled from one or more ToolResults."""
+    """Structured feedback distilled from one or more ToolResults.
+
+    Attributes:
+        phases: Human-readable per-result phase summaries, e.g.
+            ["csim: runtime_fail"].
+        error_codes: Vitis error codes found in logs, e.g.
+            ["[XFORM 203-313]"].
+        signatures: Knowledge-base retrieval keys (error codes + keywords).
+        log_tail: Truncated tail of the most recent log output.
+    """
 
     phases: list[str] = field(default_factory=list)            # e.g. ["csim: runtime_fail"]
     error_codes: list[str] = field(default_factory=list)       # e.g. ["[XFORM 203-313]"]
@@ -36,10 +45,16 @@ class Feedback:
     log_tail: str = ""
 
     def is_empty(self) -> bool:
+        """Return True if no phases or error codes were collected."""
         return not self.phases and not self.error_codes
 
     def as_prompt_block(self) -> str:
-        """Render as a concise block for the repair prompt."""
+        """Render the feedback as a concise block for the repair prompt.
+
+        Returns:
+            A multi-line string combining tool results, error codes, and the
+            log tail, or "(no feedback)" when nothing was collected.
+        """
         parts = []
         if self.phases:
             parts.append("Tool results: " + "; ".join(self.phases))
@@ -54,6 +69,15 @@ def build_feedback(*results) -> Feedback:
     """Build Feedback from one or more harness ToolResult objects.
 
     Pass csim result, and (for structural tasks) the cosim result.
+
+    Args:
+        *results: Harness ToolResult objects (or None values to skip). Each
+            is expected to expose ``kind``, ``phase``, ``log``, and ``ok``
+            attributes.
+
+    Returns:
+        A Feedback object with distilled phases, error codes, keyword
+        signatures, and a log tail.
     """
     fb = Feedback()
     for r in results:

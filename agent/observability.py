@@ -18,7 +18,13 @@ from pathlib import Path
 
 
 class Logger:
-    """Append-only structured logger writing JSONL to a file + stdout."""
+    """Append-only structured logger writing JSONL to a file + stdout.
+
+    Attributes:
+        task_id: Identifier of the task this logger tracks.
+        run_dir: Directory holding the JSONL file.
+        path: Path to the per-run JSONL transcript file.
+    """
 
     def __init__(self, task_id: str, run_dir: Path | str = "runs") -> None:
         self.task_id = task_id
@@ -31,11 +37,17 @@ class Logger:
         self._lock = threading.Lock()
 
     def _touch(self) -> None:
+        """Update the last-activity timestamp under the lock."""
         with self._lock:
             self._last_activity = time.monotonic()
 
     def event(self, event: str, **fields) -> None:
-        """Emit one structured event line."""
+        """Emit one structured event line.
+
+        Args:
+            event: Name of the event (e.g. "tool_result").
+            **fields: Arbitrary JSON-serializable fields attached to the event.
+        """
         self._touch()
         record = {"ts": time.time(), "task": self.task_id, "event": event, **fields}
         line = json.dumps(record, ensure_ascii=False, default=str)
@@ -43,6 +55,7 @@ class Logger:
         print(f"[log] {event} {fields}", file=sys.stderr, flush=True)
 
     def age_s(self) -> float:
+        """Return seconds since the last recorded activity."""
         with self._lock:
             return time.monotonic() - self._last_activity
 
@@ -61,7 +74,14 @@ _STALL_THRESHOLD = {
 
 
 class Heartbeat:
-    """Background heartbeat thread for stall detection."""
+    """Background heartbeat thread for stall detection.
+
+    Attributes:
+        logger: The Logger to emit heartbeat events to.
+        interval: Seconds between heartbeat checks.
+        stage: Current stage name used to pick the stall threshold.
+        credit_remaining: Optional remaining credit for reporting.
+    """
 
     def __init__(self, logger: Logger, interval: float = 10.0) -> None:
         self.logger = logger
@@ -72,18 +92,22 @@ class Heartbeat:
         self._thread = threading.Thread(target=self._run, daemon=True)
 
     def set_stage(self, stage: str, credit_remaining: int | None = None) -> None:
+        """Update the current stage and optional remaining credit."""
         self.stage = stage
         self.credit_remaining = credit_remaining
         self.logger._touch()  # changing stage counts as activity
 
     def start(self) -> None:
+        """Start the background heartbeat thread."""
         self._thread.start()
 
     def stop(self) -> None:
+        """Signal the heartbeat thread to stop and wait for it to join."""
         self._stop.set()
         self._thread.join(timeout=2)
 
     def _run(self) -> None:
+        """Periodically report liveness and flag stalls based on age."""
         while not self._stop.wait(self.interval):
             age = self.logger.age_s()
             threshold = _STALL_THRESHOLD.get(self.stage, 60)

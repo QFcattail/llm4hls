@@ -24,6 +24,7 @@ except Exception:  # fallback if import path differs
     _CODE_RE = re.compile(r"```(?:cpp|c\+\+|c)?\s*\n(.*?)```", re.DOTALL)
 
     def _harness_extract(text: str) -> str | None:
+        """Fallback code-block extractor used when the harness import fails."""
         blocks = _CODE_RE.findall(text)
         if blocks:
             return blocks[0].strip() + "\n"
@@ -33,7 +34,14 @@ except Exception:  # fallback if import path differs
 
 @dataclass
 class Strategy:
-    """One candidate optimization strategy from AMD Phase 2."""
+    """One candidate optimization strategy from AMD Phase 2.
+
+    Attributes:
+        name: Short label for the strategy.
+        rationale: Human-readable justification of the approach.
+        expected_gain: Qualitative expected benefit, e.g. "halve latency via II=1".
+        risk: Qualitative risk of the approach, e.g. "may break dataflow ordering".
+    """
 
     name: str
     rationale: str
@@ -46,6 +54,12 @@ class HLSLLMClient:
 
     The underlying client is injected (ScriptedClient for offline dev,
     OpenRouterClient for real runs). This class never imports a backend.
+
+    Attributes:
+        backend: The injected LLMClient (must implement
+            ``complete(system, user) -> str``).
+        max_review_retries: Number of extra repair attempts allowed when the
+            mechanical or LLM review rejects a candidate.
     """
 
     def __init__(self, backend, max_review_retries: int = 1) -> None:
@@ -54,11 +68,23 @@ class HLSLLMClient:
 
     # -- low-level --------------------------------------------------------
     def _complete(self, system: str, user: str) -> str:
+        """Forward a raw (system, user) completion call to the backend."""
         return self.backend.complete(system, user)
 
     # -- domain methods ---------------------------------------------------
     def repair(self, task, code: str, feedback_text: str, kb_text: str) -> str | None:
-        """Ask for a corrected kernel. Returns code or None on parse failure."""
+        """Ask for a corrected kernel. Returns code or None on parse failure.
+
+        Args:
+            task: Harness Task object (used for description, headers, kernel name).
+            code: The current (failing) kernel source.
+            feedback_text: Distilled tool feedback block to act on.
+            kb_text: Knowledge-base hits text, or empty for none.
+
+        Returns:
+            The repaired kernel source extracted from the LLM response, or
+            None if no code block could be parsed.
+        """
         system = _REPAIR_SYSTEM
         user = (
             f"## Kernel specification\n{task.description}\n\n"
@@ -77,6 +103,16 @@ class HLSLLMClient:
 
         Returns (passed, issues_text). First iteration uses the same backend
         with a reviewer prompt (self-check). Token cost is accepted per v2.
+
+        Args:
+            task: Harness Task object (used for kernel name).
+            code: The candidate kernel source to review.
+            focus: Short text describing what the review should check.
+
+        Returns:
+            A (passed, issues_text) tuple where ``passed`` is True when the
+            reviewer's reply starts with "PASS", and ``issues_text`` is the
+            raw reviewer output.
         """
         system = _REVIEW_SYSTEM
         user = (
@@ -89,7 +125,16 @@ class HLSLLMClient:
         return passed, out
 
     def propose_strategies(self, task, code: str, synth_summary: str) -> list[Strategy]:
-        """AMD Phase 2: ask for multiple optimization strategies with tradeoffs."""
+        """AMD Phase 2: ask for multiple optimization strategies with tradeoffs.
+
+        Args:
+            task: Harness Task object.
+            code: The current synthesized kernel source.
+            synth_summary: Current synthesis report summary text.
+
+        Returns:
+            A list of parsed Strategy objects (may be empty on parse failure).
+        """
         system = _STRATEGY_SYSTEM
         user = (
             f"## Kernel\n```cpp\n{code}\n```\n\n"
@@ -101,7 +146,17 @@ class HLSLLMClient:
         return _parse_strategies(out)
 
     def apply_strategy(self, task, code: str, strategy: Strategy) -> str | None:
-        """AMD Phase 3: generate code applying one strategy."""
+        """AMD Phase 3: generate code applying one strategy.
+
+        Args:
+            task: Harness Task object.
+            code: The current kernel source to transform.
+            strategy: The Strategy to apply.
+
+        Returns:
+            The optimized kernel source extracted from the LLM response, or
+            None if no code block could be parsed.
+        """
         system = _REPAIR_SYSTEM
         user = (
             f"## Kernel\n```cpp\n{code}\n```\n\n"
@@ -135,6 +190,7 @@ _STRATEGY_SYSTEM = (
 
 
 def _headers(task) -> str:
+    """Render a task's headers as a combined comment-delimited block."""
     return "\n".join(f"// {n}\n{c}" for n, c in task.headers.items())
 
 

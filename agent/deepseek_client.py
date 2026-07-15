@@ -24,7 +24,20 @@ DEFAULT_MODEL = "deepseek-v4-pro"
 
 
 class DeepSeekClient:
-    """OpenAI-compatible client for DeepSeek's native endpoint."""
+    """OpenAI-compatible client for DeepSeek's native endpoint.
+
+    Attributes:
+        api_key: DeepSeek API key (never written to version-controlled files).
+        model: DeepSeek model identifier to call.
+        base_url: DeepSeek chat completions endpoint URL.
+        temperature: Sampling temperature.
+        max_tokens: Maximum tokens (covers reasoning + output).
+        timeout: Request timeout in seconds.
+        total_prompt: Running total of prompt tokens across calls.
+        total_completion: Running total of completion tokens across calls.
+        total_reasoning: Running total of reasoning tokens across calls.
+        calls: Number of completion calls made.
+    """
 
     def __init__(
         self,
@@ -53,6 +66,19 @@ class DeepSeekClient:
         self.calls = 0
 
     def complete(self, system: str, user: str) -> str:
+        """Send a chat completion request and return the assistant content.
+
+        Args:
+            system: System prompt text.
+            user: User prompt text.
+
+        Returns:
+            The assistant's content string.
+
+        Raises:
+            RuntimeError: If the API returns an HTTPError or the request
+                otherwise fails.
+        """
         payload = json.dumps({
             "model": self.model,
             "messages": [
@@ -91,6 +117,7 @@ class DeepSeekClient:
         return content
 
     def usage_summary(self) -> str:
+        """Return a one-line summary of accumulated token usage across calls."""
         return (
             f"DeepSeek {self.calls} calls | "
             f"prompt={self.total_prompt} completion={self.total_completion} "

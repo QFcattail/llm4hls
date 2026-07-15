@@ -20,7 +20,15 @@ from dataclasses import dataclass
 
 @dataclass
 class RunPlan:
-    """The plan handed to the main loop."""
+    """The plan handed to the main loop.
+
+    Attributes:
+        task_type: One of "generate", "repair", "optimize", "structural".
+        correctness_stages: Ordered list of correctness gate stages, either
+            ["csim"] or ["csim", "cosim"] (the latter when cosim is required).
+        needs_optimize: Whether to enter PPA optimization after synth holds.
+        initial_level: Starting checkpoint level of the seed code.
+    """
 
     task_type: str                  # generate | repair | optimize | structural
     correctness_stages: list[str]   # ["csim"] or ["csim", "cosim"]
@@ -32,6 +40,13 @@ def route(task) -> RunPlan:
     """Build a RunPlan from a llm4hls.Task.
 
     `task` is the harness Task dataclass (has .type and .requires_cosim).
+
+    Args:
+        task: A harness Task object exposing ``.type`` and ``.requires_cosim``.
+
+    Returns:
+        A RunPlan describing the correctness gate, optimization entry, and
+        initial checkpoint level for the task.
     """
     needs_cosim = bool(getattr(task, "requires_cosim", False))
     correctness_stages = ["csim", "cosim"] if needs_cosim else ["csim"]

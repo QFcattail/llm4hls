@@ -26,7 +26,21 @@ from llm4hls.budget import BudgetExceeded  # noqa: E402
 
 
 class Agent:
-    """Our agent. Replaces llm4hls.ReferenceAgent with the §4 architecture."""
+    """Our agent. Replaces llm4hls.ReferenceAgent with the §4 architecture.
+
+    Drives a linear-with-backtracking correctness -> synth -> optimize flow.
+    Every edit re-verifies already-passed stages (see §5) and the checkpoint
+    (§2) provides rollback for free.
+
+    Attributes:
+        task: The harness Task to solve.
+        server: The harness ToolServer used to run csim/synth/cosim.
+        llm: The HLSLLMClient used for repair/review/optimization calls.
+        kb: Optional knowledge-base retriever (None disables KB lookup).
+        max_rounds: Maximum repair attempts in the correctness stage.
+        log: Structured event logger for this run.
+        hb: Background heartbeat for stall detection.
+    """
 
     def __init__(
         self,
@@ -47,6 +61,15 @@ class Agent:
 
     # -- entry point ------------------------------------------------------
     def run(self) -> str:
+        """Run the full agent pipeline for this agent's task.
+
+        Routes the task into a RunPlan, then executes correctness, synth, and
+        optimization stages. Handles BudgetExceeded by returning the best
+        checkpointed code. Always emits a final submit event.
+
+        Returns:
+            The final kernel source to submit (the best checkpointed code).
+        """
         plan = route(self.task)
         ckpt = Checkpoint(code=self.task.kernel_code, level=plan.initial_level)
         self.log.event("route", task_type=plan.task_type,
@@ -67,6 +90,18 @@ class Agent:
                            credit_spent=self.server.budget.spent)
 
     def _run_plan(self, plan: RunPlan, ckpt: Checkpoint) -> str:
+        """Execute the three stages of a plan in order: correctness, synth, optimize.
+
+        Each stage updates the checkpoint. Returns early if a stage fails in a
+        way that prevents progression (keeping the best correct code).
+
+        Args:
+            plan: The RunPlan produced by the router.
+            ckpt: The checkpoint tracking code/level/latency.
+
+        Returns:
+            The final kernel source from the checkpoint.
+        """
         # Stage 1: correctness
         ok = self._reach_correctness(plan, ckpt)
         if not ok:
@@ -91,7 +126,21 @@ class Agent:
 
     # -- stage 1: correctness --------------------------------------------
     def _reach_correctness(self, plan: RunPlan, ckpt: Checkpoint) -> bool:
-        """Repair loop until csim (+cosim if structural) pass. Returns ok."""
+        """Repair loop until csim (+cosim if structural) pass. Returns ok.
+
+        For up to ``max_rounds`` attempts, runs csim (and cosim when the plan
+        requires it), archives the code at CORRECT level on success, and on
+        failure distills feedback, queries the KB, and repairs the candidate
+        via the review-gated repair path.
+
+        Args:
+            plan: The RunPlan describing the correctness gate stages.
+            ckpt: The checkpoint tracking code and level.
+
+        Returns:
+            True if the correctness gate was reached (or already held), False
+            if rounds/budget were exhausted without success.
+        """
         for attempt in range(1, self.max_rounds + 1):
             if not self.server.budget.can_afford("csim"):
                 self.log.event("budget_exhausted", where="correctness-csim",
@@ -144,6 +193,19 @@ class Agent:
 
         Two gates: (1) mechanical checks (deterministic, catches signature/
         header changes the LLM misses), (2) LLM review (catches semantic bugs).
+
+        On a failed mechanical check, the issues are appended to the feedback
+        text and another repair attempt is made (up to
+        ``llm.max_review_retries`` extra retries).
+
+        Args:
+            code: The current kernel source to repair.
+            feedback_text: Distilled tool feedback block to act on.
+            kb_text: Knowledge-base hits text, or empty for none.
+
+        Returns:
+            The reviewed candidate kernel source, or None if the LLM produced
+            no parseable code.
         """
         for retry in range(self.llm.max_review_retries + 1):
             self.hb.set_stage("llm", self.server.budget.remaining())
@@ -173,6 +235,16 @@ class Agent:
 
     # -- stage 2: synth ---------------------------------------------------
     def _do_synth(self, plan: RunPlan, ckpt: Checkpoint) -> int | None:
+        """Run synthesis and archive the checkpoint at SYNTH level on success.
+
+        Args:
+            plan: The RunPlan (used for budget/context; synth applies to all).
+            ckpt: The checkpoint tracking code and level/latency.
+
+        Returns:
+            The worst (or average) latency from the synthesis report on
+            success, or None if synth was skipped or failed.
+        """
         if not self.server.budget.can_afford("synth"):
             self.log.event("skip", phase="synth", reason="no_budget")
             return None
@@ -192,13 +264,23 @@ class Agent:
 
     # -- stage 3: optimize (P4 flesh-out) --------------------------------
     def _optimize(self, plan: RunPlan, ckpt: Checkpoint) -> None:
+        """Stage 3: PPA optimization (stub pending P4 flesh-out).
+
+        Args:
+            plan: The RunPlan (used for context; optimization applies to all).
+            ckpt: The checkpoint tracking the synth-correct code.
+        """
         # Stub: P4 will implement AMD Phase 1+2 here. For now, no-op so the
         # correctness-only first iteration still runs end to end.
         self.log.event("phase_enter", phase="optimize", best_level=ckpt.level,
                        note="stub_P4")
 
     def _post_opt_cosim_recheck(self, ckpt: Checkpoint) -> None:
-        """structural: re-verify cosim after optimization (architecture §4.5)."""
+        """structural: re-verify cosim after optimization (architecture §4.5).
+
+        Args:
+            ckpt: The checkpoint holding the optimized code to re-verify.
+        """
         if not self.server.budget.can_afford("cosim"):
             return
         self.hb.set_stage("cosim", self.server.budget.remaining())
@@ -210,6 +292,15 @@ class Agent:
 
     # -- knowledge base ---------------------------------------------------
     def _kb_lookup(self, fb) -> str:
+        """Query the knowledge base for feedback signatures and return hits text.
+
+        Args:
+            fb: A Feedback object whose ``signatures`` drive the lookup.
+
+        Returns:
+            A joined summary string of matching KB hits, or "" when the KB is
+            disabled or no hits were found.
+        """
         if self.kb is None:
             return ""
         hits = self.kb.search(fb.signatures)

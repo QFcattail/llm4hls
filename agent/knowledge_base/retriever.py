@@ -14,7 +14,16 @@ from dataclasses import dataclass, field
 
 @dataclass
 class KBEntry:
-    """One bug->fix entry."""
+    """One bug->fix entry.
+
+    Attributes:
+        id: Unique identifier for the entry.
+        symptom: Short description of the observable symptom.
+        root_cause: Description of the underlying root cause.
+        fix: Recommended fix text.
+        example: Optional example code illustrating the fix.
+        signatures: Trigger keys (error codes + keywords) used for matching.
+    """
 
     id: str
     symptom: str
@@ -24,6 +33,7 @@ class KBEntry:
     signatures: list[str] = field(default_factory=list)  # trigger keys
 
     def summary(self) -> str:
+        """Return a concise multi-line summary of the entry for the prompt."""
         parts = [f"[{self.id}] {self.symptom}",
                  f"  root cause: {self.root_cause}",
                  f"  fix: {self.fix}"]
@@ -33,12 +43,17 @@ class KBEntry:
 
 
 class KnowledgeBase:
-    """First-iteration retriever: match feedback signatures against entries."""
+    """First-iteration retriever: match feedback signatures against entries.
+
+    Attributes:
+        entries: The list of KBEntry objects to search against.
+    """
 
     def __init__(self, entries: list[KBEntry] | None = None) -> None:
         self.entries: list[KBEntry] = entries or []
 
     def add(self, entry: KBEntry) -> None:
+        """Append a KBEntry to the retrievable corpus."""
         self.entries.append(entry)
 
     def search(self, signatures: list[str]) -> list[KBEntry]:
@@ -46,6 +61,14 @@ class KnowledgeBase:
 
         Matching is case-insensitive substring on either the entry's declared
         signatures or its symptom/root_cause text. Duplicates removed.
+
+        Args:
+            signatures: Query signatures (error codes + keywords) from
+                feedback.
+
+        Returns:
+            A de-duplicated list of matching KBEntry objects, preserving the
+            corpus order. Returns an empty list when no signatures are given.
         """
         if not signatures:
             return []
