@@ -1,10 +1,18 @@
 """DeepSeek LLM backend (OpenAI-compatible, native endpoint).
 
 DeepSeek V4 Pro is a reasoning model: each call emits reasoning_tokens in
-addition to the final content. Two implications:
-  - max_tokens must be large (it covers reasoning + output).
-  - token usage is higher than non-reasoning models (relevant to the final
-    score, but the first iteration ignores token cost per the architecture).
+addition to the final content. Key API parameters (per api-docs.deepseek.com):
+
+  - max_tokens: OPTIONAL. If not sent, output length is unconstrained (only
+    bounded by the model's context window). We default to NOT sending it,
+    so the model can think as long as it needs without truncating the answer.
+  - thinking.type: "enabled" (default) / "disabled" — turns reasoning on/off.
+  - thinking.reasoning_effort: "high" (default) / "max" — controls how hard
+    the model thinks. "max" is for complex agent tasks. There is NO separate
+    max_reasoning_tokens parameter; reasoning_effort is the only knob.
+
+Token usage is higher than non-reasoning models (relevant to the final score,
+but the first iteration ignores token cost per the architecture).
 
 Implements the same `complete(system, user) -> str` contract as the harness
 OpenRouterClient / ScriptedClient, so it is a drop-in backend for HLSLLMClient.
@@ -31,7 +39,9 @@ class DeepSeekClient:
         model: DeepSeek model identifier to call.
         base_url: DeepSeek chat completions endpoint URL.
         temperature: Sampling temperature.
-        max_tokens: Maximum tokens (covers reasoning + output).
+        max_tokens: Maximum output tokens (None = unlimited, default). Covers
+            reasoning + output; setting it too low truncates the answer.
+        reasoning_effort: "high" or "max". Controls reasoning depth.
         timeout: Request timeout in seconds.
         total_prompt: Running total of prompt tokens across calls.
         total_completion: Running total of completion tokens across calls.
@@ -45,7 +55,8 @@ class DeepSeekClient:
         api_key: str | None = None,
         base_url: str | None = None,
         temperature: float = 0.2,
-        max_tokens: int = 16384,
+        max_tokens: int | None = None,
+        reasoning_effort: str = "high",
         timeout: float = 300.0,
     ) -> None:
         self.api_key = api_key or os.environ.get("DEEPSEEK_API_KEY", "")
@@ -58,6 +69,7 @@ class DeepSeekClient:
         self.base_url = base_url or DEFAULT_BASE_URL
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.reasoning_effort = reasoning_effort
         self.timeout = timeout
         # running usage stats (for later token accounting)
         self.total_prompt = 0
@@ -79,15 +91,26 @@ class DeepSeekClient:
             RuntimeError: If the API returns an HTTPError or the request
                 otherwise fails.
         """
-        payload = json.dumps({
+        payload_dict: dict = {
             "model": self.model,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
             "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
-        }).encode("utf-8")
+            # thinking: control reasoning model behavior.
+            # reasoning_effort "high" is default; "max" for complex agent tasks.
+            "thinking": {
+                "type": "enabled",
+                "reasoning_effort": self.reasoning_effort,
+            },
+        }
+        # max_tokens: only send if explicitly set. If None (default), don't
+        # send it — let the model use its full context window unconstrained.
+        if self.max_tokens is not None:
+            payload_dict["max_tokens"] = self.max_tokens
+
+        payload = json.dumps(payload_dict).encode("utf-8")
         req = urllib.request.Request(
             self.base_url,
             data=payload,

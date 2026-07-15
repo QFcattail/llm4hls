@@ -19,9 +19,9 @@
 
 ## 2. 安装
 
-### 2.1 不装 Vitis 也能开发（离线模式）
+### 2.1 不装 Vitis 也能开发（框架测试）
 
-harness 自带 ScriptedClient，用预设答案模拟工具调用。大部分 agent 代码（路由器、存档、反馈构建、LLM 封装、日志）不依赖 Vitis。
+harness 自带 ScriptedClient，用预设答案模拟 LLM 调用。agent 代码本身（路由器、存档、反馈构建、日志）不依赖 Vitis。但 **csim/synth/cosim 调用需要 Vitis**——没装时会直接报错退出，避免输出误导性的 SCORE 0.000。
 
 ```bash
 # 克隆
@@ -34,11 +34,13 @@ source .venv/bin/activate
 
 # 无需 pip install —— harness 和 agent 都只用 Python 标准库
 
-# 跑离线（不需要 Vitis、不需要 API key）
+# 不装 Vitis 时跑会报错退出（driver 检测 vitis-run 不在 PATH）
 python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
-```
+# → ERROR: vitis-run not found
 
-看到 `budget 6/20 credits spent` + `SCORE 0.000`（因为没 Vitis，csim 全 compile_error）——框架跑通了。
+# 如果只想测框架链路（csim 会 compile_error），加 --force
+python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --force
+```
 
 ### 2.2 接真 Vitis（真 csim/synth/cosim）
 
@@ -49,7 +51,7 @@ export LLM4HLS_VITIS_HLS_ROOT=/path/to/Xilinx/2025.2/Vitis
 source $LLM4HLS_VITIS_HLS_ROOT/settings64.sh
 ```
 
-再跑同样的命令，这次 csim 会真编译执行（约 10 秒），不再 compile_error。
+再跑同样的命令（不加 --force），这次 csim 会真编译执行（约 10 秒）。
 
 ### 2.3 接真 LLM（DeepSeek）
 
@@ -78,9 +80,10 @@ python scripts/run_agent.py <task_dir> [选项]
 
 | 选项 | 默认值 | 说明 |
 |---|---|---|
-| `--backend` | `scripted` | LLM 后端：`scripted`（离线）/ `deepseek`（真 LLM）/ `openrouter`（官方） |
+| `--backend` | `scripted` | LLM 后端：`scripted`（预设答案）/ `deepseek`（真 LLM）/ `openrouter`（官方） |
 | `--budget` | 题目自带 | 覆盖 credit 预算（如 `--budget 10`） |
 | `--work` | `runs/<task_id>` | 工作目录（存 build 产物 + 日志） |
+| `--force` | 关 | 没装 Vitis 时强制运行（csim 会 compile_error，仅用于框架测试） |
 
 ### 3.3 常用命令
 
@@ -164,13 +167,13 @@ done
 
 ## 5. 常见问题
 
-### Q: csim 全是 compile_error 怎么办？
+### Q: 报错 "vitis-run not found" 怎么办？
 
-A: 没装 Vitis 或没 source settings64.sh。离线开发时这是正常的（ScriptedClient 也会这样，因为 vitis-run 找不到）。配好 `LLM4HLS_VITIS_HLS_ROOT` + source settings 后就好。
+A: 没装 Vitis 或没 source settings64.sh。driver 现在会拒绝运行并给出提示，避免输出误导性的 SCORE 0.000。装好 Vitis 并 source 后即可。如果只想测框架链路（csim 会 compile_error），加 `--force`。
 
 ### Q: DeepSeek 返回空 content 怎么办？
 
-A: deepseek-v4-pro 是推理模型，max_tokens 太小会全被 reasoning 吃掉。默认 16384，如果代码长可能需要更大。
+A: deepseek-v4-pro 是推理模型。max_tokens 默认不设（不限制，让模型想够）。如果手动设了 max_tokens 且太小，reasoning 会把预算吃光，content 为空。保持默认（None）即可。
 
 ### Q: review 全 reject 怎么办？
 

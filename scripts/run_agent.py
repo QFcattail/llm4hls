@@ -28,6 +28,17 @@ from agent.llm_client import HLSLLMClient                  # noqa: E402
 from agent.main_loop import Agent                          # noqa: E402
 
 
+def _check_vitis_available() -> bool:
+    """Check if vitis-run is on PATH (i.e. settings64.sh has been sourced).
+
+    Without Vitis, every csim/synth/cosim call returns compile_error with
+    elapsed_s≈0, producing misleading SCORE 0.000 output that looks like the
+    agent failed when really the toolchain just isn't installed.
+    """
+    import shutil
+    return shutil.which("vitis-run") is not None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("task_dir")
@@ -35,7 +46,23 @@ def main() -> int:
                     default="scripted")
     ap.add_argument("--budget", type=int, default=None)
     ap.add_argument("--work", default=None)
+    ap.add_argument("--force", action="store_true",
+                    help="run even if Vitis is not detected (csim will fail)")
     args = ap.parse_args()
+
+    # Guard: refuse to run without Vitis, because every csim/synth/cosim will
+    # return compile_error and the SCORE 0.000 output is misleading.
+    if not _check_vitis_available() and not args.force:
+        print(
+            "ERROR: vitis-run not found on PATH.\n"
+            "  Vitis 2025.2 is required for csim/synth/cosim. Source its\n"
+            "  settings64.sh first, e.g.:\n"
+            "    source /home/admin/Xilinx/2025.2/Vitis/settings64.sh\n"
+            "  To run anyway (csim will fail — for framework testing only):\n"
+            "    python scripts/run_agent.py ... --force",
+            file=sys.stderr,
+        )
+        return 1
 
     task = load_task(args.task_dir)
     total = args.budget if args.budget is not None else task.budget
