@@ -6,7 +6,7 @@
 >
 > 每进入一个阶段先细化原子任务，原子任务一定要细，不要一个任务需要一周的量。
 
-最后更新时间 (Last Updated)：2026-07-14（官方 harness 解压是决定性发现，P2/P3 大量任务（mock/日志解析/接真接口/预算止损）被官方实现解决。P1 Agent 主侧实质完成，P2 重写为"搭骨架 + 最小闭环"。架构定稿见 agent-architecture.md v2.2。）
+最后更新时间 (Last Updated)：2026-07-15（**P2 里程碑达成**：Vitis 2025.2 装好，projection 题端到端真修复跑通——DeepSeek 自主诊断 bug + 修复，真 csim + synth + hidden testbench 全过，SCORE 1.400。agent 全模块在真实环境验证通过。剩 dotProduct/residual 验证 + 知识库填充。）
 
 ---
 
@@ -40,7 +40,7 @@
 |---|---|---|---|---|
 | P0 | 项目基础设施搭建 | 第 0 周 | 🟢 已完成 | 仓库、目录结构、文档中心、分工与计划基线 |
 | P1 | 认知 + 环境 | 第 1 周 | 🟢 实质完成（Agent 主侧） | 读背景资料、解压 harness、跑通离线链路、架构定稿。HLS 域主侧（数电基础+Vitis 环境）进行中 |
-| P2 | 搭骨架 + 最小正确性闭环 | 第 2 周 | 🟡 进行中 | 按 agent-architecture.md 搭 agent/ 模块，在 ScriptedClient 上跑通 projection 题闭环 |
+| P2 | 搭骨架 + 最小正确性闭环 | 第 2 周 | 🟢 **里程碑达成** | agent 骨架搭好，projection 题端到端真修复跑通（DeepSeek + 真 Vitis），SCORE 1.400。剩 dotProduct/residual 验证 + 知识库填充 |
 | P3 | 接真 Vitis + cosim + 里程碑 | 第 3-4 周 | ⚪ 未开始 | 云服务器跑真 csim/synth/cosim，扩 structural 路径，端到端跑 milestone |
 | P4 | PPA 优化冲分 + 提交物 | 第 5 周起 | ⚪ 未开始 | optimize 阶段 + token 优化（第二次迭代）+ Docker/报告/视频 |
 
@@ -108,7 +108,7 @@
 |---|---|---|---|
 | P1-09 | 刷新数电基础：组合/时序逻辑、触发器、FSM、时序、流水线 | ⚪ | 能讲清"流水线为什么提高吞吐、寄存器干啥" |
 | P1-10 | 读 Kastner《Parallel Programming for FPGAs》前几章 + UG1399 的 csim/csynth/cosim 章节 | ⚪ | 能讲清 csim/synth/cosim 各验什么、报告里 II/latency/资源在哪 |
-| P1-11 | 租云服务器 + 装 Vitis 2025.2（Ubuntu 22.04） | ⚪ | 能在服务器上跑通 harness 的 csim+synth（**用户给 SSH 后配置**） |
+| P1-11 | 租云服务器 + 装 Vitis 2025.2（Ubuntu 22.04） | 🟢 | **完成。服务器 QFS-STATION：8核/14G/466G 数据盘，Vitis 2025.2 装于 /home/admin/Xilinx（92G），vitis-run 验证可用** |
 | P1-12 | 读 AMD LLM4HLS SHA-256 案例文章 | 🟢 | 用户已代读完（dev-log 2026-07-11-03），四阶段工作流已写入 |
 
 > **P1 收尾说明**（2026-07-14）：harness 解压是决定性发现，把原 P1-07（日志样例包）、P1-12（AMD 文章）的状态全部改写。Agent 主侧 P1 实质完成，进入 P2。HLS 域主侧 P1-09/10/11 仍待推进（数电基础 + Vitis 环境）。
@@ -125,15 +125,15 @@
 |---|---|---|---|
 | P2-01 | ~~定义评估接口 mock~~ | ✅ | **官方 ToolServer 即真接口，不需要 mock。已废弃。** |
 | P2-02 | ~~实现日志解析器~~ | ✅ | **官方 report.py 已实现（csynth.xml + cosim.rpt 解析）。已废弃。** |
-| P2-03 | 搭 agent/ 目录骨架 + 模块 | ⚪ | router.py / checkpoint.py / main_loop.py / feedback.py / llm_client.py / knowledge_base/ 全部建出，能 import |
-| P2-04 | 实现 router.py：task.toml → RunPlan | ⚪ | 对 3 道 task_type 各异的题产出正确 RunPlan |
-| P2-05 | 实现 checkpoint.py：关卡等级 + 存档判定三条规则 | ⚪ | 单元测试覆盖 level 比较 + 三规则 |
-| P2-06 | 实现 main_loop.py 主循环（correctness 阶段，先不接 LLM） | ⚪ | 在 ScriptedClient 上跑通 projection 题：router → csim 修复循环 → 存档 → 交卷 |
-| P2-07 | 实现 feedback.py：从 ToolResult 构建 LLM 友好反馈 | ⚪ | 对 3 类失败（compile_error/runtime_fail/cosim_fail）抽出错误签名 |
-| P2-08 | 接 LLM（先 ScriptedClient，再真 OpenRouter） | ⚪ | ScriptedClient 跑通全流程；有 API key 后切真模型 |
-| P2-09 | 接知识库（哪怕先 3 条）+ 错误签名匹配检索 | ⚪ | 对已知错误码（如 cosim deadlock）能命中条目并注入 prompt |
-| P2-10 | 可观测性：结构化日志 + transcript + 心跳 | ⚪ | agent-architecture.md §12 的 12 个日志点 + 心跳落地 |
-| P2-11 | 交叉验证（第一次迭代）：关键决策点 self-check/agent review | ⚪ | correctness 修复 + optimize 策略选定两处接入 review |
+| P2-03 | 搭 agent/ 目录骨架 + 模块 | 🟢 | router/checkpoint/feedback/llm_client/observability/knowledge_base/mechanical_checks/deepseek_client/main_loop 全部建出 |
+| P2-04 | 实现 router.py：task.toml → RunPlan | 🟢 | 3 道题路由正确（repair→[csim]、optimize→[csim]、structural→[csim,cosim]） |
+| P2-05 | 实现 checkpoint.py：关卡等级 + 存档判定三条规则 | 🟢 | 三规则单元测试全过 |
+| P2-06 | 实现 main_loop.py 主循环（correctness 阶段） | 🟢 | **真 Vitis + DeepSeek 跑通 projection 题：csim fail→修复→csim pass→synth pass，SCORE 1.400** |
+| P2-07 | 实现 feedback.py：从 ToolResult 构建 LLM 友好反馈 | 🟢 | 真实 csim runtime_fail 日志验证通过 |
+| P2-08 | 接 LLM（ScriptedClient + DeepSeek） | 🟢 | DeepSeek V4 Pro 端到端真修复跑通（2 次 LLM 调用，3453 tokens） |
+| P2-09 | 接知识库 + 错误签名匹配检索 | 🟡 | 检索器已实现（KnowledgeBase.search），知识库条目为空（待 P2-12 填充） |
+| P2-10 | 可观测性：结构化日志 + transcript + 心跳 | 🟢 | JSONL + heartbeat 真环境记录通过（route/tool_result/review/checkpoint 全事件） |
+| P2-11 | 交叉验证：机械检查 + LLM review 双层 | 🟢 | mechanical_checks 签名/include 硬门 + DeepSeek self-check，projection 运行中两层都触发 |
 
 #### HLS 域主
 
@@ -188,6 +188,7 @@
 
 | 日期 | 变更 | 变更人 |
 |---|---|---|
+| 2026-07-15 | **P2 里程碑达成**。Vitis 2025.2 装好（服务器 QFS-STATION），projection 题端到端真修复跑通：DeepSeek 自主诊断 csim runtime_fail → 修复 → csim pass → synth pass → hidden testbench PASS，SCORE 1.400。P2-03~P2-08/P2-10/P2-11 全部标记完成。P1-11（Vitis 安装）标记完成。P2 整体标记"里程碑达成"，剩 dotProduct/residual 验证 + 知识库填充。详见 dev-log 2026-07-15-01。 | Agent 主 |
 | 2026-07-14 | **P2/P3 大重写**：harness 解压是决定性发现。废弃 P2-01（mock）/P2-02（日志解析）/P3-01（接真接口）/P3-02（Vitis 命令行）/P3-04（预算止损）—— 全被官方实现解决。P2 重写为"搭 agent 骨架 + 最小闭环"（P2-03~P2-11），P3 重写为"接真 Vitis + cosim + milestone"（P3-03~P3-07）。新增 P1-08a~d（harness 分析/离线跑通/架构定稿/部署方案）标记完成。架构定稿见 agent-architecture.md v2.2。里程碑总览时间表压缩（P2→第2周、P3→第3-4周、P4→第5周起），因 harness 省去大量基础工作。 | Agent 主 |
 | 2026-07-11 | P1-02/03/05/06 全部完成：用户读完所有背景论文（ReAct、Anthropic agents、SWE-agent、HLS Repair、AutoChip、RTLFixer、HLSPilot、AMD案例）。AMD四阶段工作流与LLM优缺点已写入 dev-log 2026-07-11-03。用户确认已报名，只做Track A。明天开始规划agent架构。 | Agent 主 |
 | 2026-07-11 | **工程计划收回聚焦 Track A**：用户明确只做 FPT'26 Track A LLM4HLS。删除 FPL'26/Track B 相关内容，恢复 P0-P4 五阶段结构。补充 AMD 案例文章的四阶段工作流作为方法论参考。 | Agent 主 |
