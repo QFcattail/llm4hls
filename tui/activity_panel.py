@@ -68,6 +68,7 @@ class ActivityPanel(Static):
         self._title: str = "空闲"
         self._start_time: float = 0.0
         self._code_line_buf: str = ""
+        self._thinking_line_buf: str = ""
 
     def compose(self) -> ComposeResult:
         """Yield title + single log."""
@@ -95,6 +96,7 @@ class ActivityPanel(Static):
         self._title = title
         self._start_time = time.monotonic()
         self._code_line_buf = ""
+        self._thinking_line_buf = ""
         log = self._log_widget()
         log.clear()
         if activity_type == "idle":
@@ -104,8 +106,9 @@ class ActivityPanel(Static):
     def append_stream(self, kind: StreamKind, text: str) -> None:
         """Append a streaming delta from the LLM to the single log.
 
-        Thinking and content are interleaved in the same RichLog.
-        Thinking is dim italic, content is syntax-highlighted cpp.
+        Both thinking and content are line-buffered: tokens accumulate in
+        a buffer and are only written to the RichLog on newline boundaries.
+        This prevents each token from appearing on its own line.
 
         Args:
             kind: "thinking" or "content".
@@ -117,7 +120,11 @@ class ActivityPanel(Static):
             return
         log = self._log_widget()
         if kind == "thinking":
-            log.write(Text(text, style="dim italic"))
+            self._thinking_line_buf += text
+            while "\n" in self._thinking_line_buf:
+                line, self._thinking_line_buf = self._thinking_line_buf.split("\n", 1)
+                if line.strip():
+                    log.write(Text(line, style="dim italic"))
         elif kind == "content":
             self._code_line_buf += text
             while "\n" in self._code_line_buf:
