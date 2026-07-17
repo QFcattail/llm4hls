@@ -115,6 +115,8 @@ class AgentDashboard(App):
         self._done: bool = False
         self._error: str | None = None
         self._backend_ref = None  # hold ref for usage stats
+        self._tool_running: str = ""  # current running tool kind ("csim"/"synth"/...)
+        self._tool_start_time: float = 0  # when the tool started
 
     def compose(self) -> ComposeResult:
         yield Header(name="FPGA Agent Dashboard")
@@ -234,10 +236,10 @@ class AgentDashboard(App):
         elif kind == "heartbeat":
             stage = data.get("stage", self._current_stage)
             self._current_stage = stage
-            # When a tool is running (csim/synth/cosim), show running status in ToolErrorBar
-            if stage in ("csim", "synth", "cosim"):
-                teb = self.query_one(ToolErrorBar)
-                teb.show_running(stage, data.get("age", 0))
+            # When a tool starts running, record start time
+            if stage in ("csim", "synth", "cosim") and self._tool_running != stage:
+                self._tool_running = stage
+                self._tool_start_time = time.monotonic()
         elif kind == "done":
             self._done = True
             self._done_summary = data.get("summary", "")
@@ -277,6 +279,8 @@ class AgentDashboard(App):
             self._credit_spent = data.get("credit_spent", self._credit_spent)
             self._stage_tool_calls += 1
             log_text = data.get("log", "")
+            # Tool finished - clear running state
+            self._tool_running = ""
 
             # Update ToolErrorBar (region B) with parsed error details
             teb = self.query_one(ToolErrorBar)
@@ -346,6 +350,12 @@ class AgentDashboard(App):
         ap = self.query_one(ActivityPanel)
         if not self._done and self._error is None:
             ap._render()
+
+        # If a tool is running, refresh the ToolErrorBar with live elapsed time
+        if self._tool_running:
+            elapsed = time.monotonic() - self._tool_start_time
+            teb = self.query_one(ToolErrorBar)
+            teb.show_running(self._tool_running, elapsed)
 
         # Update status bar
         sb = self.query_one(StatusBar)
