@@ -270,9 +270,16 @@ class AgentDashboard(App):
             if not ok:
                 self._last_error = f"[{kind_t}] {phase}"
 
-            # Update activity panel to show tool output
+            # Update activity panel with tool result + error details
             ap = self.query_one(ActivityPanel)
-            ap.set_activity("tool", f"[{kind_t}] {phase} {'✅' if ok else '❌'}")
+            if ok:
+                ap.set_activity("tool", f"[{kind_t}] {phase} ✅")
+            else:
+                ap.set_activity("tool", f"[{kind_t}] {phase} ❌")
+                # Show parsed error details from the log
+                log_text = data.get("log", "")
+                if log_text:
+                    ap.show_tool_errors(log_text, phase)
 
         elif name == "review":
             verdict = data.get("verdict", "")

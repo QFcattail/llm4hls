@@ -152,7 +152,8 @@ class Agent:
             self.log.event("tool_result", kind="csim", phase=csim_r.phase,
                            ok=csim_r.ok, rc=csim_r.return_code,
                            elapsed_s=round(csim_r.elapsed_s, 1),
-                           credit_spent=self.server.budget.spent)
+                           credit_spent=self.server.budget.spent,
+                           log=csim_r.log if not csim_r.ok else "")
 
             cosim_r = None
             if csim_r.ok and "cosim" in plan.correctness_stages:
@@ -165,7 +166,8 @@ class Agent:
                 self.log.event("tool_result", kind="cosim", phase=cosim_r.phase,
                                ok=cosim_r.ok, rc=cosim_r.return_code,
                                elapsed_s=round(cosim_r.elapsed_s, 1),
-                               credit_spent=self.server.budget.spent)
+                               credit_spent=self.server.budget.spent,
+                               log=cosim_r.log if not cosim_r.ok else "")
 
             passed = csim_r.ok and (cosim_r is None or cosim_r.ok)
             if passed:
@@ -252,7 +254,8 @@ class Agent:
         r = self.server.synth(ckpt.code)
         self.log.event("tool_result", kind="synth", phase=r.phase, ok=r.ok,
                        elapsed_s=round(r.elapsed_s, 1),
-                       credit_spent=self.server.budget.spent)
+                       credit_spent=self.server.budget.spent,
+                       log=r.log if not r.ok else "")
         if r.ok and r.report is not None:
             lat = r.report.latency_worst or r.report.latency_avg
             if ckpt.should_accept(Level.SYNTH, lat):
