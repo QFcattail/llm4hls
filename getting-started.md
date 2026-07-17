@@ -19,52 +19,52 @@
 
 ## 2. 安装
 
-### 2.1 不装 Vitis 也能开发（框架测试）
+项目有两台机器：**本机**（开发，没装 Vitis）和**服务器 QFS-STATION**（装了 Vitis）。
 
-harness 自带 ScriptedClient，用预设答案模拟 LLM 调用。agent 代码本身（路由器、存档、反馈构建、日志）不依赖 Vitis。但 **csim/synth/cosim 调用需要 Vitis**——没装时会直接报错退出，避免输出误导性的 SCORE 0.000。
+### 2.1 本机：框架测试（无 Vitis，csim 会失败）
 
 ```bash
-# 克隆
+# 本机操作
 git clone git@gitee.com:QFcattail/fpga-agent.git
 cd fpga-agent
 
-# Python 3.12 venv
+# 创建 venv（需要 Python 3.11+）
 python3.12 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate    # 激活后 python 指向 venv 里的 3.12
 
-# 无需 pip install —— harness 和 agent 都只用 Python 标准库
+# 无需 pip install -- harness 和 agent 都只用 Python 标准库
 
 # 不装 Vitis 时跑会报错退出（driver 检测 vitis-run 不在 PATH）
 python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
-# → ERROR: vitis-run not found
+# -> ERROR: vitis-run not found
 
 # 如果只想测框架链路（csim 会 compile_error），加 --force
 python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --force
 ```
 
-### 2.2 接真 Vitis（真 csim/synth/cosim）
+### 2.2 服务器：真 Vitis + 真 LLM（完整端到端）
 
-需要 Vitis 2025.2 装在 Linux 上。配置环境变量：
-
-```bash
-export LLM4HLS_VITIS_HLS_ROOT=/path/to/Xilinx/2025.2/Vitis
-source $LLM4HLS_VITIS_HLS_ROOT/settings64.sh
-```
-
-再跑同样的命令（不加 --force），这次 csim 会真编译执行（约 10 秒）。
-
-### 2.3 接真 LLM（DeepSeek）
-
-API key 放在 `.env` 文件里（**已 gitignore，不入库**）：
+服务器 QFS-STATION 已装好 Vitis 2025.2 和 venv，这是**实际跑 agent 的地方**。
 
 ```bash
-# .env
-export DEEPSEEK_API_KEY=sk-你的key
+# 本机 SSH 进服务器
+ssh QFS-STATION
+cd /home/admin/fpga-agent
 
-# 用法
-source .env
+# 每次开新终端都要做这三步：
+source /home/admin/Xilinx/2025.2/Vitis/settings64.sh   # Vitis 工具链
+source .env                                              # DeepSeek API key
+source /home/admin/venv-fpga/bin/activate               # Python 3.12 venv
+
+# 现在可以跑了（csim 真编译执行，约 10 秒）
+python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
+
+# 用 DeepSeek 做 LLM 修复（完整端到端）
 python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 ```
+
+> **提示**：每次开新终端都要 source 这三行。嫌麻烦可以写进 `~/.bashrc`，
+> 但 Vitis 的 settings64.sh 会改 PATH，写进 bashrc 可能影响其他程序。
 
 ---
 
@@ -87,17 +87,13 @@ python scripts/run_agent.py <task_dir> [选项]
 
 ### 3.3 常用命令
 
+以下命令在**服务器 QFS-STATION**上跑（已 source Vitis + .env + venv）：
+
 ```bash
-# 离线跑（不花 token，不依赖 Vitis）
-python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
-
 # 真 Vitis + ScriptedClient（验证工具链，不花 token）
-export LLM4HLS_VITIS_HLS_ROOT=/home/admin/Xilinx/2025.2/Vitis
-source $LLM4HLS_VITIS_HLS_ROOT/settings64.sh
 python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
 
-# 真 Vitis + DeepSeek（完整端到端）
-source .env
+# 真 Vitis + DeepSeek（完整端到端，花 token）
 python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 
 # 限制 budget（小预算测试）
@@ -107,6 +103,13 @@ python scripts/run_agent.py contest/fpt26-harness/tasks/dotProduct_optimize --ba
 for t in projection_bugfix dotProduct_optimize residual_stream_deadlock; do
     python scripts/run_agent.py contest/fpt26-harness/tasks/$t --backend deepseek
 done
+```
+
+本机只有 `--force` 能跑（无 Vitis，csim 会 compile_error）：
+
+```bash
+# 本机，框架测试用
+python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --force
 ```
 
 ### 3.4 输出怎么读
@@ -205,18 +208,20 @@ echo 'export DEEPSEEK_API_KEY=sk-xxx' > .env
 # 推荐：开 agent-architecture.md 的 Mermaid 图对照读代码
 ```
 
-### 6.2 服务器（真 Vitis）
+### 6.2 服务器 QFS-STATION（真 Vitis，实际跑 agent 的地方）
 
 ```bash
-# SSH（配好 ~/.ssh/config 后）
+# 本机 SSH 进服务器
 ssh QFS-STATION
-
-# 环境
-export LLM4HLS_VITIS_HLS_ROOT=/home/admin/Xilinx/2025.2/Vitis
-source $LLM4HLS_VITIS_HLS_ROOT/settings64.sh
 cd /home/admin/fpga-agent
-source .env
-/home/admin/venv-fpga/bin/python scripts/run_agent.py ...
+
+# 每次开新终端都要 source 这三行：
+source /home/admin/Xilinx/2025.2/Vitis/settings64.sh   # Vitis 工具链
+source .env                                              # DeepSeek API key
+source /home/admin/venv-fpga/bin/activate               # Python 3.12 venv
+
+# 现在可以直接用 python（指向 venv 里的 3.12）
+python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 ```
 
 ### 6.3 代码同步到服务器
