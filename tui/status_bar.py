@@ -77,8 +77,8 @@ class StatusBar(Static):
 
     DEFAULT_CSS = """
     StatusBar {
-        height: 5;
-        border: round $warning;
+        height: 4;
+        border: round $success;
         padding: 0 1;
     }
     """
@@ -182,11 +182,10 @@ class StatusBar(Static):
         return self._build_render()
 
     def _build_render(self) -> Text:
-        """Compose the 3-line resource panel as a single Rich Text."""
+        """Compose the 2-line resource panel as a single Rich Text."""
         line1 = self._render_line1()
         line2 = self._render_line2()
-        line3 = self._render_line3()
-        return Text.assemble(line1, Text("\n"), line2, Text("\n"), line3)
+        return Text.assemble(line1, Text("\n"), line2)
 
     def _render_line1(self) -> Text:
         """Line 1: credit bar + remaining | token totals (reasoning)."""
@@ -202,25 +201,15 @@ class StatusBar(Static):
         )
 
     def _render_line2(self) -> Text:
-        """Line 2: current-stage calls + reviews | total LLM calls."""
-        return Text.assemble(
-            Text(f" 本环节: 调用 {self._stage_calls} 次, "
-                 f"review {self._stage_reviews} 次", style="white"),
-            Text("  │  ", style="dim"),
-            Text(f"总 LLM 调用: {self._total_llm_calls} 次", style="white"),
-        )
-
-    def _render_line3(self) -> Text:
-        """Line 3: last tool error | last review verdict."""
-        # Error line: red when there is a real error, dim otherwise.
-        has_error = self._last_error and self._last_error != _NONE
-        err_style = "red" if has_error else "dim"
-        # Review line: green for pass/none, red for reject/issues.
+        """Line 2: stage calls + reviews | total LLM calls | last review."""
         review_lower = (self._last_review or "").strip().lower()
         is_pass = review_lower in _PASS_REVIEWS or review_lower.startswith("pass")
         rev_style = "green" if is_pass else "red"
         return Text.assemble(
-            Text(f" 上次工具报错: {_truncate(self._last_error)}", style=err_style),
+            Text(f" 本环节: 工具 {self._stage_calls} 次, "
+                 f"review {self._stage_reviews} 次", style="white"),
+            Text("  │  ", style="dim"),
+            Text(f"总 LLM: {self._total_llm_calls} 次", style="white"),
             Text("  │  ", style="dim"),
             Text(f"上次 review: {_truncate(self._last_review)}", style=rev_style),
         )

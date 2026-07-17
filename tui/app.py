@@ -25,6 +25,7 @@ from textual.containers import Horizontal
 from .flow_chart import FlowChart
 from .activity_panel import ActivityPanel
 from .status_bar import StatusBar
+from .tool_error_bar import ToolErrorBar
 from .task_picker import TaskPickerScreen, scan_tasks
 
 
@@ -64,8 +65,9 @@ class AgentDashboard(App):
     CSS = """
     #dashboard { layout: vertical; }
     #flow-chart { height: 5; border: round $primary; padding: 0 1; }
+    #tool-error-bar { height: 7; border: round $warning; padding: 0 1; }
     #activity-panel { height: 1fr; border: round $accent; }
-    #status-bar { height: 5; border: round $warning; padding: 0 1; }
+    #status-bar { height: 4; border: round $success; padding: 0 1; }
     #quit-dialog {
         align: center middle;
         width: 50; height: 7;
@@ -118,6 +120,7 @@ class AgentDashboard(App):
         yield Header(name="FPGA Agent Dashboard")
         with Vertical(id="dashboard"):
             yield FlowChart()
+            yield ToolErrorBar()
             yield ActivityPanel()
             yield StatusBar()
         yield Footer()
@@ -265,35 +268,32 @@ class AgentDashboard(App):
             kind_t = data.get("kind", "")
             phase = data.get("phase", "")
             ok = data.get("ok", False)
+            elapsed = data.get("elapsed_s", 0)
             self._credit_spent = data.get("credit_spent", self._credit_spent)
             self._stage_tool_calls += 1
-            if not ok:
-                # Store actual error details (not just phase name) for status bar
-                log_text = data.get("log", "")
-                if log_text:
-                    # Extract key error lines for the status bar
-                    error_lines = [l.strip() for l in log_text.split("\n")
-                                   if l.strip() and ("error" in l.lower() or "fail" in l.lower()
-                                                     or "Error" in l or "FAIL" in l)]
-                    if error_lines:
-                        self._last_error = f"[{kind_t}] {error_lines[0][:60]}"
-                        if len(error_lines) > 1:
-                            self._last_error += f" (+{len(error_lines)-1} more)"
-                    else:
-                        self._last_error = f"[{kind_t}] {phase}: {log_text.strip()[:60]}"
-                else:
-                    self._last_error = f"[{kind_t}] {phase}"
+            log_text = data.get("log", "")
 
-            # Update activity panel with tool result + error details
+            # Update ToolErrorBar (region B) with parsed error details
+            teb = self.query_one(ToolErrorBar)
+            teb.show_result(kind_t, phase, ok, elapsed, log_text)
+
+            # For status bar, keep a short summary
+            if not ok:
+                error_lines = [l.strip() for l in log_text.split("\n")
+                               if l.strip() and ("error" in l.lower() or "fail" in l.lower())]
+                if error_lines:
+                    self._last_error = error_lines[0][:60]
+                else:
+                    self._last_error = phase
+            else:
+                self._last_error = "(无)"
+
+            # Update activity panel
             ap = self.query_one(ActivityPanel)
             if ok:
-                ap.set_activity("tool", f"[{kind_t}] {phase} ✅")
+                ap.set_activity("idle", f"[{kind_t}] {phase} ✅ ({elapsed:.1f}s)")
             else:
-                ap.set_activity("tool", f"[{kind_t}] {phase} ❌")
-                # Show parsed error details from the log
-                log_text = data.get("log", "")
-                if log_text:
-                    ap.show_tool_errors(log_text, phase)
+                ap.set_activity("idle", f"[{kind_t}] {phase} ❌ - 见上方错误详情")
 
         elif name == "review":
             verdict = data.get("verdict", "")
