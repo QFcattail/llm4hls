@@ -1,6 +1,6 @@
 # TUI 交互式仪表盘设计 (TUI Design)
 
-> 状态：设计文档（未实现）
+> 状态：v2（2026-07-17，根据实际使用反馈重设计）
 > 框架：Textual + Rich
 > 数据源：agent/observability.py 的 Logger 事件流 + harness transcript
 
@@ -8,14 +8,15 @@
 
 ## 1. 设计目标
 
-实时显示 agent 运行状态，回答三个问题：
+实时显示 agent 运行状态，回答四个问题：
 1. **现在走到哪了**（流程图 + 高亮当前阶段）
-2. **现在在干什么**（具体动作 + 流式输出 + 已耗时）
-3. **花了多少资源**（credit / token / 调用次数 / 上次反馈）
+2. **上次工具报了什么错**（独立区域，显示 gcc 风格错误行号 + 内容）
+3. **现在在干什么**（LLM 流式思维链 + 代码 / 工具调用状态）
+4. **花了多少资源**（credit / token / 调用次数 / review 意见）
 
 ---
 
-## 2. 布局（从上到下三个区域）
+## 2. 布局（从上到下四个区域）
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -26,34 +27,38 @@
 │  └──────┘    └────────────┘    └──────┘    └────────┘    └────────┘ │
 │                csim×3 2218tok        ↑当前在这                          │
 ├─────────────────────────────────────────────────────────────────────┤
-│  区域 B：当前活动（中部，自适应高度，主视觉区）                            │
+│  区域 B：上次工具报错（固定高度，独立一栏）                                │
 │                                                                       │
-│  ▸ synth 综合中... 已耗时 12.3s                                       │
-│  ┌─────────────────────────────────────────────────────────────────┐ │
-│  │ [流式输出区]                                                     │ │
-│  │                                                                   │ │
-│  │  如果是 LLM 调用：实时显示思维链 + 代码输出（像 opencode）            │ │
-│  │  ┌─ thinking ─────────────────────────────────────────────────┐  │ │
-│  │  │ The csim failed because the z coordinate is missing the     │  │ │
-│  │  │ third term. Looking at the angle==0 branch, the code has    │  │ │
-│  │  │ z0/3 + z1/3 but should have z0/3 + z1/3 + z2/3...          │  │ │
-│  │  └─────────────────────────────────────────────────────────────┘  │ │
-│  │  ┌─ code ───────────────────────────────────────────────────────┐  │ │
-│  │  │ triangle_2d->z = triangle_3d.z0 / 3                          │  │ │
-│  │  │     + triangle_3d.z1 / 3 + triangle_3d.z2 / 3;|              │  │ │
-│  │  └─────────────────────────────────────────────────────────────┘  │ │
-│  │                                                                   │ │
-│  │  如果是工具调用：显示工具名 + 状态                                  │ │
-│  │  [synth] running vitis-run --mode hls... (12.3s)                 │ │
-│  └─────────────────────────────────────────────────────────────────┘ │
+│  📋 [csim] compile_error  (3 个错误)                                   │
+│    1. projection.cpp:1:2: error: invalid preprocessing directive      │
+│    2. projection.cpp:4:17: error: unknown type name 'Triangle_3D'    │
+│    3. projection.cpp:4:42: error: unknown type name 'Triangle_2D'    │
+│    ...还有 1 个错误                                                    │
+│                                                                       │
+│  (工具通过时显示: ✅ [csim] pass (9.7s))                               │
 ├─────────────────────────────────────────────────────────────────────┤
-│  区域 C：资源面板（底部，固定 3 行）                                     │
+│  区域 C：当前活动（中部，自适应高度，主视觉区）                            │
 │                                                                       │
-│  credits: 6/10 剩余 4  ████████░░░░░░░░░░  │  tokens: 3453 (reasoning 1007)  │
-│  本环节: synth 调用 1 次, review 0 次          │  总 LLM 调用: 2 次           │
-│  上次工具报错: (无)                             │  上次 review: PASS            │
+│  ▸ repair LLM 调用... 已耗时 8.2s                                     │
+│  💭 The csim failed because z is missing the third term...           │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │ triangle_2d->z = triangle_3d.z0 / 3                            │ │
+│  │     + triangle_3d.z1 / 3 + triangle_3d.z2 / 3;                 │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+│                                                                       │
+│  (工具调用时: ▸ [synth] 综合中... 已耗时 12.3s)                        │
+├─────────────────────────────────────────────────────────────────────┤
+│  区域 D：资源面板（底部，固定 2 行）                                     │
+│                                                                       │
+│  credits: 6/10 剩余 4  ████████░░░░░░  │  tokens: 3453 (reasoning 1007)  │
+│  本环节: 工具 1 次 review 0 次  │  总 LLM: 2 次  │  上次 review: PASS   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+**v2 布局变更说明**（基于实际使用反馈）：
+- **新增区域 B**：上次工具报错单开一栏。之前塞在状态栏第 3 行，空间不够，只能显示笼统的 `runtime_fail`。现在独立一栏，能显示 gcc 风格的行号 + 错误内容。
+- **区域 D 精简为 2 行**：把"上次工具报错"移到区域 B 后，状态栏不再需要第 3 行。只保留 credit/token 和调用次数/review。
+- **区域 C 的 thinking 和 code 合并**：不再分两个 panel，在同一个流里连续输出。thinking 实时刷新（逐 token），code 行缓冲 + 语法高亮。
 
 ---
 
@@ -80,94 +85,84 @@
 
 **交互**：按 `1`-`5` 跳转到对应阶段的详细日志。
 
-### 3.2 区域 B：当前活动（中部，主视觉）
+### 3.2 区域 B：上次工具报错（固定高度，独立一栏）
+
+**显示内容**：最近一次工具调用（csim/synth/cosim）的结果和错误详情。
+
+**工具失败时**（从日志提取 gcc 风格错误行）：
+```
+📋 [csim] compile_error  (3 个错误)
+  1. projection.cpp:1:2: error: invalid preprocessing directive
+  2. projection.cpp:4:17: error: unknown type name 'Triangle_3D'
+  3. projection.cpp:4:42: error: unknown type name 'Triangle_2D'
+  ...还有 1 个错误
+```
+
+**工具通过时**：
+```
+✅ [csim] pass (9.7s)
+```
+
+**错误行提取逻辑**：
+- 匹配 `file:line:col: error: ...` 格式（gcc/clang 编译错误）
+- 匹配 `[XFORM 203-313]`、`[SIM 211-2]` 等 Vitis 错误码
+- 匹配含 `ERROR`/`error`/`fail`/`Failed` 的行
+- 最多显示 5 行，超出显示"...还有 N 个错误"
+- runtime_fail（非编译错）时显示 test case 失败信息
+
+**为什么独立一栏**：gcc 编译错误通常很长（行号 + 错误类型 + 上下文），塞在状态栏一行里显示不了。独立一栏能让 LLM 和用户都清楚看到"上次工具报了什么错"。
+
+### 3.3 区域 C：当前活动（中部，自适应高度，主视觉）
 
 **这是最大的区域，根据当前在干什么显示不同内容：**
 
-#### B-1. LLM 调用时（repair / review / propose_strategies）
+#### C-1. LLM 调用时（repair / review / propose_strategies）
 
-**流式显示思维链 + 输出**（需要 DeepSeek API 改为 stream 模式）：
-
+**思维链 + 代码在同一区域连续输出**（不再分两个 panel）：
 ```
-▸ repair 修复中... 已耗时 8.2s
-┌─ thinking ───────────────────────────────────────────────────────┐
-│ The csim failed because the z coordinate is missing the third    │
-│ term. Looking at the angle==0 branch, the code has z0/3 + z1/3  │
-│ but should have z0/3 + z1/3 + z2/3. I need to add the missing    │
-│ z2/3 term...█                                                     │  ← 光标闪烁，实时输出
-└──────────────────────────────────────────────────────────────────┘
-┌─ code ────────────────────────────────────────────────────────────┐
-│ #include "projection.h"                                           │
-│ void projection(...) {                                            │
-│     if (angle == 0) {                                             │
-│         ...                                                       │
-│         triangle_2d->z = triangle_3d.z0 / 3 +                    │
-│             triangle_3d.z1 / 3 + triangle_3d.z2 / 3;█           │  ← 实时输出
-└───────────────────────────────────────────────────────────────────┘
+▸ repair LLM 调用... 已耗时 8.2s
+💭 The csim failed because z is missing the third term...    ← 实时刷新，逐 token
+triangle_2d->z = triangle_3d.z0 / 3                          ← 代码，语法高亮
+     + triangle_3d.z1 / 3 + triangle_3d.z2 / 3;
 ```
 
 **实现要点**：
-- DeepSeek API 的 `stream: true` + SSE 解析，逐 token 输出
-- `reasoning_content` 和 `content` 分两个区域显示
-- thinking 区域用暗色/斜体，code 区域用语法高亮（Rich 的 syntax 支持）
+- thinking 用一个 Static（`ap-thinking-live`）实时覆盖显示，每个 token 都刷新（不换行）
+- 完整的 thinking 行（遇到 `\n`）写入 RichLog 保留
+- code 行缓冲 + cpp 语法高亮，写入同一个 RichLog
+- thinking 用 dim italic，code 用 monokai 高亮
 - 输出完后自动切换到"等待工具验证"状态
 
-#### B-2. 工具调用时（csim / synth / cosim）
+#### C-2. 工具调用时（csim / synth / cosim）
 
 ```
-▸ synth 综合中... 已耗时 14.7s
-┌──────────────────────────────────────────────────────────────────┐
-│  running: vitis-run --mode hls --tcl run_hls.tcl                 │
-│  build dir: runs/projection_bugfix/agent/synth_3/                │
-│                                                                   │
-│  [vitis-run 输出尾]                                               │
-│  Starting C-synthesis ...                                         │
-│  ...                                                              │
-│  Solution solution1 complete                                      │
-│  Latency: 0 cycles                                                │
-│  LUT: 692  FF: 0  DSP: 0  BRAM: 0                                │
-└──────────────────────────────────────────────────────────────────┘
+▸ [synth] 综合中... 已耗时 14.7s
+  running: vitis-run --mode hls --tcl run_hls.tcl
+  (等待结果...)
 ```
 
-#### B-3. 机械检查时（mechanical_review）
-
-```
-▸ 机械检查... 已耗时 0.1s
-✓ 签名未变: void projection(Triangle_3D, Triangle_2D*, bit2)
-✓ Header 在: #include "projection.h"
-```
-
-#### B-4. 空闲/等待时
+#### C-3. 空闲/等待时
 
 ```
 ▸ 空闲，等待下一步...
   最后活动: 3.2s 前 (csim pass)
-  下一步: synth 综合验证
 ```
 
-### 3.3 区域 C：资源面板（底部 3 行）
+### 3.4 区域 D：资源面板（底部，固定 2 行）
 
 **第 1 行：预算**
 ```
-credits: 6/10 剩余 4  ████████░░░░░░░░░░  │  tokens: 3453 (reasoning 1007)
+credits: 6/10 剩余 4  ████████░░░░░░  │  tokens: 3453 (reasoning 1007)
 ```
 - 左边：credit 使用条（已用/总量 + 可视化进度条）
 - 右边：累计 token（prompt + completion），括号里是 reasoning token
 
-**第 2 行：本环节统计**
+**第 2 行：调用统计 + review**
 ```
-本环节: synth 调用 1 次, review 0 次          │  总 LLM 调用: 2 次
+本环节: 工具 1 次 review 0 次  │  总 LLM: 2 次  │  上次 review: PASS
 ```
-- "本环节"指当前阶段（如 synth 阶段）内的统计
-- 左右用 `│` 分隔
-
-**第 3 行：上次反馈**
-```
-上次工具报错: (无)                             │  上次 review: PASS
-```
-- 如果上次工具调用失败，显示错误摘要（红色）
-- 如果上次 review 有意见，显示意见摘要
-- `(无)` 表示没有（通过或还没调）
+- "本环节"指当前阶段内的统计
+- 三段用 `│` 分隔
 
 ---
 
