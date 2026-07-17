@@ -149,6 +149,17 @@ class Agent:
 
             self.hb.set_stage("csim", self.server.budget.remaining())
             csim_r = self.server.csim(ckpt.code)
+            # Detect environment failure: vitis-run not found (elapsed≈0, empty log)
+            if not csim_r.ok and csim_r.elapsed_s < 0.5 and not csim_r.log.strip():
+                self.log.event("env_error",
+                               msg="vitis-run not found or settings64.sh not sourced. "
+                                   "Set LLM4HLS_VITIS_HLS_ROOT and source settings64.sh.")
+                raise RuntimeError(
+                    "vitis-run not found or Vitis settings64.sh not sourced.\n"
+                    "  This is an ENVIRONMENT problem, not a code bug.\n"
+                    "  Fix: export LLM4HLS_VITIS_HLS_ROOT=/home/admin/Xilinx/2025.2/Vitis\n"
+                    "       source $LLM4HLS_VITIS_HLS_ROOT/settings64.sh"
+                )
             self.log.event("tool_result", kind="csim", phase=csim_r.phase,
                            ok=csim_r.ok, rc=csim_r.return_code,
                            elapsed_s=round(csim_r.elapsed_s, 1),

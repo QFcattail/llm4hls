@@ -268,7 +268,21 @@ class AgentDashboard(App):
             self._credit_spent = data.get("credit_spent", self._credit_spent)
             self._stage_tool_calls += 1
             if not ok:
-                self._last_error = f"[{kind_t}] {phase}"
+                # Store actual error details (not just phase name) for status bar
+                log_text = data.get("log", "")
+                if log_text:
+                    # Extract key error lines for the status bar
+                    error_lines = [l.strip() for l in log_text.split("\n")
+                                   if l.strip() and ("error" in l.lower() or "fail" in l.lower()
+                                                     or "Error" in l or "FAIL" in l)]
+                    if error_lines:
+                        self._last_error = f"[{kind_t}] {error_lines[0][:60]}"
+                        if len(error_lines) > 1:
+                            self._last_error += f" (+{len(error_lines)-1} more)"
+                    else:
+                        self._last_error = f"[{kind_t}] {phase}: {log_text.strip()[:60]}"
+                else:
+                    self._last_error = f"[{kind_t}] {phase}"
 
             # Update activity panel with tool result + error details
             ap = self.query_one(ActivityPanel)
@@ -306,10 +320,19 @@ class AgentDashboard(App):
             fc.update_stage("submit", "done")
 
     def _handle_stream(self, data: dict) -> None:
-        """Handle a streaming token from the LLM."""
+        """Handle a streaming token from the LLM.
+
+        When LLM streaming starts (first token), inject the last tool error
+        into the log so the user can see what the LLM is responding to.
+        """
         ap = self.query_one(ActivityPanel)
         if ap._activity_type != "llm":
             ap.set_activity("llm", f"{self._current_stage} LLM 调用")
+            # Show what the LLM is fixing, before streaming starts
+            if hasattr(self, "_last_error") and self._last_error != "(无)":
+                ap.append_log(f"  📋 上次工具结果: {self._last_error}\n")
+                # Switch back to llm mode for streaming
+                ap._activity_type = "llm"
         ap.append_stream(data.get("kind", "content"), data.get("text", ""))
 
     def _refresh_ui(self) -> None:
