@@ -35,11 +35,11 @@ source .venv/bin/activate    # 激活后 python 指向 venv 里的 3.12
 # 无需 pip install -- harness 和 agent 都只用 Python 标准库
 
 # 不装 Vitis 时跑会报错退出（driver 检测 vitis-run 不在 PATH）
-python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
+python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
 # -> ERROR: vitis-run not found
 
 # 如果只想测框架链路（csim 会 compile_error），加 --force
-python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --force
+python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --force
 ```
 
 ### 2.2 服务器：真 Vitis + 真 LLM（完整端到端）
@@ -57,10 +57,10 @@ source .env                                              # DeepSeek API key
 source /home/admin/venv-fpga/bin/activate               # Python 3.12 venv
 
 # 现在可以跑了（csim 真编译执行，约 10 秒）
-python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
+python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
 
 # 用 DeepSeek 做 LLM 修复（完整端到端）
-python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
+python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 ```
 
 > **提示**：每次开新终端都要 source 这三行。嫌麻烦可以写进 `~/.bashrc`，
@@ -73,7 +73,7 @@ python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --back
 ### 3.1 命令格式
 
 ```bash
-python scripts/run_agent.py <task_dir> [选项]
+python3 scripts/run_agent.py <task_dir> [选项]
 ```
 
 ### 3.2 选项
@@ -91,17 +91,17 @@ python scripts/run_agent.py <task_dir> [选项]
 
 ```bash
 # 真 Vitis + ScriptedClient（验证工具链，不花 token）
-python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
+python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
 
 # 真 Vitis + DeepSeek（完整端到端，花 token）
-python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
+python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 
 # 限制 budget（小预算测试）
-python scripts/run_agent.py contest/fpt26-harness/tasks/dotProduct_optimize --backend deepseek --budget 10
+python3 scripts/run_agent.py contest/fpt26-harness/tasks/dotProduct_optimize --backend deepseek --budget 10
 
 # 三道题都跑
 for t in projection_bugfix dotProduct_optimize residual_stream_deadlock; do
-    python scripts/run_agent.py contest/fpt26-harness/tasks/$t --backend deepseek
+    python3 scripts/run_agent.py contest/fpt26-harness/tasks/$t --backend deepseek
 done
 ```
 
@@ -109,7 +109,7 @@ done
 
 ```bash
 # 本机，框架测试用
-python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --force
+python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --force
 ```
 
 ### 3.4 输出怎么读
@@ -221,7 +221,7 @@ source .env                                              # DeepSeek API key
 source /home/admin/venv-fpga/bin/activate               # Python 3.12 venv
 
 # 现在可以直接用 python（指向 venv 里的 3.12）
-python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
+python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 ```
 
 ### 6.3 代码同步到服务器

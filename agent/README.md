@@ -10,13 +10,13 @@ Budgeted End-to-End LLM4HLS Agent 的 Python 实现。在有限 credit 预算内
 
 ```bash
 # 离线跑（不需 Vitis、不需 API key，用 ScriptedClient 喂预设答案）
-python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
+python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
 
 # 真 Vitis + 真 DeepSeek（完整端到端）
 export LLM4HLS_VITIS_HLS_ROOT=/home/admin/Xilinx/2025.2/Vitis
 source $LLM4HLS_VITIS_HLS_ROOT/settings64.sh
 source .env   # DEEPSEEK_API_KEY
-python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
+python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 ```
 
 CLI 选项：`--backend {scripted,deepseek,openrouter}`、`--budget N`、`--work DIR`

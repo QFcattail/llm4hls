@@ -11,7 +11,7 @@
 **3 分钟跑通**（不需要 Vitis、不需要 API key）：
 
 ```bash
-python scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
+python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
 ```
 
 完整安装、CLI 用法、输出解读 → [getting-started.md](getting-started.md)
