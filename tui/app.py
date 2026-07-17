@@ -18,11 +18,44 @@ from textual.app import App, ComposeResult
 from textual.containers import Vertical
 from textual.widgets import Header, Footer
 from textual.binding import Binding
+from textual.screen import ModalScreen
+from textual.widgets import Label, Button
+from textual.containers import Horizontal
 
 from .flow_chart import FlowChart
 from .activity_panel import ActivityPanel
 from .status_bar import StatusBar
 from .task_picker import TaskPickerScreen, scan_tasks
+
+
+class QuitConfirmScreen(ModalScreen):
+    """Confirmation dialog for quitting: 'q' shows this, not instant quit."""
+
+    BINDINGS = [
+        Binding("y", "confirm", "Yes, quit"),
+        Binding("n", "cancel", "No, cancel"),
+        Binding("escape", "cancel", "Cancel"),
+        Binding("enter", "confirm", "Yes, quit"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="quit-dialog"):
+            yield Label("Quit the agent? (agent continues in background)", id="quit-msg")
+            with Horizontal():
+                yield Button("Yes, quit (y)", id="quit-yes", variant="error")
+                yield Button("Cancel (n)", id="quit-no", variant="default")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "quit-yes":
+            self.dismiss(True)
+        else:
+            self.dismiss(False)
+
+    def action_confirm(self) -> None:
+        self.dismiss(True)
+
+    def action_cancel(self) -> None:
+        self.dismiss(False)
 
 
 class AgentDashboard(App):
@@ -33,11 +66,28 @@ class AgentDashboard(App):
     #flow-chart { height: 5; border: round $primary; padding: 0 1; }
     #activity-panel { height: 1fr; border: round $accent; }
     #status-bar { height: 5; border: round $warning; padding: 0 1; }
+    #quit-dialog {
+        align: center middle;
+        width: 50; height: 7;
+        border: thick $primary;
+        padding: 1 2;
+    }
+    #quit-msg { text-align: center; margin: 1 0; }
+    #quit-dialog Horizontal { align: center middle; height: 3; }
+    #quit-yes { margin: 0 1; }
+    #quit-no { margin: 0 1; }
     """
 
     BINDINGS = [
-        Binding("q", "quit", "Quit"),
+        Binding("q", "request_quit", "Quit"),
     ]
+
+    def action_request_quit(self) -> None:
+        """Show quit confirmation dialog instead of quitting instantly."""
+        def _on_result(result: bool) -> None:
+            if result:
+                self.exit()
+        self.push_screen(QuitConfirmScreen(), _on_result)
 
     def __init__(
         self,

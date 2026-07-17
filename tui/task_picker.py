@@ -54,9 +54,14 @@ class TaskPickerScreen(Screen):
     """
 
     BINDINGS = [
-        Binding("q", "quit", "Quit"),
+        Binding("q", "request_quit", "Quit"),
         Binding("enter", "select", "Select"),
+        Binding("escape", "request_quit", "Quit"),
     ]
+
+    def action_request_quit(self) -> None:
+        """Quit from picker directly (no agent running yet)."""
+        self.app.exit()
 
     def __init__(self, tasks_root: Path | None = None) -> None:
         super().__init__()
