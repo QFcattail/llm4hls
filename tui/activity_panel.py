@@ -58,7 +58,7 @@ class ActivityPanel(Static):
     }
     ActivityPanel > Vertical { height: 1fr; }
     #ap-title { height: 1; }
-    #ap-body { height: 1fr; }
+    #ap-thinking-live { height: 2; color: $text-muted; }
     #ap-log { border: none; height: 1fr; }
     """
 
@@ -71,9 +71,10 @@ class ActivityPanel(Static):
         self._thinking_line_buf: str = ""
 
     def compose(self) -> ComposeResult:
-        """Yield title + single log."""
+        """Yield title + thinking-live + single log."""
         yield Static("", id="ap-title")
         with Vertical(id="ap-body"):
+            yield Static("", id="ap-thinking-live")
             yield RichLog(id="ap-log", markup=False, wrap=True, auto_scroll=True)
 
     def on_mount(self) -> None:
@@ -104,11 +105,12 @@ class ActivityPanel(Static):
         self._render_title()
 
     def append_stream(self, kind: StreamKind, text: str) -> None:
-        """Append a streaming delta from the LLM to the single log.
+        """Append a streaming delta from the LLM.
 
-        Both thinking and content are line-buffered: tokens accumulate in
-        a buffer and are only written to the RichLog on newline boundaries.
-        This prevents each token from appearing on its own line.
+        Thinking: partial line shows live in a Static (overwritten each token),
+        complete lines go to the RichLog. This gives real-time per-token feedback
+        without the "each token on its own line" problem.
+        Content: line-buffered, syntax-highlighted, written to RichLog on \\n.
 
         Args:
             kind: "thinking" or "content".
@@ -121,11 +123,34 @@ class ActivityPanel(Static):
         log = self._log_widget()
         if kind == "thinking":
             self._thinking_line_buf += text
+            # Show partial line live (overwrite), truncated to fit
+            try:
+                live = self.query_one("#ap-thinking-live", Static)
+                partial = self._thinking_line_buf[-200:]  # last 200 chars
+                live.update(Text(f"  💭 {partial}", style="dim italic"))
+            except Exception:
+                pass
+            # Write complete lines to RichLog
             while "\n" in self._thinking_line_buf:
                 line, self._thinking_line_buf = self._thinking_line_buf.split("\n", 1)
                 if line.strip():
                     log.write(Text(line, style="dim italic"))
+                # Clear the live preview since we flushed a line
+                try:
+                    live = self.query_one("#ap-thinking-live", Static)
+                    if self._thinking_line_buf.strip():
+                        live.update(Text(f"  💭 {self._thinking_line_buf[-200:]}",
+                                         style="dim italic"))
+                    else:
+                        live.update(Text("", style="dim"))
+                except Exception:
+                    pass
         elif kind == "content":
+            # Clear thinking live preview when code starts
+            try:
+                self.query_one("#ap-thinking-live", Static).update(Text("", style="dim"))
+            except Exception:
+                pass
             self._code_line_buf += text
             while "\n" in self._code_line_buf:
                 line, self._code_line_buf = self._code_line_buf.split("\n", 1)

@@ -140,6 +140,8 @@ def main() -> int:
                 )
                 if result.returncode == 0:
                     os.environ["PATH"] = result.stdout.strip()
+                    # Set harness config env var so config.py finds settings64.sh
+                    os.environ["LLM4HLS_VITIS_HLS_ROOT"] = str(Path(settings).parent)
                     sourced = True
                     break
         if not sourced:

@@ -12,6 +12,8 @@ cd "$(dirname "$0")"
 VITIS_SETTINGS="/home/admin/Xilinx/2025.2/Vitis/settings64.sh"
 if [ -f "$VITIS_SETTINGS" ]; then
     source "$VITIS_SETTINGS"
+    # harness 的 config.py 用这个环境变量定位 settings64.sh 路径
+    export LLM4HLS_VITIS_HLS_ROOT="/home/admin/Xilinx/2025.2/Vitis"
 else
     echo "WARN: Vitis settings64.sh not found at $VITIS_SETTINGS" >&2
 fi
