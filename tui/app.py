@@ -232,7 +232,12 @@ class AgentDashboard(App):
         elif kind == "stream":
             self._handle_stream(data)
         elif kind == "heartbeat":
-            self._current_stage = data.get("stage", self._current_stage)
+            stage = data.get("stage", self._current_stage)
+            self._current_stage = stage
+            # When a tool is running (csim/synth/cosim), show running status in ToolErrorBar
+            if stage in ("csim", "synth", "cosim"):
+                teb = self.query_one(ToolErrorBar)
+                teb.show_running(stage, data.get("age", 0))
         elif kind == "done":
             self._done = True
             self._done_summary = data.get("summary", "")

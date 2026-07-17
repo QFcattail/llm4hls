@@ -131,3 +131,18 @@ class ToolErrorBar(Static):
     def clear_bar(self) -> None:
         """Reset to empty state."""
         self.update(Text("  (等待工具调用...)", style="dim"))
+
+    def show_running(self, kind: str, elapsed: float = 0) -> None:
+        """Show a running tool call status (before result arrives).
+
+        Args:
+            kind: Tool kind (csim/synth/cosim).
+            elapsed: Seconds elapsed so far.
+        """
+        labels = {"csim": "C 仿真", "synth": "综合", "cosim": "协同仿真",
+                  "cosim_recheck": "协同仿真(回验)"}
+        label = labels.get(kind, kind)
+        self.update(Text(
+            f"  🔄 [{kind}] 正在运行 {label}... 已耗时 {elapsed:.1f}s",
+            style="bold yellow"
+        ))
