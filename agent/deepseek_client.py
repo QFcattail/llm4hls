@@ -43,6 +43,9 @@ class DeepSeekClient:
             reasoning + output; setting it too low truncates the answer.
         reasoning_effort: "high" or "max". Controls reasoning depth.
         timeout: Request timeout in seconds.
+        stream: If True, use streaming API and call on_stream callback per token.
+        on_stream: Optional callback(delta_kind, delta_text) for streaming output.
+            delta_kind is "thinking" or "content".
         total_prompt: Running total of prompt tokens across calls.
         total_completion: Running total of completion tokens across calls.
         total_reasoning: Running total of reasoning tokens across calls.
@@ -58,6 +61,8 @@ class DeepSeekClient:
         max_tokens: int | None = None,
         reasoning_effort: str = "high",
         timeout: float = 300.0,
+        stream: bool = False,
+        on_stream=None,
     ) -> None:
         self.api_key = api_key or os.environ.get("DEEPSEEK_API_KEY", "")
         if not self.api_key:
@@ -71,6 +76,8 @@ class DeepSeekClient:
         self.max_tokens = max_tokens
         self.reasoning_effort = reasoning_effort
         self.timeout = timeout
+        self.stream = stream
+        self.on_stream = on_stream  # callback(delta_kind: str, delta_text: str)
         # running usage stats (for later token accounting)
         self.total_prompt = 0
         self.total_completion = 0
@@ -104,9 +111,10 @@ class DeepSeekClient:
                 "type": "enabled",
                 "reasoning_effort": self.reasoning_effort,
             },
+            "stream": self.stream,
         }
         # max_tokens: only send if explicitly set. If None (default), don't
-        # send it — let the model use its full context window unconstrained.
+        # send it - let the model use its full context window unconstrained.
         if self.max_tokens is not None:
             payload_dict["max_tokens"] = self.max_tokens
 
@@ -121,23 +129,76 @@ class DeepSeekClient:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                body = json.loads(resp.read().decode("utf-8"))
+            resp = urllib.request.urlopen(req, timeout=self.timeout)
         except urllib.error.HTTPError as e:
             raise RuntimeError(
                 f"DeepSeek HTTP {e.code}: {e.read().decode('utf-8', 'replace')}"
             ) from e
 
+        if self.stream:
+            return self._read_stream(resp)
+        else:
+            body = json.loads(resp.read().decode("utf-8"))
+            resp.close()
+            return self._parse_response(body)
+
+    def _read_stream(self, resp) -> str:
+        """Read SSE stream, call on_stream per delta, return full content."""
+        content_parts: list[str] = []
+        usage_data = {}
+        for line in resp:
+            line = line.decode("utf-8").strip()
+            if not line or not line.startswith("data: "):
+                continue
+            data = line[6:]
+            if data == "[DONE]":
+                break
+            try:
+                chunk = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+            # extract usage from the last chunk (some APIs send it in final)
+            if "usage" in chunk and chunk["usage"]:
+                usage_data = chunk["usage"]
+            choices = chunk.get("choices", [])
+            if not choices:
+                continue
+            delta = choices[0].get("delta", {})
+            # reasoning_content = thinking tokens, content = answer
+            reasoning = delta.get("reasoning_content", "")
+            content = delta.get("content", "")
+            if reasoning and self.on_stream:
+                self.on_stream("thinking", reasoning)
+            if content:
+                content_parts.append(content)
+                if self.on_stream:
+                    self.on_stream("content", content)
+        resp.close()
+        full_content = "".join(content_parts)
+        # accumulate usage (stream may or may not include usage)
+        if usage_data:
+            self._accumulate_usage(usage_data)
+        else:
+            # estimate: count chars / 4 as rough token count
+            self.total_completion += len(full_content) // 4
+        self.calls += 1
+        return full_content
+
+    def _parse_response(self, body: dict) -> str:
+        """Parse a non-streaming response body and accumulate usage."""
         msg = body["choices"][0]["message"]
         content = msg.get("content", "") or ""
-        # accumulate usage for later token analysis (second iteration)
         u = body.get("usage", {})
+        self._accumulate_usage(u)
+        self.calls += 1
+        return content
+
+    def _accumulate_usage(self, u: dict) -> None:
+        """Accumulate token usage stats from a usage dict."""
         self.total_prompt += u.get("prompt_tokens", 0)
         self.total_completion += u.get("completion_tokens", 0)
         cd = u.get("completion_tokens_details", {}) or {}
         self.total_reasoning += cd.get("reasoning_tokens", 0)
-        self.calls += 1
-        return content
 
     def usage_summary(self) -> str:
         """Return a one-line summary of accumulated token usage across calls."""
