@@ -12,6 +12,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -39,6 +40,31 @@ def _check_vitis_available() -> bool:
     return shutil.which("vitis-run") is not None
 
 
+def _auto_source_vitis() -> bool:
+    """Try to auto-source Vitis settings64.sh if vitis-run is not on PATH.
+
+    Checks known locations. If found, sources it and updates os.environ PATH.
+    Returns True if vitis-run is available after this call.
+    """
+    if _check_vitis_available():
+        return True
+    candidates = [
+        "/home/admin/Xilinx/2025.2/Vitis/settings64.sh",
+        "/opt/Xilinx/2025.2/Vitis/settings64.sh",
+    ]
+    for settings in candidates:
+        if Path(settings).exists():
+            import subprocess
+            result = subprocess.run(
+                ["bash", "-c", f"source '{settings}' && echo $PATH"],
+                capture_output=True, text=True,
+            )
+            if result.returncode == 0:
+                os.environ["PATH"] = result.stdout.strip()
+                return _check_vitis_available()
+    return False
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("task_dir")
@@ -52,6 +78,9 @@ def main() -> int:
 
     # Guard: refuse to run without Vitis, because every csim/synth/cosim will
     # return compile_error and the SCORE 0.000 output is misleading.
+    # Try auto-source first; if that fails, error out (unless --force).
+    if not _check_vitis_available():
+        _auto_source_vitis()
     if not _check_vitis_available() and not args.force:
         print(
             "ERROR: vitis-run not found on PATH.\n"

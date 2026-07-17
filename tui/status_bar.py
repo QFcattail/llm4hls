@@ -1,99 +1,221 @@
-"""Region C - resource panel showing credits, tokens, and last feedback.
+"""Area C - resource panel (bottom, fixed 3 rows).
 
-Fixed 3 lines at the bottom of the dashboard.
+Three stacked lines, per docs-development/design/tui-design.md §3.3:
+
+  Line 1: credit progress bar (spent/total + remaining) | token totals
+          (prompt + completion), with reasoning tokens in parentheses.
+  Line 2: current-stage call counts (tool calls + reviews) | total LLM calls.
+  Line 3: last tool error summary | last review verdict.
+
+This is a pure presenter widget: all values are pushed in via :meth:`update`.
+It never imports the agent package. Field names mirror the design doc and
+the agent's observability fields (credits from Budget, tokens from
+DeepSeekClient, last_error from tool_result, last_review from review events).
 """
 from __future__ import annotations
 
-from textual.widgets import Label
+from textual.widgets import Static
 from rich.text import Text
 
+# Width (in characters) of the credit progress bar.
+_BAR_WIDTH = 20
 
-class StatusBar(Label):
+# Sentinel shown when there is no error / no review yet. Matches the design
+# doc's "(无)" placeholder so the layout stays stable.
+_NONE = "(无)"
+
+# Reviews that count as "passing" and are therefore shown in green rather
+# than red. Case-insensitive match against the stored verdict.
+_PASS_REVIEWS = {"pass", "ok", "accept", "accepted", "(无)"}
+
+# Length cap for the last-error / last-review summaries so line 3 never wraps.
+_SUMMARY_CAP = 40
+
+
+def _truncate(text: str, cap: int = _SUMMARY_CAP) -> str:
+    """Truncate ``text`` to ``cap`` characters with an ellipsis if needed."""
+    if len(text) <= cap:
+        return text
+    return text[: cap - 1] + "…"
+
+
+def _credit_bar(spent: int, total: int) -> tuple[Text, int]:
+    """Build the visual credit bar and return (bar_text, remaining).
+
+    The bar uses filled ``█`` for the spent portion and ``░`` for the
+    remaining portion, sized to :data:`_BAR_WIDTH`. When ``total`` is zero
+    or less the bar is rendered empty to avoid a division-by-zero.
+
+    Args:
+        spent: Credits consumed so far.
+        total: Total credit budget.
+
+    Returns:
+        A tuple of (the styled bar Text, the remaining credit count).
+    """
+    total = max(0, total)
+    spent = max(0, spent)
+    remaining = max(0, total - spent)
+    if total <= 0:
+        filled = 0
+    else:
+        filled = round(_BAR_WIDTH * spent / total)
+    filled = min(max(filled, 0), _BAR_WIDTH)
+    bar = Text("█" * filled, style="yellow") + Text("░" * (_BAR_WIDTH - filled),
+                                                     style="dim")
+    return bar, remaining
+
+
+class StatusBar(Static):
     """Bottom resource panel: credits, tokens, call counts, last feedback.
 
-    Call update_state() to refresh all values.
+    Fixed at 3 rows of content (plus the widget border). Call :meth:`update`
+    to push in the latest values; only the fields you pass are changed, the
+    rest retain their previous value.
+    """
+
+    DEFAULT_CSS = """
+    StatusBar {
+        height: 5;
+        border: round $warning;
+        padding: 0 1;
+    }
     """
 
     def __init__(self) -> None:
         super().__init__("[status]", id="status-bar")
+        # All numeric counters default to 0; feedback fields default to the
+        # "(无)" sentinel so line 3 reads cleanly before any activity.
         self._credits_spent: int = 0
         self._credits_total: int = 0
         self._tokens_prompt: int = 0
         self._tokens_completion: int = 0
         self._tokens_reasoning: int = 0
-        self._stage_tool_calls: int = 0
+        self._stage_calls: int = 0
         self._stage_reviews: int = 0
         self._total_llm_calls: int = 0
-        self._last_error: str = "(无)"
-        self._last_review: str = "(无)"
+        self._last_error: str = _NONE
+        self._last_review: str = _NONE
 
-    def update_state(
+    # -- public API -----------------------------------------------------
+
+    def update(
         self,
         credits_spent: int | None = None,
         credits_total: int | None = None,
         tokens_prompt: int | None = None,
         tokens_completion: int | None = None,
         tokens_reasoning: int | None = None,
-        stage_tool_calls: int | None = None,
+        stage_calls: int | None = None,
         stage_reviews: int | None = None,
         total_llm_calls: int | None = None,
         last_error: str | None = None,
         last_review: str | None = None,
     ) -> None:
-        """Update any subset of the status fields. Only provided values change."""
+        """Refresh the resource panel.
+
+        Only the fields passed (non-None) are updated; the rest keep their
+        previous value. This lets the caller refresh incrementally (e.g.
+        push only ``last_error`` when a tool fails) without resending every
+        counter each tick.
+
+        Args:
+            credits_spent: Credits consumed so far.
+            credits_total: Total credit budget.
+            tokens_prompt: Accumulated prompt tokens across LLM calls.
+            tokens_completion: Accumulated completion tokens across LLM calls.
+            tokens_reasoning: Accumulated reasoning tokens (subset of
+                completion) across LLM calls.
+            stage_calls: Tool calls made in the current stage so far.
+            stage_reviews: Reviews made in the current stage so far.
+            total_llm_calls: Total LLM completion calls made.
+            last_error: Short summary of the last tool error, or ``_NONE``
+                sentinel when there is none.
+            last_review: Short summary of the last review verdict, or the
+                ``_NONE`` sentinel.
+        """
         if credits_spent is not None:
-            self._credits_spent = credits_spent
+            self._credits_spent = int(credits_spent)
         if credits_total is not None:
-            self._credits_total = credits_total
+            self._credits_total = int(credits_total)
         if tokens_prompt is not None:
-            self._tokens_prompt = tokens_prompt
+            self._tokens_prompt = int(tokens_prompt)
         if tokens_completion is not None:
-            self._tokens_completion = tokens_completion
+            self._tokens_completion = int(tokens_completion)
         if tokens_reasoning is not None:
-            self._tokens_reasoning = tokens_reasoning
-        if stage_tool_calls is not None:
-            self._stage_tool_calls = stage_tool_calls
+            self._tokens_reasoning = int(tokens_reasoning)
+        if stage_calls is not None:
+            self._stage_calls = int(stage_calls)
         if stage_reviews is not None:
-            self._stage_reviews = stage_reviews
+            self._stage_reviews = int(stage_reviews)
         if total_llm_calls is not None:
-            self._total_llm_calls = total_llm_calls
+            self._total_llm_calls = int(total_llm_calls)
         if last_error is not None:
-            self._last_error = last_error
+            self._last_error = last_error if last_error else _NONE
         if last_review is not None:
-            self._last_review = last_review
+            self._last_review = last_review if last_review else _NONE
         self._render()
 
-    def _render(self) -> None:
-        """Render the 3-line status panel."""
-        # Line 1: credits + tokens
-        remaining = max(0, self._credits_total - self._credits_spent)
-        bar_len = 20
-        filled = int(bar_len * self._credits_spent / max(1, self._credits_total))
-        bar = "█" * filled + "░" * (bar_len - filled)
-        total_tokens = self._tokens_prompt + self._tokens_completion
+    def update_state(self, **kwargs) -> None:
+        """Back-compat alias for :meth:`update`.
 
-        line1 = Text.assemble(
-            Text(f" credits: {self._credits_spent}/{self._credits_total} 剩余{remaining} ", style="cyan"),
-            Text(f"{bar}", style="yellow"),
-            Text(f"  │  ", style="dim"),
+        Older callers (e.g. tui/app.py) used keyword-only ``update_state``
+        with the same field names; this forwards to :meth:`update`.
+        """
+        # Map the older stage_tool_calls -> stage_calls name if present.
+        if "stage_tool_calls" in kwargs:
+            kwargs.setdefault("stage_calls", kwargs.pop("stage_tool_calls"))
+        self.update(**kwargs)
+
+    # -- rendering ------------------------------------------------------
+
+    def _render(self) -> None:
+        """Build the 3-line panel and push it to the Static widget."""
+        self.update(self._build_render())
+
+    def _build_render(self) -> Text:
+        """Compose the 3-line resource panel as a single Rich Text."""
+        line1 = self._render_line1()
+        line2 = self._render_line2()
+        line3 = self._render_line3()
+        return Text.assemble(line1, Text("\n"), line2, Text("\n"), line3)
+
+    def _render_line1(self) -> Text:
+        """Line 1: credit bar + remaining | token totals (reasoning)."""
+        bar, remaining = _credit_bar(self._credits_spent, self._credits_total)
+        total_tokens = self._tokens_prompt + self._tokens_completion
+        return Text.assemble(
+            Text(f" credits: {self._credits_spent}/{self._credits_total} "
+                 f"剩余 {remaining} ", style="cyan"),
+            bar,
+            Text("  │  ", style="dim"),
             Text(f"tokens: {total_tokens}", style="green"),
             Text(f" (reasoning {self._tokens_reasoning})", style="dim"),
         )
 
-        # Line 2: stage stats + total LLM calls
-        line2 = Text.assemble(
-            Text(f" 本环节: 工具调用 {self._stage_tool_calls} 次, review {self._stage_reviews} 次", style="white"),
-            Text(f"  │  ", style="dim"),
+    def _render_line2(self) -> Text:
+        """Line 2: current-stage calls + reviews | total LLM calls."""
+        return Text.assemble(
+            Text(f" 本环节: 调用 {self._stage_calls} 次, "
+                 f"review {self._stage_reviews} 次", style="white"),
+            Text("  │  ", style="dim"),
             Text(f"总 LLM 调用: {self._total_llm_calls} 次", style="white"),
         )
 
-        # Line 3: last error + last review
-        err_style = "red" if self._last_error != "(无)" else "dim"
-        rev_style = "red" if self._last_review not in ("(无)", "pass", "PASS") else "green"
-        line3 = Text.assemble(
-            Text(f" 上次工具报错: {self._last_error}", style=err_style),
-            Text(f"  │  ", style="dim"),
-            Text(f"上次 review: {self._last_review}", style=rev_style),
+    def _render_line3(self) -> Text:
+        """Line 3: last tool error | last review verdict."""
+        # Error line: red when there is a real error, dim otherwise.
+        has_error = self._last_error and self._last_error != _NONE
+        err_style = "red" if has_error else "dim"
+        # Review line: green for pass/none, red for reject/issues.
+        review_lower = (self._last_review or "").strip().lower()
+        is_pass = review_lower in _PASS_REVIEWS or review_lower.startswith("pass")
+        rev_style = "green" if is_pass else "red"
+        return Text.assemble(
+            Text(f" 上次工具报错: {_truncate(self._last_error)}", style=err_style),
+            Text("  │  ", style="dim"),
+            Text(f"上次 review: {_truncate(self._last_review)}", style=rev_style),
         )
 
-        self.update(Text.assemble(line1, Text("\n"), line2, Text("\n"), line3))
+
+__all__ = ["StatusBar"]

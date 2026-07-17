@@ -38,17 +38,36 @@ def main() -> int:
                     help="run without Vitis (csim will fail, framework test only)")
     args = ap.parse_args()
 
-    # Check Vitis
+    # Auto-source Vitis if vitis-run is not on PATH but settings64.sh exists.
+    # This saves the user from having to manually source it every terminal session.
     import shutil
     if not shutil.which("vitis-run") and not args.force:
-        print(
-            "ERROR: vitis-run not found on PATH.\n"
-            "  Source Vitis settings64.sh first:\n"
-            "    source /home/admin/Xilinx/2025.2/Vitis/settings64.sh\n"
-            "  Or use --force for framework testing (csim will fail).",
-            file=sys.stderr,
-        )
-        return 1
+        candidates = [
+            "/home/admin/Xilinx/2025.2/Vitis/settings64.sh",
+            str(ROOT / "Xilinx/2025.2/Vitis/settings64.sh"),
+        ]
+        sourced = False
+        for settings in candidates:
+            if Path(settings).exists():
+                import subprocess
+                # Source it and capture the resulting PATH
+                result = subprocess.run(
+                    ["bash", "-c", f"source '{settings}' && echo $PATH"],
+                    capture_output=True, text=True,
+                )
+                if result.returncode == 0:
+                    os.environ["PATH"] = result.stdout.strip()
+                    sourced = True
+                    break
+        if not sourced:
+            print(
+                "ERROR: vitis-run not found and could not auto-source Vitis.\n"
+                "  Source Vitis settings64.sh first:\n"
+                "    source /home/admin/Xilinx/2025.2/Vitis/settings64.sh\n"
+                "  Or use --force for framework testing (csim will fail).",
+                file=sys.stderr,
+            )
+            return 1
 
     if args.no_tui:
         # Plain CLI mode - delegate to run_agent.py
