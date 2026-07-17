@@ -98,6 +98,8 @@ class DeepSeekClient:
             RuntimeError: If the API returns an HTTPError or the request
                 otherwise fails.
         """
+        # Increment call count at the START so TUI can show "LLM call #N in progress"
+        self.calls += 1
         payload_dict: dict = {
             "model": self.model,
             "messages": [
@@ -181,7 +183,6 @@ class DeepSeekClient:
         else:
             # estimate: count chars / 4 as rough token count
             self.total_completion += len(full_content) // 4
-        self.calls += 1
         return full_content
 
     def _parse_response(self, body: dict) -> str:
@@ -190,7 +191,6 @@ class DeepSeekClient:
         content = msg.get("content", "") or ""
         u = body.get("usage", {})
         self._accumulate_usage(u)
-        self.calls += 1
         return content
 
     def _accumulate_usage(self, u: dict) -> None:

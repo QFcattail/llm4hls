@@ -5,7 +5,7 @@
 # 自动 source: Vitis settings64.sh + .env (DeepSeek API key) + Python venv
 # 你只需要: ssh QFS-STATION && cd /home/admin/fpga-agent && ./run.sh
 
-set -euo pipefail
+set -eo pipefail
 cd "$(dirname "$0")"
 
 # 1. Vitis 工具链（csim/synth/cosim 必需）
