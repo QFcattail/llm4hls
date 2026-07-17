@@ -21,6 +21,89 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "contest" / "fpt26-harness"))
 
 
+def _pick_task_interactive() -> str | None:
+    """Interactive task picker using plain print+input (no Textual).
+
+    Scans contest/fpt26-harness/tasks/ and lists found tasks.
+    User picks by number or types a custom path.
+    Returns the task directory path, or None if cancelled.
+
+    Uses plain terminal I/O (NOT Textual) to avoid running two Textual
+    App instances in one process, which causes a black screen.
+    """
+    import tomllib
+
+    tasks_root = ROOT / "contest" / "fpt26-harness" / "tasks"
+    tasks: list[dict] = []
+
+    # Scan for tasks
+    if tasks_root.exists():
+        for d in sorted(tasks_root.iterdir()):
+            toml = d / "task.toml"
+            if not toml.exists():
+                continue
+            try:
+                spec = tomllib.loads(toml.read_text())
+                tasks.append({
+                    "id": spec.get("task_id", d.name),
+                    "type": spec.get("task_type", "?"),
+                    "difficulty": spec.get("difficulty", "?"),
+                    "budget": spec.get("budget", "?"),
+                    "path": str(d),
+                    "requires_cosim": spec.get("requires_cosim", False),
+                })
+            except Exception:
+                continue
+
+    print("\n" + "=" * 60)
+    print("  FPGA Agent - Select a Task")
+    print("=" * 60)
+
+    if tasks:
+        for i, t in enumerate(tasks, 1):
+            cosim_tag = " [cosim]" if t["requires_cosim"] else ""
+            print(f"  {i}. {t['id']:<30} type={t['type']:<12} "
+                  f"diff={t['difficulty']} budget={t['budget']}{cosim_tag}")
+        print(f"  0. Cancel")
+    else:
+        print("  (no tasks found in tasks/)")
+
+    print()
+    try:
+        choice = input("Enter number (or type a task path): ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return None
+
+    if not choice or choice == "0":
+        return None
+
+    # Numeric selection
+    if choice.isdigit():
+        idx = int(choice) - 1
+        if 0 <= idx < len(tasks):
+            t = tasks[idx]
+            print(f"\n  -> Selected: {t['id']} [{t['type']}]\n")
+            return t["path"]
+        else:
+            print(f"  Invalid number: {choice}")
+            return None
+
+    # Custom path
+    toml_path = Path(choice) / "task.toml"
+    if toml_path.exists():
+        try:
+            spec = tomllib.loads(toml_path.read_text())
+            print(f"\n  -> Selected: {spec.get('task_id', Path(choice).name)} "
+                  f"[{spec.get('task_type', '?')}]\n")
+            return choice
+        except Exception:
+            pass
+
+    print(f"  Not a valid task dir: {choice} (no task.toml found)")
+    return None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="FPGA Agent - LLM4HLS repair & optimization",
@@ -92,37 +175,14 @@ def main() -> int:
         run_tui(args.task, backend=args.backend, budget=args.budget)
         return 0
     else:
-        # Interactive task picker -> dashboard
-        from textual.app import App
-        from tui.task_picker import TaskPickerScreen
-
-        tasks_root = ROOT / "contest" / "fpt26-harness" / "tasks"
-
-        class PickerApp(App):
-            def __init__(self):
-                super().__init__()
-                self.picker = TaskPickerScreen(tasks_root)
-
-            def on_mount(self):
-                self.push_screen(self.picker)
-
-            def on_screen_suspend(self, screen):
-                if isinstance(screen, TaskPickerScreen) and screen.selected:
-                    task = screen.selected
-                    self.exit(result=task)
-
-        picker = PickerApp()
-        result = picker.run()
-
-        if result and isinstance(result, dict):
-            task_path = result["path"]
-            print(f"\nStarting agent on: {result['id']} [{result['type']}]\n")
-            from tui.app import run_tui
-            run_tui(task_path, backend=args.backend, budget=args.budget)
-            return 0
-        else:
+        # Interactive task picker (plain terminal, NOT Textual)
+        task_path = _pick_task_interactive()
+        if task_path is None:
             print("No task selected.")
             return 0
+        from tui.app import run_tui
+        run_tui(task_path, backend=args.backend, budget=args.budget)
+        return 0
 
 
 if __name__ == "__main__":
