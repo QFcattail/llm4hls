@@ -15,6 +15,7 @@ DeepSeekClient, last_error from tool_result, last_review from review events).
 from __future__ import annotations
 
 from textual.widgets import Static
+from rich.console import RenderableType
 from rich.text import Text
 
 # Width (in characters) of the credit progress bar.
@@ -154,7 +155,7 @@ class StatusBar(Static):
             self._last_error = last_error if last_error else _NONE
         if last_review is not None:
             self._last_review = last_review if last_review else _NONE
-        self._render()
+        self.refresh()
 
     def update_state(self, **kwargs) -> None:
         """Back-compat alias for :meth:`update`.
@@ -169,9 +170,16 @@ class StatusBar(Static):
 
     # -- rendering ------------------------------------------------------
 
-    def _render(self) -> None:
-        """Build the 3-line panel and push it to the Static widget."""
-        self.update(self._build_render())
+    def render(self) -> RenderableType:
+        """Render the 3-line resource panel.
+
+        Overriding :meth:`render` (rather than calling ``Static.update``)
+        lets Textual handle visualization in its own app-console context,
+        which avoids the None-visual race that ``Static.update`` hits when
+        called before the first layout pass. ``update`` simply mutates the
+        stored fields and calls :meth:`refresh`.
+        """
+        return self._build_render()
 
     def _build_render(self) -> Text:
         """Compose the 3-line resource panel as a single Rich Text."""

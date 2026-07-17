@@ -14,7 +14,7 @@ It never imports the agent package.
 from __future__ import annotations
 
 from textual.widgets import Static
-from rich.console import Group
+from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 
@@ -135,7 +135,7 @@ class FlowChart(Static):
         self._status[stage_name] = status
         self._elapsed[stage_name] = float(elapsed or 0.0)
         self._stat[stage_name] = stat
-        self._render()
+        self.refresh()
 
     def mark_current(self, stage: str) -> None:
         """Mark ``stage`` as running and finalize any earlier running stage.
@@ -167,7 +167,7 @@ class FlowChart(Static):
                 # An earlier stage still "running" must have completed.
                 if self._status[s] == "running":
                     self._status[s] = "done"
-        self._render()
+        self.refresh()
 
     def reset(self) -> None:
         """Clear all stages back to pending with no stats."""
@@ -175,12 +175,22 @@ class FlowChart(Static):
             self._status[s] = "pending"
             self._elapsed[s] = 0.0
             self._stat[s] = ""
-        self._render()
+        self.refresh()
 
     # -- rendering ------------------------------------------------------
 
-    def _render(self) -> None:
-        """Build the Rich table and push it to the Static widget."""
+    def render(self) -> RenderableType:
+        """Render the flow chart as a Rich Group (table + current marker).
+
+        Overriding :meth:`render` (rather than calling ``Static.update``)
+        lets Textual handle visualization in its own app-console context,
+        which avoids the None-visual race that ``Static.update`` hits when
+        called before the first layout pass.
+        """
+        return self._build_render()
+
+    def _build_render(self) -> RenderableType:
+        """Build the Rich table for the current stage state."""
         # The table has one column per stage, all centered, no box edges so
         # we can draw the connecting arrows ourselves in a second row.
         table = Table(
@@ -227,5 +237,10 @@ class FlowChart(Static):
         table.add_row(*arrow_row)
         table.add_row(*stat_row)
 
-        self.update(Group(table, Text("↑ 当前阶段", style="bold yellow")
-                          if "running" in self._status.values() else Text("")))
+        # Show the "current stage" marker only while something is running.
+        current_marker = (
+            Text("↑ 当前阶段", style="bold yellow")
+            if "running" in self._status.values()
+            else Text("")
+        )
+        return Group(table, current_marker)
