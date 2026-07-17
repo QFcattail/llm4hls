@@ -147,6 +147,28 @@ class Agent:
                                best_level=ckpt.level)
                 return ckpt.level >= Level.CORRECT
 
+            # Pre-csim LLM review: before spending a credit on csim, let the
+            # LLM look at the code and fix obvious issues. On the first attempt
+            # this catches bugs without needing a csim diagnostic at all; on
+            # later attempts it reviews the previous repair before re-running.
+            if attempt == 1:
+                self.log.event("pre_csim_review", attempt=attempt)
+                reviewed = self._repair_with_review(
+                    ckpt.code,
+                    feedback_text=f"Initial code for task {self.task.id}. "
+                                  f"Review and fix any bugs before first csim. "
+                                  f"Task type: {plan.task_type}. "
+                                  f"Description: {self.task.description[:500]}",
+                    kb_text=self._kb_lookup(build_feedback()),
+                )
+                if reviewed is not None and reviewed.strip() != ckpt.code.strip():
+                    self.log.event("pre_csim_fix_applied",
+                                   note="LLM found issues before first csim")
+                    ckpt.code = reviewed
+                else:
+                    self.log.event("pre_csim_no_change",
+                                   note="LLM found no issues, proceeding to csim")
+
             self.hb.set_stage("csim", self.server.budget.remaining())
             csim_r = self.server.csim(ckpt.code)
             # Detect environment failure: vitis-run not found (elapsed≈0, empty log)
