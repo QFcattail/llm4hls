@@ -1,6 +1,6 @@
 # TUI 交互式仪表盘设计 (TUI Design)
 
-> 状态：v2（2026-07-17，根据实际使用反馈重设计）
+> 状态：v3（2026-07-18，新增浅色主题配色 + 界面文案全英文）
 > 框架：Textual + Rich
 > 数据源：agent/observability.py 的 Logger 事件流 + harness transcript
 
@@ -22,36 +22,36 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │  区域 A：流程图（顶部，固定高度）                                       │
 │  ┌──────┐    ┌────────────┐    ┌──────┐    ┌────────┐    ┌────────┐ │
-│  │ 路由  │───►│ correctness │───►│ synth │───►│ optimize│───►│  提交  │ │
+│  │route │───►│ correctness │───►│ synth │───►│optimize│───►│ submit │ │
 │  │ ✅ 2s │    │  ✅ 45s     │    │ 🔄 NOW│    │  ⚪    │    │  ⚪    │ │
 │  └──────┘    └────────────┘    └──────┘    └────────┘    └────────┘ │
-│                csim×3 2218tok        ↑当前在这                          │
+│                csim×3 2218tok        ↑ CURRENT                        │
 ├─────────────────────────────────────────────────────────────────────┤
 │  区域 B：上次工具报错（固定高度，独立一栏）                                │
 │                                                                       │
-│  📋 [csim] compile_error  (3 个错误)                                   │
+│  📋 [csim] compile_error  (3 errors)                                  │
 │    1. projection.cpp:1:2: error: invalid preprocessing directive      │
 │    2. projection.cpp:4:17: error: unknown type name 'Triangle_3D'    │
 │    3. projection.cpp:4:42: error: unknown type name 'Triangle_2D'    │
-│    ...还有 1 个错误                                                    │
+│    ...and 1 more errors                                               │
 │                                                                       │
 │  (工具通过时显示: ✅ [csim] pass (9.7s))                               │
 ├─────────────────────────────────────────────────────────────────────┤
 │  区域 C：当前活动（中部，自适应高度，主视觉区）                            │
 │                                                                       │
-│  ▸ repair LLM 调用... 已耗时 8.2s                                     │
+│  ▸ repair LLM call... elapsed 8.2s                                    │
 │  💭 The csim failed because z is missing the third term...           │
 │  ┌─────────────────────────────────────────────────────────────────┐ │
 │  │ triangle_2d->z = triangle_3d.z0 / 3                            │ │
 │  │     + triangle_3d.z1 / 3 + triangle_3d.z2 / 3;                 │ │
 │  └─────────────────────────────────────────────────────────────────┘ │
 │                                                                       │
-│  (工具调用时: ▸ [synth] 综合中... 已耗时 12.3s)                        │
+│  (工具调用时: ▸ [synth] running synthesis... elapsed 12.3s)            │
 ├─────────────────────────────────────────────────────────────────────┤
 │  区域 D：资源面板（底部，固定 2 行）                                     │
 │                                                                       │
-│  credits: 6/10 剩余 4  ████████░░░░░░  │  tokens: 3453 (reasoning 1007)  │
-│  本环节: 工具 1 次 review 0 次  │  总 LLM: 2 次  │  上次 review: PASS   │
+│  credits: 6/10 left 4  ████████░░░░░░  │  tokens: 3453 (reasoning 1007) │
+│  stage: tools 1, reviews 0  │  total LLM: 2 calls  │  last review: PASS │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -77,11 +77,13 @@
 | `⏭️` | 跳过 | budget 不够或其他原因跳过 |
 
 每个阶段下方标注**本阶段统计**：
-- 路由：`2s`（耗时）
+- route：`2s`（耗时）
 - correctness：`csim×3 2218tok`（工具调用次数 + LLM token）
 - synth：`synth×1 4cr`（工具调用次数 + credit）
 - optimize：`opt×2 1500tok`
-- 提交：`SCORE 1.400`
+- submit：`SCORE 1.400`
+
+**阶段标签**：v3 起全部使用英文 stage 名（`route`/`correctness`/`synth`/`optimize`/`submit`），当前阶段标记为 `↑ CURRENT`。
 
 **交互**：按 `1`-`5` 跳转到对应阶段的详细日志。
 
@@ -91,11 +93,11 @@
 
 **工具失败时**（从日志提取 gcc 风格错误行）：
 ```
-📋 [csim] compile_error  (3 个错误)
+📋 [csim] compile_error  (3 errors)
   1. projection.cpp:1:2: error: invalid preprocessing directive
   2. projection.cpp:4:17: error: unknown type name 'Triangle_3D'
   3. projection.cpp:4:42: error: unknown type name 'Triangle_2D'
-  ...还有 1 个错误
+  ...and 1 more errors
 ```
 
 **工具通过时**：
@@ -107,7 +109,7 @@
 - 匹配 `file:line:col: error: ...` 格式（gcc/clang 编译错误）
 - 匹配 `[XFORM 203-313]`、`[SIM 211-2]` 等 Vitis 错误码
 - 匹配含 `ERROR`/`error`/`fail`/`Failed` 的行
-- 最多显示 5 行，超出显示"...还有 N 个错误"
+- 最多显示 5 行，超出显示"...and N more errors"
 - runtime_fail（非编译错）时显示 test case 失败信息
 
 **为什么独立一栏**：gcc 编译错误通常很长（行号 + 错误类型 + 上下文），塞在状态栏一行里显示不了。独立一栏能让 LLM 和用户都清楚看到"上次工具报了什么错"。
@@ -120,7 +122,7 @@
 
 **思维链 + 代码在同一区域连续输出**（不再分两个 panel）：
 ```
-▸ repair LLM 调用... 已耗时 8.2s
+▸ repair LLM call... elapsed 8.2s
 💭 The csim failed because z is missing the third term...    ← 实时刷新，逐 token
 triangle_2d->z = triangle_3d.z0 / 3                          ← 代码，语法高亮
      + triangle_3d.z1 / 3 + triangle_3d.z2 / 3;
@@ -130,39 +132,63 @@ triangle_2d->z = triangle_3d.z0 / 3                          ← 代码，语法
 - thinking 用一个 Static（`ap-thinking-live`）实时覆盖显示，每个 token 都刷新（不换行）
 - 完整的 thinking 行（遇到 `\n`）写入 RichLog 保留
 - code 行缓冲 + cpp 语法高亮，写入同一个 RichLog
-- thinking 用 dim italic，code 用 monokai 高亮
+- thinking 用 dim italic（灰色，v3 浅色主题下保持不变），code 用 `github-light` 高亮主题（v3 起从 monokai 换掉，monokai 是深色主题，白底下看不清）
 - 输出完后自动切换到"等待工具验证"状态
 
 #### C-2. 工具调用时（csim / synth / cosim）
 
 ```
-▸ [synth] 综合中... 已耗时 14.7s
+▸ [synth] running synthesis... elapsed 14.7s
   running: vitis-run --mode hls --tcl run_hls.tcl
-  (等待结果...)
+  (waiting for result...)
 ```
 
 #### C-3. 空闲/等待时
 
 ```
-▸ 空闲，等待下一步...
-  最后活动: 3.2s 前 (csim pass)
+▸ idle, waiting for next step...
+  last activity: 3.2s ago (csim pass)
 ```
 
 ### 3.4 区域 D：资源面板（底部，固定 2 行）
 
 **第 1 行：预算**
 ```
-credits: 6/10 剩余 4  ████████░░░░░░  │  tokens: 3453 (reasoning 1007)
+credits: 6/10 left 4  ████████░░░░░░  │  tokens: 3453 (reasoning 1007)
 ```
 - 左边：credit 使用条（已用/总量 + 可视化进度条）
 - 右边：累计 token（prompt + completion），括号里是 reasoning token
 
 **第 2 行：调用统计 + review**
 ```
-本环节: 工具 1 次 review 0 次  │  总 LLM: 2 次  │  上次 review: PASS
+stage: tools 1, reviews 0  │  total LLM: 2 calls  │  last review: PASS
 ```
-- "本环节"指当前阶段内的统计
+- "stage"指当前阶段内的统计
 - 三段用 `│` 分隔
+- 无错误/无 review 时的占位符为 `(none)`（v3 起从中文占位符改掉）
+
+---
+
+## 3.5 主题配色与界面语言（v3 新增）
+
+### 配色规格 (Theme: `fpga-light`)
+
+| 角色 | 色值 | 用途 |
+|---|---|---|
+| 主题色 (primary) | `#587559`（灰绿） | 标题栏、退出对话框边框、活动面板标题文字、credits 文字 |
+| 强调色/装饰色 (accent) | `#FDD100`（金黄） | 四个区域边框（装饰）、当前阶段高亮、running 状态、credit 进度条填充 |
+| 背景 (background/surface) | `#FFFFFF`（白） | 全局背景 |
+| 普通正文 (foreground) | `#000000`（黑） | 原来用白色的普通文字（状态栏统计、工具日志原文） |
+| CoT 思维链 | 灰色不变 | `dim italic` / `$text-muted`，白底下自然呈现灰色 |
+| 语义色 | 绿=pass、红=error 保留 | 表达语义，不属于装饰 |
+
+实现方式：Textual 8.x 自定义 `Theme`（`dark=False`），在 `AgentDashboard.__init__` 里 `register_theme()` + `self.theme = "fpga-light"`。Rich 内联样式中的 `"white"` 全部改 `"black"`，`"yellow"`/`"cyan"` 装饰性高亮分别换成 `#FDD100`/`#587559`。
+
+代码语法高亮主题从 `monokai`（深色）换成 `github-light`（浅色），配合白底。
+
+### 界面文案语言
+
+v3 起**所有界面文案为英文**（stage 标签、状态行、错误汇总、idle 提示等）。文档语言不变（设计文档仍按规范中文为主）。
 
 ---
 
@@ -270,3 +296,5 @@ TUI 是体验优化，不是功能必需。先用 `tail -f` JSONL 日志（已�
 | 日期 | 变更 | 变更人 |
 |---|---|---|
 | 2026-07-15 | v1 初稿。基于用户 UI 描述设计三区域布局（流程图/当前活动/资源面板）。 | Agent 主 |
+| 2026-07-17 | v2 四区域重设计：工具报错独立一栏（区域 B），thinking+code 合并流式输出，资源面板精简为 2 行。 | Agent 主 |
+| 2026-07-18 | v3 新增 §3.5 主题配色（`fpga-light`：primary `#587559` / accent `#FDD100` / 白底黑字 / CoT 灰色不变）；界面文案全部改英文；代码高亮主题 monokai -> `github-light`。 | Agent 主 |
