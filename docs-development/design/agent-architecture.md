@@ -1,6 +1,6 @@
 # Agent 架构设计 (Agent Architecture)
 
-> 状态：草案 v2（2026-07-14）
+> 状态：草案 v2.3（2026-07-18）
 > 阶段：P2 启动前的架构定稿
 > 依据：官方 harness（contest/fpt26-harness/）+ AMD LLM4HLS SHA-256 案例文章 + 本仓库 dev-log 2026-07-11-03
 >
@@ -290,18 +290,29 @@ flowchart TD
 
 **要点：** synth 不过时也走修复循环（RAG 检索 synth 类修法 + 交叉验证），但每次改完要回头重验 csim（改 synth 可能破坏 correctness，见 §5）。
 
+**修复循环细化（v2.3）：**
+- 每轮顺序：synth 失败反馈 → `build_feedback` 提取错误签名（XFORM/RTGEN 错误码 + 关键词）→ KB 检索 → `repair`（注入接口契约 + 反馈 + KB 命中）→ 双层 review → **先重验 csim**（1 credit，便宜）→ csim 过才再跑 synth（4 credits）。
+- 重验 csim 不过：该候选带回 csim 反馈进入下一轮修复（不浪费 4 credits 去 synth 一个已破坏正确性的版本）。
+- 轮数上限 `max_synth_rounds = 3`：每轮最坏花 csim 1 + synth 4 = 5 credits，3 轮 15 credits，配合 budget 检查（`can_afford`）双保险。修到过或 credit/轮数尽为止；尽则按存档逻辑交当前 best（保 correctness 分）。
+- synth 通过后记录 `synth_summary`（latency/II/资源一行摘要），供 §4.4 优化阶段注入。
+- **latency 无效值防御**：解析出的 latency 为 None 或 ≤0 时视为无效数据（真机出现过 synth 过了但 latency=0 的解析异常），不参与存档比较，防止"0 周期"被误判为最快。
+
 ### 4.4 阶段 3：optimize（PPA 优化循环）
 
 目标：在 correctness + synth 都过的前提下，降 latency 冲 PPA 分（0.3 权重）。
 
 ```mermaid
 flowchart TD
+    Entry([进入 optimize]) --> Ctx["AMD Phase 1: Context Loading<br/>① 官方设计文档 description+headers<br/>② 设计摘要提取 extract_design_brief<br/>   (LLM 总结当前 kernel: 功能/循环结构/<br/>   数据流/瓶颈猜想, 做一次缓存)<br/>③ synth 报告 (latency/II/资源)<br/>④ 设备约束 (U55C @ 200MHz)"]
+    Ctx --> Snap["存档快照<br/>(structural 回滚用, §4.5)"]
+    Snap --> Lp
+
     Lp([优化循环 每轮]) --> Q1{credit 够跑<br/>csim + synth?}
     Q1 -- 否 --> Exit([退出循环])
 
-    Q1 -- 是 --> AMD["AMD Phase 1+2<br/>注入综合报告 (latency/II/资源)<br/>+ Strategy Exploration<br/>(LLM 提多策略 + 权衡)"]
-    AMD --> Sel["选一个策略<br/>(LLM 自评 / 固定启发式, 待定)"]
-    Sel --> Gen["Agent 按策略改代码 → 候选"]
+    Q1 -- 是 --> AMD["AMD Phase 2: Strategy Exploration<br/>注入(设计文档+设计摘要+最新综合报告)<br/>LLM 提 2-4 个策略 + 权衡"]
+    AMD --> Sel["选一个策略<br/>(固定启发式: 取第一个, v2.3 定)"]
+    Sel --> Gen["AMD Phase 3: apply_strategy<br/>按策略改代码 → 候选"]
     Gen --> Review["交叉验证 review 候选<br/>重点查: pragma 交互规则 / 接口破坏 / AMD 点名短板"]
     Review --> Q2{review 通过?}
     Q2 -- 否 --> Gen
@@ -317,14 +328,18 @@ flowchart TD
 
     QS -- 是 --> Cmp["存档判定 (§2 规则 2)<br/>同关卡比 latency"]
     Cmp --> QL{候选 latency <<br/>best latency?}
-    QL -- 是 --> Update["更新存档<br/>继续下一轮"]
+    QL -- 是 --> Update["更新存档 + synth_summary<br/>继续下一轮"]
     Update --> Lp
     QL -- 否 --> Stop(["没变好 → 停止优化"])
 ```
 
 **要点：**
-- 优化阶段必须注入综合报告——AMD 核心经验："不给综合数据，LLM 只能给泛泛建议"。
+- **优化必须先提取设计文档再改进（v2.3 明确）**：AMD Phase 1 Context Loading 三件套缺一不可——① 官方设计文档（task.description 接口契约 + headers，防优化破坏接口）；② 设计摘要提取（`extract_design_brief`：LLM 先从当前 kernel 提取功能/循环结构/数据流/瓶颈猜想，优化循环开始前做一次并缓存，后续每轮注入）；③ synth 报告（latency/II/资源）。AMD 核心经验："不给综合数据，LLM 只能给泛泛建议"——同理，不给设计意图，LLM 给的策略不贴代码实际。
+- **策略选择启发式（v2.3 定，§11 销项）**：第一次迭代取 LLM 输出的第一个策略（LLM 倾向把最有把握的排最前）；每轮用最新 synth 报告重新 propose，不缓存旧策略。
+- **轮数上限 `max_optimize_rounds = 4`（v2.3 定，§11 销项）**：每轮固定花 csim 1 + synth 4 = 5 credits。以 dotProduct（budget=40）为例：correctness ~2 + synth 4，剩 ~34，4 轮 20 credits 留有余量。参考 ReferenceAgent max_rounds=6，取更保守的 4。
+- **停止条件（任一命中）**：候选 latency 无改进 / credit 不够跑 csim+synth / 达到轮数上限。
 - 优化改代码后必重验 csim（+ cosim if structural）——pragma 改动是 AMD 点名的 LLM 高错点。
+- synth 通过的新报告同时更新缓存的 `synth_summary`，下一轮策略探索基于最新数据。
 
 ### 4.5 结构性题的优化后回验
 
@@ -332,7 +347,7 @@ structural 题优化阶段改了代码后，必须额外重验 cosim——优化
 
 ```mermaid
 flowchart TD
-    Start([optimize 结束]) --> Q1{structural 题<br/>且 best 在优化中变了?}
+    Start([optimize 结束]) --> Q1{需要 cosim 的题<br/>且 best 在优化中变了?}
     Q1 -- 否 --> Submit(["交当前 best"]) --> Done([结束])
 
     Q1 -- 是 --> Q2{credit 够跑 cosim?}
@@ -345,6 +360,8 @@ flowchart TD
     Q3 -- 否 (优化重新引入死锁) --> Rollback2["回滚到 cosim 验证过的版本"]
     Rollback2 --> SubmitRollback(["交该版本"]) --> Done
 ```
+
+**回滚语义（v2.3 明确，修实现 bug）**：进入 optimize 时对存档（code/level/latency/cosim_ok）做**快照**。回滚 = 把存档整体恢复快照，不是只记一条日志——曾出现过 cosim 回验失败却只写 rollback 事件、最终提交仍带死锁的实现 bug。触发回验的两个前提（对应 Q1）：① 本题 correctness 含 cosim 关卡（`"cosim" in correctness_stages`，比判 task_type 字符串更语义化）；② best 相对快照变过（没变说明优化无产出，无需再花 20 credits）。credit 不够回验时同样回滚到快照（交已验证版本，不赌）。
 
 ---
 
@@ -413,8 +430,8 @@ flowchart TD
 
 | AMD 阶段 | 我们的实现 | 所在模块 |
 |---|---|---|
-| **Phase 1: Context Loading**（源码 + 综合报告 + 设备约束） | 修复阶段注入 task.description + header；优化阶段注入 synth 报告 | reach_correctness / optimize |
-| **Phase 2: Strategy Exploration**（提多个策略 + 权衡再选） | optimize 阶段的 `llm.propose_strategies` + `select_strategy` | optimize |
+| **Phase 1: Context Loading**（源码 + 综合报告 + 设备约束） | 修复阶段注入 task.description + header；优化阶段注入设计文档 + 设计摘要 + synth 报告（§4.4） | reach_correctness / optimize |
+| **Phase 2: Strategy Exploration**（提多个策略 + 权衡再选） | optimize 阶段的 `llm.propose_strategies` + 取首策略启发式 | optimize |
 | **Phase 3: Code Generation** | `llm.repair` / `llm.apply_strategy` | reach_correctness / optimize |
 | **Phase 4: Validation**（综合 + 仿真 + 反馈循环） | csim/synth/cosim 重验 + 存档判定 | 主循环全程 |
 
@@ -424,10 +441,14 @@ flowchart TD
 
 ### 8.1 接口
 
-复用 harness 的 `LLMClient` Protocol（`complete(system, user) -> str`），在其上封装三个领域专用方法：
+复用 harness 的 `LLMClient` Protocol（`complete(system, user) -> str`），在其上封装领域专用方法：
 - **repair**：给定任务、当前代码、工具反馈、知识库命中 → 返回修复后的候选代码（或失败）。
-- **propose_strategies**：给定任务、当前代码、综合报告 → 返回多个优化策略（含收益/资源/风险权衡）。
+- **review**：交叉验证候选（接口不变 / 无新 bug / pragma 冲突）。
+- **extract_design_brief**（v2.3 新增）：给定任务、当前代码 → 返回设计摘要文本（功能 / 循环结构 / 数据流 / 瓶颈猜想）。optimize 循环开始前调一次并缓存（§4.4 Phase 1）。
+- **propose_strategies**：给定任务、当前代码、综合报告、设计摘要 → 返回多个优化策略（含收益/资源/风险权衡）。
 - **apply_strategy**：给定任务、当前代码、选定策略 → 返回应用策略后的候选代码（或失败）。
+
+**prompt 内容硬要求（v2.3 明确）**：所有改代码类方法（repair / propose_strategies / apply_strategy）的 user prompt 必须注入 ① task.description（官方设计文档/接口契约）② headers（只读签名）——optimize 类方法另加 ③ synth 报告摘要 ④ 设计摘要。缺失 ①② 会导致 LLM 给出脱离接口契约的泛泛建议（AMD Phase 1 教训）。
 
 ### 8.2 模型选择
 
@@ -456,9 +477,8 @@ agent/
   feedback.py        反馈构建：从 ToolResult 构建 LLM 友好的 feedback 文本
   knowledge_base/    RAG 知识库（§6）
     __init__.py
-    schema.py        条目 schema
-    retriever.py     检索器（关键词/错误码匹配）
-    entries/         条目数据（YAML/JSON）
+    retriever.py     检索器（关键词/错误码匹配）+ KBEntry schema
+    entries.py       种子条目数据（seed_entries()，v2.3；后续可扩为 entries/ YAML）
 
 contest/fpt26-harness/llm4hls/   ← 官方 harness，fork 后原地改
   agent.py           ← 替换为我们的 main_loop（或保留参考版做对比）
@@ -482,11 +502,11 @@ contest/fpt26-harness/llm4hls/   ← 官方 harness，fork 后原地改
 
 ## 11. 待细化（P2 编码时确定）
 
-- [ ] 各阶段 prompt 模板（system prompt + user prompt 结构）
-- [ ] 知识库条目 schema 的字段精确定义
-- [ ] max_rounds / max_optimize_rounds 的默认值（参考 ReferenceAgent: max_rounds=6）
-- [ ] Strategy Exploration 的"选哪个策略"策略（LLM 自评？固定启发式？）
-- [ ] 交叉验证的具体形式（独立 agent vs 同模型换 prompt self-check）及触发时机
+- [x] 各阶段 prompt 模板（system prompt + user prompt 结构）—— v2.3 定：见 §8.1 硬要求 + llm_client.py 模块级模板
+- [x] 知识库条目 schema 的字段精确定义—— 已定：KBEntry（id/symptom/root_cause/fix/example/signatures），见 retriever.py
+- [x] max_rounds / max_optimize_rounds 的默认值—— v2.3 定：max_rounds=6（参考 ReferenceAgent）、max_synth_rounds=3、max_optimize_rounds=4，依据见 §4.3/§4.4
+- [x] Strategy Exploration 的"选哪个策略"策略—— v2.3 定：固定启发式取第一个，每轮重新 propose（§4.4）
+- [ ] 交叉验证的具体形式（独立 agent vs 同模型换 prompt self-check）及触发时机—— 第一次迭代用同模型换 prompt self-check，已跑通；独立 agent 留待第二次迭代
 - [ ] token 计数埋点（第一次迭代不优化，但埋点先做好，供第二次迭代分析）—— **第二次迭代**
 - [ ] 功能 pattern 检索的代码结构抽象方法 —— **第二次迭代**
 - [ ] 与官方 ReferenceAgent 的 A/B 对比评测方案
@@ -569,6 +589,7 @@ agent 跑一道题可能持续数分钟到数十分钟（cosim 单次最长 15 �
 
 | 日期 | 变更 | 变更人 |
 |---|---|---|
+| 2026-07-18 | v2.3。按实现差距补齐四处：① §4.3 synth 修复循环细化（每轮先重验 csim 再 synth、max_synth_rounds=3、latency 无效值防御）；② §4.4 optimize 循环细化（Phase 1 Context Loading 三件套：官方设计文档+extract_design_brief 设计摘要+synth 报告；取首策略启发式；max_optimize_rounds=4；停止条件）；③ §4.5 回滚语义明确（快照整体恢复，修"只记日志不真回滚"的实现 bug；回验前提改为"cosim in correctness_stages 且 best 变过"）；④ §8.1 prompt 硬要求（改代码类方法必注 description+headers）+ extract_design_brief 接口。§7 映射表、§9 模块划分（entries.py）、§11 待细化四项销项同步更新。 | Agent 主 |
 | 2026-07-14 | v2.2。三处：① 修 §4.1 总览图存档逻辑（correctness/synth 达标后显式加存档更新节点 Ckpt1/Ckpt2 + synth 失败止损分支）；② 新增 §12 可观测性（三层日志：transcript/结构化JSONL/心跳；12 个日志点；活跃度 STALE 告警；双层超时 + 兜底；与 transcript 关联）；③ 定可观测方案——第一次迭代用结构化日志 + tail -f，不做 WebUI（数据源可复用，第二次迭代升级）。 | Agent 主 |
 | 2026-07-14 | v2.1。按用户反馈将 §4 主循环全部改为 Mermaid 流程图（5 张：总体流程 + correctness 修复循环 + synth + optimize + structural 回验），替换原 ASCII 字符画。控制流含分支与回退，用 flowchart 而非放射状 mindmap。 | Agent 主 |
 | 2026-07-14 | v2。按用户反馈三处修改：① §4 主循环全部改为思维导图，移除所有代码块（§2.2/§3.4/§8.1 同步去代码化）；② 明确第一次迭代只追正确性、暂不考虑 token，Agent 交叉验证保留（新增设计原则 5/7，§4.2/§4.4 加入交叉验证节点）；③ §6 扩展知识库检索为两类——错误签名匹配（第一次迭代）+ 功能 pattern/成熟修改示例（第二次迭代，§6.4）。 | Agent 主 |
