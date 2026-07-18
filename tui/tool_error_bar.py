@@ -37,7 +37,7 @@ class ToolErrorBar(Static):
     DEFAULT_CSS = """
     ToolErrorBar {
         height: 7;
-        border: round $warning;
+        border: round $accent;
         padding: 0 1;
     }
     """
@@ -68,7 +68,7 @@ class ToolErrorBar(Static):
         parts: list[Text] = []
         header = f"  📋 [{kind}] {phase}"
         if error_lines:
-            header += f"  ({len(error_lines)} 个错误)"
+            header += f"  ({len(error_lines)} errors)"
         parts.append(Text(header, style="bold red"))
 
         if error_lines:
@@ -77,17 +77,17 @@ class ToolErrorBar(Static):
                 parts.append(Text(f"    {i}. {err[:120]}", style="red"))
             if len(error_lines) > _MAX_ERRORS_SHOWN:
                 parts.append(Text(
-                    f"    ...还有 {len(error_lines) - _MAX_ERRORS_SHOWN} 个错误",
+                    f"    ...and {len(error_lines) - _MAX_ERRORS_SHOWN} more errors",
                     style="dim"
                 ))
         elif log.strip():
             # No structured errors found, show raw log tail
             tail = log.strip().split("\n")[-3:]
             for line in tail:
-                parts.append(Text(f"    {line[:120]}", style="yellow"))
+                parts.append(Text(f"    {line[:120]}"))
         else:
-            parts.append(Text("    (无错误详情 - 可能是环境问题，vitis-run 未找到)",
-                              style="yellow"))
+            parts.append(Text("    (no error details - likely an environment "
+                              "problem, vitis-run not found)"))
 
         self.update(Text("\n").join(parts))
 
@@ -130,7 +130,7 @@ class ToolErrorBar(Static):
 
     def clear_bar(self) -> None:
         """Reset to empty state."""
-        self.update(Text("  (等待工具调用...)", style="dim"))
+        self.update(Text("  (waiting for tool call...)", style="dim"))
 
     def show_running(self, kind: str, elapsed: float = 0) -> None:
         """Show a running tool call status (before result arrives).
@@ -139,10 +139,10 @@ class ToolErrorBar(Static):
             kind: Tool kind (csim/synth/cosim).
             elapsed: Seconds elapsed so far.
         """
-        labels = {"csim": "C 仿真", "synth": "综合", "cosim": "协同仿真",
-                  "cosim_recheck": "协同仿真(回验)"}
+        labels = {"csim": "C simulation", "synth": "synthesis",
+                  "cosim": "co-simulation", "cosim_recheck": "co-simulation (recheck)"}
         label = labels.get(kind, kind)
         self.update(Text(
-            f"  🔄 [{kind}] 正在运行 {label}... 已耗时 {elapsed:.1f}s",
-            style="bold yellow"
+            f"  🔄 [{kind}] running {label}... elapsed {elapsed:.1f}s",
+            style="bold #FDD100"
         ))

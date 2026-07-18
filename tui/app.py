@@ -16,9 +16,11 @@ from pathlib import Path
 
 from textual.app import App, ComposeResult
 from textual.containers import Vertical
+from textual.css.query import NoMatches
 from textual.widgets import Header, Footer
 from textual.binding import Binding
 from textual.screen import ModalScreen
+from textual.theme import Theme
 from textual.widgets import Label, Button
 from textual.containers import Horizontal
 
@@ -33,6 +35,29 @@ try:
     from agent._version import __version__ as APP_VERSION
 except ImportError:  # pragma: no cover - fallback if agent package not on path
     APP_VERSION = "unknown"
+
+
+# Custom light theme, spec in docs-development/design/tui-design.md section 3.5:
+#   primary    #587559  sage green - title bar, dialog border, headings
+#   accent     #FDD100  gold       - accent + decoration (region borders)
+#   background #FFFFFF  white, normal text black, CoT thinking stays gray
+FPGA_LIGHT_THEME = Theme(
+    name="fpga-light",
+    primary="#587559",
+    secondary="#3F5741",
+    accent="#FDD100",
+    warning="#FDD100",
+    error="#B00020",
+    success="#587559",
+    foreground="#000000",
+    background="#FFFFFF",
+    surface="#FFFFFF",
+    panel="#F2F2F2",
+    dark=False,
+    variables={
+        "footer-key-foreground": "#587559",
+    },
+)
 
 
 class QuitConfirmScreen(ModalScreen):
@@ -70,10 +95,10 @@ class AgentDashboard(App):
 
     CSS = """
     #dashboard { layout: vertical; }
-    #flow-chart { height: 5; border: round $primary; padding: 0 1; }
-    #tool-error-bar { height: 7; border: round $warning; padding: 0 1; }
+    #flow-chart { height: 5; border: round $accent; padding: 0 1; }
+    #tool-error-bar { height: 7; border: round $accent; padding: 0 1; }
     #activity-panel { height: 1fr; border: round $accent; }
-    #status-bar { height: 4; border: round $success; padding: 0 1; }
+    #status-bar { height: 4; border: round $accent; padding: 0 1; }
     #quit-dialog {
         align: center middle;
         width: 50; height: 7;
@@ -104,6 +129,11 @@ class AgentDashboard(App):
         budget: int | None = None,
     ) -> None:
         super().__init__()
+        # Header renders app.title; Header(name=...) is only the DOM node
+        # name, so the version must go through self.title (conventions 11.3).
+        self.title = f"FPGA Agent Dashboard v{APP_VERSION}"
+        self.register_theme(FPGA_LIGHT_THEME)
+        self.theme = FPGA_LIGHT_THEME.name
         self.task_path = task_path
         self.backend = backend
         self.budget_override = budget
@@ -116,8 +146,8 @@ class AgentDashboard(App):
         self._stage_tool_calls: int = 0
         self._stage_reviews: int = 0
         self._credit_spent: int = 0
-        self._last_error: str = "(无)"
-        self._last_review: str = "(无)"
+        self._last_error: str = "(none)"
+        self._last_review: str = "(none)"
         self._done: bool = False
         self._error: str | None = None
         self._backend_ref = None  # hold ref for usage stats
@@ -125,7 +155,7 @@ class AgentDashboard(App):
         self._tool_start_time: float = 0  # when the tool started
 
     def compose(self) -> ComposeResult:
-        yield Header(name=f"FPGA Agent Dashboard v{APP_VERSION}")
+        yield Header()
         with Vertical(id="dashboard"):
             yield FlowChart()
             yield ToolErrorBar()
@@ -219,16 +249,21 @@ class AgentDashboard(App):
 
     def _poll_events(self) -> None:
         """Poll the event queue and update the UI (called every 150ms)."""
-        updated = False
-        while True:
-            try:
-                kind, data = self._event_queue.get_nowait()
-            except queue.Empty:
-                break
-            updated = True
-            self._handle_event(kind, data)
-        if updated or not self._done:
-            self._refresh_ui()
+        # The 150ms interval can fire once more while shutdown is
+        # unmounting widgets; drop that tick instead of crashing.
+        try:
+            updated = False
+            while True:
+                try:
+                    kind, data = self._event_queue.get_nowait()
+                except queue.Empty:
+                    break
+                updated = True
+                self._handle_event(kind, data)
+            if updated or not self._done:
+                self._refresh_ui()
+        except NoMatches:
+            return
 
     def _handle_event(self, kind: str, data: dict) -> None:
         """Handle a single event from the agent thread."""
@@ -301,14 +336,14 @@ class AgentDashboard(App):
                 else:
                     self._last_error = phase
             else:
-                self._last_error = "(无)"
+                self._last_error = "(none)"
 
             # Update activity panel
             ap = self.query_one(ActivityPanel)
             if ok:
                 ap.set_activity("idle", f"[{kind_t}] {phase} ✅ ({elapsed:.1f}s)")
             else:
-                ap.set_activity("idle", f"[{kind_t}] {phase} ❌ - 见上方错误详情")
+                ap.set_activity("idle", f"[{kind_t}] {phase} ❌ - see error details above")
 
         elif name == "review":
             verdict = data.get("verdict", "")
@@ -342,10 +377,10 @@ class AgentDashboard(App):
         """
         ap = self.query_one(ActivityPanel)
         if ap._activity_type != "llm":
-            ap.set_activity("llm", f"{self._current_stage} LLM 调用")
+            ap.set_activity("llm", f"{self._current_stage} LLM call")
             # Show what the LLM is fixing, before streaming starts
-            if hasattr(self, "_last_error") and self._last_error != "(无)":
-                ap.append_log(f"  📋 上次工具结果: {self._last_error}\n")
+            if hasattr(self, "_last_error") and self._last_error != "(none)":
+                ap.append_log(f"  📋 last tool result: {self._last_error}\n")
                 # Switch back to llm mode for streaming
                 ap._activity_type = "llm"
         ap.append_stream(data.get("kind", "content"), data.get("text", ""))

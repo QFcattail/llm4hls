@@ -22,12 +22,12 @@ from rich.text import Text
 _BAR_WIDTH = 20
 
 # Sentinel shown when there is no error / no review yet. Matches the design
-# doc's "(无)" placeholder so the layout stays stable.
-_NONE = "(无)"
+# doc's "(none)" placeholder so the layout stays stable.
+_NONE = "(none)"
 
 # Reviews that count as "passing" and are therefore shown in green rather
 # than red. Case-insensitive match against the stored verdict.
-_PASS_REVIEWS = {"pass", "ok", "accept", "accepted", "(无)"}
+_PASS_REVIEWS = {"pass", "ok", "accept", "accepted", "(none)"}
 
 # Length cap for the last-error / last-review summaries so line 3 never wraps.
 _SUMMARY_CAP = 40
@@ -62,8 +62,8 @@ def _credit_bar(spent: int, total: int) -> tuple[Text, int]:
     else:
         filled = round(_BAR_WIDTH * spent / total)
     filled = min(max(filled, 0), _BAR_WIDTH)
-    bar = Text("█" * filled, style="yellow") + Text("░" * (_BAR_WIDTH - filled),
-                                                     style="dim")
+    bar = Text("█" * filled, style="#FDD100") + Text("░" * (_BAR_WIDTH - filled),
+                                                       style="dim")
     return bar, remaining
 
 
@@ -78,7 +78,7 @@ class StatusBar(Static):
     DEFAULT_CSS = """
     StatusBar {
         height: 4;
-        border: round $success;
+        border: round $accent;
         padding: 0 1;
     }
     """
@@ -86,7 +86,7 @@ class StatusBar(Static):
     def __init__(self) -> None:
         super().__init__("[status]", id="status-bar")
         # All numeric counters default to 0; feedback fields default to the
-        # "(无)" sentinel so line 3 reads cleanly before any activity.
+        # "(none)" sentinel so line 3 reads cleanly before any activity.
         self._credits_spent: int = 0
         self._credits_total: int = 0
         self._tokens_prompt: int = 0
@@ -193,7 +193,7 @@ class StatusBar(Static):
         total_tokens = self._tokens_prompt + self._tokens_completion
         return Text.assemble(
             Text(f" credits: {self._credits_spent}/{self._credits_total} "
-                 f"剩余 {remaining} ", style="cyan"),
+                 f"left {remaining} ", style="#587559"),
             bar,
             Text("  │  ", style="dim"),
             Text(f"tokens: {total_tokens}", style="green"),
@@ -206,12 +206,12 @@ class StatusBar(Static):
         is_pass = review_lower in _PASS_REVIEWS or review_lower.startswith("pass")
         rev_style = "green" if is_pass else "red"
         return Text.assemble(
-            Text(f" 本环节: 工具 {self._stage_calls} 次, "
-                 f"review {self._stage_reviews} 次", style="white"),
+            Text(f" stage: tools {self._stage_calls}, "
+                 f"reviews {self._stage_reviews}", style="black"),
             Text("  │  ", style="dim"),
-            Text(f"总 LLM: {self._total_llm_calls} 次", style="white"),
+            Text(f"total LLM: {self._total_llm_calls} calls", style="black"),
             Text("  │  ", style="dim"),
-            Text(f"上次 review: {_truncate(self._last_review)}", style=rev_style),
+            Text(f"last review: {_truncate(self._last_review)}", style=rev_style),
         )
 
 

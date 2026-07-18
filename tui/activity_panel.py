@@ -9,7 +9,7 @@ Modes:
   a) LLM call   - thinking (dim italic) then code (syntax highlighted),
                   all in one RichLog, streamed token by token.
   b) Tool call  - tool name + elapsed + parsed error details (count + top 5).
-  c) Idle       - "等待下一步..."
+  c) Idle       - "waiting for next step..."
 """
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ class ActivityPanel(Static):
     """Current-activity panel with a single streaming output log.
 
     Layout:
-      - title line: ``▸ {title}... 已耗时 {elapsed}s``
+      - title line: ``▸ {title}... elapsed {elapsed}s``
       - single RichLog body (thinking + code interleaved, or tool output)
 
     Public API:
@@ -65,7 +65,7 @@ class ActivityPanel(Static):
     def __init__(self) -> None:
         super().__init__("[activity]", id="activity-panel")
         self._activity_type: ActivityType = "idle"
-        self._title: str = "空闲"
+        self._title: str = "idle"
         self._start_time: float = 0.0
         self._code_line_buf: str = ""
         self._thinking_line_buf: str = ""
@@ -91,7 +91,7 @@ class ActivityPanel(Static):
 
         Args:
             activity_type: One of "llm", "tool", "mechanical", "idle".
-            title: Human-readable title (e.g. "repair 修复中").
+            title: Human-readable title (e.g. "repairing").
         """
         self._activity_type = activity_type
         self._title = title
@@ -117,7 +117,7 @@ class ActivityPanel(Static):
             text: The delta text.
         """
         if self._activity_type != "llm":
-            self.set_activity("llm", self._title or "LLM 调用")
+            self.set_activity("llm", self._title or "LLM call")
         if not text:
             return
         log = self._log_widget()
@@ -160,11 +160,11 @@ class ActivityPanel(Static):
     def append_log(self, text: str) -> None:
         """Append raw tool output text to the log."""
         if self._activity_type not in ("tool", "mechanical"):
-            self.set_activity("tool", self._title or "工具调用")
+            self.set_activity("tool", self._title or "tool call")
         if not text:
             return
         log = self._log_widget()
-        log.write(Text(text, style="white"))
+        log.write(Text(text, style="black"))
         self._render_title()
 
     def show_tool_errors(self, log_text: str, phase: str) -> None:
@@ -177,7 +177,7 @@ class ActivityPanel(Static):
             phase: The tool phase (compile_error / runtime_fail / etc).
         """
         if self._activity_type not in ("tool", "mechanical"):
-            self.set_activity("tool", self._title or "工具调用")
+            self.set_activity("tool", self._title or "tool call")
         log = self._log_widget()
 
         # Extract error lines
@@ -191,15 +191,17 @@ class ActivityPanel(Static):
                 error_lines.append(stripped)
 
         if not error_lines:
-            log.write(Text(f"  {phase} (no specific error lines found)", style="yellow"))
+            log.write(Text(f"  {phase} (no specific error lines found)"))
             return
 
-        log.write(Text(f"  共 {len(error_lines)} 个错误，前 {min(5, len(error_lines))} 个：",
+        log.write(Text(f"  {len(error_lines)} errors total, "
+                       f"showing first {min(5, len(error_lines))}:",
                        style="bold red"))
         for i, err in enumerate(error_lines[:5], 1):
             log.write(Text(f"  {i}. {err[:120]}", style="red"))
         if len(error_lines) > 5:
-            log.write(Text(f"  ...还有 {len(error_lines) - 5} 个错误", style="dim"))
+            log.write(Text(f"  ...and {len(error_lines) - 5} more errors",
+                           style="dim"))
         self._render_title()
 
     def clear_log(self) -> None:
@@ -231,16 +233,16 @@ class ActivityPanel(Static):
             title_w = self.query_one("#ap-title", Static)
         except Exception:
             return
-        style = "dim" if self._activity_type == "idle" else "bold cyan"
+        style = "dim" if self._activity_type == "idle" else "bold #587559"
         title_w.update(
-            Text(f"▸ {self._title}... 已耗时 {self._elapsed:.1f}s", style=style)
+            Text(f"▸ {self._title}... elapsed {self._elapsed:.1f}s", style=style)
         )
 
     def _write_idle(self) -> None:
         """Write the idle message."""
         try:
             self._log_widget().write(
-                Text("  等待下一步...", style="dim italic")
+                Text("  waiting for next step...", style="dim italic")
             )
         except Exception:
             pass
@@ -248,13 +250,13 @@ class ActivityPanel(Static):
     def _write_code_line(self, log: RichLog, line: str) -> None:
         """Write one code line, syntax-highlighted."""
         if not line.strip():
-            log.write(Text("", style="white"))
+            log.write(Text("", style="black"))
             return
         try:
-            log.write(Syntax(line, "cpp", theme="monokai",
+            log.write(Syntax(line, "cpp", theme="github-light",
                              line_numbers=False, word_wrap=False))
         except Exception:
-            log.write(Text(line, style="white"))
+            log.write(Text(line, style="black"))
 
 
 __all__ = ["ActivityPanel", "ActivityType", "StreamKind"]

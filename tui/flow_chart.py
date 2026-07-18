@@ -2,7 +2,7 @@
 
 Displays the five fixed pipeline stages horizontally with a status symbol,
 elapsed time, and a short per-stage statistic. The current (running) stage
-is highlighted in bold blinking yellow.
+is highlighted in bold blinking accent gold (#FDD100).
 
 Stages (fixed order, matching agent/main_loop.py + the design doc):
 
@@ -24,11 +24,11 @@ STAGES: list[str] = ["route", "correctness", "synth", "optimize", "submit"]
 
 # Human-readable label per stage (kept short for the horizontal layout).
 _STAGE_LABELS: dict[str, str] = {
-    "route": "路由",
+    "route": "route",
     "correctness": "correctness",
     "synth": "synth",
     "optimize": "optimize",
-    "submit": "提交",
+    "submit": "submit",
 }
 
 # Status symbol per stage state. Matches the design doc's table in §3.1.
@@ -41,10 +41,11 @@ STAGE_SYMBOLS: dict[str, str] = {
 }
 
 # Rich style per status for the stage name. The running stage additionally
-# gets `blink` so the eye is drawn to it, per the design doc.
+# gets `blink` so the eye is drawn to it, per the design doc. The accent
+# gold (#FDD100) matches the fpga-light theme spec (tui-design.md 3.5).
 _STATUS_STYLE: dict[str, str] = {
     "pending": "dim",
-    "running": "bold yellow blink",
+    "running": "bold #FDD100 blink",
     "done": "green",
     "failed": "red",
     "skipped": "dim italic",
@@ -79,7 +80,7 @@ class FlowChart(Static):
 
     Rendered as a Rich table: one row of stage boxes (symbol + label) joined
     by arrows, and one row of per-stage stats (elapsed + short statistic).
-    The running stage is highlighted in bold blinking yellow.
+    The running stage is highlighted in bold blinking accent gold.
 
     Call :meth:`update_stage` to change a stage, or :meth:`mark_current` to
     advance the "current" pointer (marking earlier running stages done).
@@ -88,7 +89,7 @@ class FlowChart(Static):
     DEFAULT_CSS = """
     FlowChart {
         height: 5;
-        border: round $primary;
+        border: round $accent;
         padding: 0 1;
     }
     """
@@ -239,7 +240,7 @@ class FlowChart(Static):
 
         # Show the "current stage" marker only while something is running.
         current_marker = (
-            Text("↑ 当前阶段", style="bold yellow")
+            Text("↑ CURRENT", style="bold #FDD100")
             if "running" in self._status.values()
             else Text("")
         )
