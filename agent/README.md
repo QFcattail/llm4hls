@@ -233,3 +233,12 @@ agent 通过 import 复用官方 harness 的以下类，定义在 `contest/fpt26
 | 双层 review（机械+LLM） | 实测 LLM self-check 漏签名变更，机械检查兜底 |
 | 存档 level 单调不减 | 评分分层（correct 门 > synth > PPA），天然映射 |
 | DeepSeek max_tokens=16384 | 推理模型 reasoning_tokens 占 max_tokens |
+
+---
+
+## 已知坑点 (Known Pitfalls)
+
+- **`knowledge-base/`（连字符）vs `knowledge_base/`（下划线）**：前者是 spec 文档目录（只有 README），后者是 Python 包（`retriever.py`，可 import）。命名差异源于"文档目录用连字符、Python 包用下划线（合法标识符）"。两者都活跃，不要删任何一个。
+- **harness import 路径**：agent 模块 import `llm4hls.*` 时，需要 `contest/fpt26-harness` 在 `sys.path` 中。`scripts/run_agent.py` 和 `tui/app.py` 都做了 `sys.path.insert`，直接在别的目录跑 agent 模块会 ImportError。
+- **DeepSeek reasoning_tokens**：推理模型的 reasoning 过程消耗 max_tokens 额度，如果设太小会截断 content。当前设 16384。
+- **空知识库**：`KnowledgeBase()` 当前实例化为空（待 P2-12 填充），`kb_search` 事件 hits=0。检索器已实现但无数据可检。

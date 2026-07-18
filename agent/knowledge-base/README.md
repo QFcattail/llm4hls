@@ -1,6 +1,10 @@
-# 知识库 (Knowledge Base)
+# 知识库 spec (Knowledge Base Spec)
 
-HLS “bug→修法”知识库。HLS 域主维护，Agent 主的检索器消费。
+HLS “bug->修法”知识库的**规格文档**目录。HLS 域主维护条目内容，Agent 主的检索器消费。
+
+> **注意**：本目录（`knowledge-base/`，连字符）只有 spec 文档，无 Python 代码。实际的检索器实现在 `agent/knowledge_base/`（下划线，Python 包），包含 `retriever.py`（`KnowledgeBase` 类 + `KBEntry` dataclass）。
+>
+> 命名差异源于：文档目录用连字符（kebab-case），Python 包用下划线（合法标识符）。两者都活跃，不要删任何一个。
 
 ## 条目 schema
 

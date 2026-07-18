@@ -1,25 +1,28 @@
 #!/usr/bin/env python3
-"""自定义网络访问工具 — 绕过 harness WebFetch 的域名验证限制。
+"""Custom web fetch tool - bypasses the harness WebFetch domain restriction.
 
-为什么有这个工具：内置 WebFetch 会因“Unable to verify if domain ... is safe to fetch”
-挡掉绝大多数域名。但本机 Bash 有完整的网络出口（curl/python urllib/pip 均可联网），
-所以写一个走 Bash 的 Python 脚本即可自由访问任意 URL。
+The built-in WebFetch blocks most domains with "Unable to verify if domain
+... is safe to fetch". But the local Bash shell has full network egress
+(curl / python urllib / pip all work), so a plain Python script using
+requests can reach any URL freely.
 
-用法:
-    # 抓取一个 URL，转 markdown 输出到 stdout
-    python3 tools/web_fetch.py fetch <url> [--prompt "问题"] [--out FILE] [--max-chars N]
+Usage:
+    # Fetch a URL, convert to markdown, print to stdout
+    python3 tools/web_fetch.py fetch <url> [--prompt "question"] [--out FILE] [--max-chars N]
 
-    # 搜索：返回若干 {title, url, snippet}
+    # Search: returns a list of {title, url, snippet}
     python3 tools/web_fetch.py search <query> [--engine bing|duckduckgo] [--n 10]
 
-    # 抓取并直接把原文存盘（不做 markdown 转换，留给别的工具处理）
+    # Fetch raw HTML and save to file (no markdown conversion)
     python3 tools/web_fetch.py raw <url> [--out FILE]
 
-设计原则:
-    - 输出到 stdout 或 --out 指定文件。大输出建议 --out，再用 Read 工具读。
-    - fetch 模式默认做 html→markdown；若给了 --prompt，会在末尾附“抽取提示”，
-      但实际抽取由调用方（LLM）读完后自己做——本工具不调 LLM。
-    - 带 User-Agent、超时、重试、跟随重定向。
+Design principles:
+    - Output goes to stdout or the file given by --out. For large output,
+      use --out then read it with the Read tool.
+    - fetch mode converts HTML to markdown by default. If --prompt is given,
+      the prompt is appended as a header hint, but actual extraction is done
+      by the caller (an LLM) after reading -- this tool never calls an LLM.
+    - Sends a User-Agent, uses timeouts, retries, and follows redirects.
 """
 from __future__ import annotations
 
@@ -33,7 +36,7 @@ from urllib.parse import quote_plus, urljoin
 try:
     import requests  # noqa: F401  used implicitly below
 except Exception:  # pragma: no cover
-    sys.stderr.write("缺少 requests，请: pip install requests\n")
+    sys.stderr.write("missing requests, run: pip install requests\n")
     sys.exit(2)
 
 try:
@@ -54,12 +57,30 @@ HEADERS = {
 
 
 def _session() -> "requests.Session":
+    """Create a requests Session with default headers (User-Agent, Accept).
+
+    Returns:
+        A configured requests.Session.
+    """
     s = requests.Session()
     s.headers.update(HEADERS)
     return s
 
 
 def _get(sess: "requests.Session", url: str, timeout: int = 20) -> "requests.Response":
+    """GET a URL with retries and redirect following.
+
+    Args:
+        sess: An active requests.Session.
+        url: The URL to fetch.
+        timeout: Per-request timeout in seconds.
+
+    Returns:
+        The requests.Response on success.
+
+    Raises:
+        RuntimeError: If all 3 retry attempts fail.
+    """
     last_err = None
     for attempt in range(3):
         try:
@@ -72,19 +93,31 @@ def _get(sess: "requests.Session", url: str, timeout: int = 20) -> "requests.Res
 
 
 def _html_to_markdown(html: str, base_url: str | None = None) -> str:
+    """Convert HTML to markdown.
+
+    Uses html2text if available; otherwise falls back to aggressive tag
+    stripping.
+
+    Args:
+        html: Raw HTML string.
+        base_url: If given, relative links are absolutized against this URL.
+
+    Returns:
+        Markdown string.
+    """
     if _HAS_H2T:
         h = html2text.HTML2Text()
-        h.body_width = 0  # 不做硬换行
+        h.body_width = 0  # no hard line wrapping
         h.ignore_images = False
         h.ignore_emphasis = False
         if base_url:
-            h.baseurl = base_url  # 让相对链接变绝对（部分版本支持）
+            h.baseurl = base_url  # make relative links absolute (some versions support this)
         md = h.handle(html)
-        # html2text 偶尔在 base_url 不生效，手工补绝对化
+        # html2text sometimes ignores base_url; fix links manually
         if base_url:
             md = _absolutize_links(md, base_url)
         return md
-    # fallback: 暴力去标签
+    # fallback: strip tags aggressively
     text = re.sub(r"<script.*?</script>", "", html, flags=re.S | re.I)
     text = re.sub(r"<style.*?</style>", "", text, flags=re.S | re.I)
     text = re.sub(r"<[^>]+>", " ", text)
@@ -94,7 +127,16 @@ def _html_to_markdown(html: str, base_url: str | None = None) -> str:
 
 
 def _absolutize_links(md: str, base_url: str) -> str:
-    # 把 ](/相对路径) 变成 ](绝对)
+    """Convert relative markdown links to absolute URLs.
+
+    Args:
+        md: Markdown text potentially containing relative links.
+        base_url: Base URL to resolve relative paths against.
+
+    Returns:
+        Markdown with all links absolutized.
+    """
+    # turn ](/relative/path) into ](absolute)
     def fix(m: "re.Match[str]") -> str:
         prefix, path = m.group(1), m.group(2)
         if re.match(r"^[a-z]+://|^mailto:|^#", path, re.I):
@@ -106,22 +148,30 @@ def _absolutize_links(md: str, base_url: str) -> str:
 
 # --------------------------------------------------------------------------- #
 def cmd_fetch(args: argparse.Namespace) -> int:
+    """Fetch a URL, convert HTML to markdown, write to stdout or --out.
+
+    Args:
+        args: Parsed argparse namespace with url, prompt, out, max_chars, timeout.
+
+    Returns:
+        0 on success.
+    """
     sess = _session()
     r = _get(sess, args.url, timeout=args.timeout)
     if r.status_code >= 400:
         sys.stderr.write(f"HTTP {r.status_code} for {r.url}\n")
-    # 尝试按编码解析（requests 可能猜错中文）
+    # requests may guess the wrong encoding for Chinese pages
     r.encoding = r.apparent_encoding or r.encoding
     html = r.text
     md = _html_to_markdown(html, base_url=r.url)
     if args.max_chars and len(md) > args.max_chars:
-        md = md[: args.max_chars] + f"\n\n…[截断，原文 {len(md)} 字符]…"
+        md = md[: args.max_chars] + f"\n\n...[truncated, original {len(md)} chars]..."
 
     out = []
     out.append(f"# Fetched: {r.url}\n")
     out.append(f"- final_url: {r.url}\n- status: {r.status_code}\n- chars: {len(md)}\n")
     if args.prompt:
-        out.append(f"\n> 抽取提示：{args.prompt}\n")
+        out.append(f"\n> Extraction hint: {args.prompt}\n")
     out.append("\n---\n\n")
     out.append(md)
 
@@ -136,6 +186,14 @@ def cmd_fetch(args: argparse.Namespace) -> int:
 
 
 def cmd_raw(args: argparse.Namespace) -> int:
+    """Fetch a URL and return raw HTML (no markdown conversion).
+
+    Args:
+        args: Parsed argparse namespace with url, out, timeout.
+
+    Returns:
+        0 on success.
+    """
     sess = _session()
     r = _get(sess, args.url, timeout=args.timeout)
     r.encoding = r.apparent_encoding or r.encoding
@@ -150,7 +208,7 @@ def cmd_raw(args: argparse.Namespace) -> int:
 
 
 def cmd_search(args: argparse.Namespace) -> int:
-    """极简搜索引擎抓取：拿结果页 HTML，正则抽 title+url+snippet。"""
+    """Minimal search engine scraper: fetch results page HTML, regex out title+url+snippet."""
     sess = _session()
     q = args.query
     if args.engine == "bing":
@@ -164,7 +222,7 @@ def cmd_search(args: argparse.Namespace) -> int:
     r.encoding = r.apparent_encoding or r.encoding
     html = r.text
     results = _parse_results(args.engine, html, r.url)
-    # 去重
+    # deduplicate
     seen = set()
     dedup = []
     for it in results:
@@ -179,9 +237,19 @@ def cmd_search(args: argparse.Namespace) -> int:
 
 
 def _parse_results(engine: str, html: str, base_url: str):
+    """Parse search engine results page HTML into a list of result dicts.
+
+    Args:
+        engine: "bing" or "duckduckgo".
+        html: Raw HTML of the search results page.
+        base_url: Base URL for resolving relative links.
+
+    Returns:
+        A list of dicts with keys "title", "url", "snippet".
+    """
     out = []
     if engine == "bing":
-        # Bing 结果块 <li class="b_algo"> ... <h2><a href=...>title</a></h2> <p>snippet</p>
+        # Bing result block: <li class="b_algo"> ... <h2><a href=...>title</a></h2> <p>snippet</p>
         for m in re.finditer(
             r'<li class="b_algo"[^>]*>(.*?)</li>', html, re.S | re.I):
             block = m.group(1)
@@ -199,7 +267,7 @@ def _parse_results(engine: str, html: str, base_url: str):
             r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>',
             html, re.S | re.I):
             url = m.group(1)
-            # ddg 的 href 是 //duckduckgo.com/l/?uddg=<encoded>
+            # ddg href is //duckduckgo.com/l/?uddg=<encoded>
             mm = re.search(r"uddg=([^&]+)", url)
             if mm:
                 from urllib.parse import unquote
@@ -216,22 +284,27 @@ def _parse_results(engine: str, html: str, base_url: str):
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="自定义网络访问工具 (绕过 harness 域名限制)")
+    """CLI entry point: parse args and dispatch to fetch/raw/search.
+
+    Returns:
+        Process exit code (0 on success, 1 on unknown command, 2 on error).
+    """
+    ap = argparse.ArgumentParser(description="Custom web fetch tool (bypasses harness domain restriction)")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p_fetch = sub.add_parser("fetch", help="抓取 URL 并转 markdown")
+    p_fetch = sub.add_parser("fetch", help="Fetch URL and convert to markdown")
     p_fetch.add_argument("url")
-    p_fetch.add_argument("--prompt", default="", help="附在输出头的抽取提示")
-    p_fetch.add_argument("--out", help="输出到文件而非 stdout")
+    p_fetch.add_argument("--prompt", default="", help="Extraction hint appended to output header")
+    p_fetch.add_argument("--out", help="Write to file instead of stdout")
     p_fetch.add_argument("--max-chars", type=int, default=60000)
     p_fetch.add_argument("--timeout", type=int, default=20)
 
-    p_raw = sub.add_parser("raw", help="抓取 URL 原文")
+    p_raw = sub.add_parser("raw", help="Fetch URL raw HTML")
     p_raw.add_argument("url")
     p_raw.add_argument("--out")
     p_raw.add_argument("--timeout", type=int, default=20)
 
-    p_search = sub.add_parser("search", help="搜索并返回结果列表(JSON)")
+    p_search = sub.add_parser("search", help="Search and return result list (JSON)")
     p_search.add_argument("query")
     p_search.add_argument("--engine", choices=["bing", "duckduckgo"], default="bing")
     p_search.add_argument("--n", type=int, default=10)

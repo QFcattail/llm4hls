@@ -28,6 +28,12 @@ from .status_bar import StatusBar
 from .tool_error_bar import ToolErrorBar
 from .task_picker import TaskPickerScreen, scan_tasks
 
+# Version is shown in the TUI title bar (PROJECT-CONVENTIONS.md section 11).
+try:
+    from agent._version import __version__ as APP_VERSION
+except ImportError:  # pragma: no cover - fallback if agent package not on path
+    APP_VERSION = "unknown"
+
 
 class QuitConfirmScreen(ModalScreen):
     """Confirmation dialog for quitting: 'q' shows this, not instant quit."""
@@ -119,7 +125,7 @@ class AgentDashboard(App):
         self._tool_start_time: float = 0  # when the tool started
 
     def compose(self) -> ComposeResult:
-        yield Header(name="FPGA Agent Dashboard")
+        yield Header(name=f"FPGA Agent Dashboard v{APP_VERSION}")
         with Vertical(id="dashboard"):
             yield FlowChart()
             yield ToolErrorBar()

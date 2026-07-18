@@ -1,18 +1,23 @@
 # 开发文档中心 (Development Documentation Hub)
 
-本目录存放项目管理和工程过程相关的所有文档。目标是：**即使开发者中途更换，接手的人也能零压力地看懂“现在做到哪一步、为什么这么设计、接下来要做什么”**。
+本目录存放项目管理和工程过程相关的所有文档。目标是：**即使开发者中途更换，接手的人也能零压力地看懂"现在做到哪一步、为什么这么设计、接下来要做什么"**。
+
+完整的工程规范见 [`PROJECT-CONVENTIONS.md`](PROJECT-CONVENTIONS.md)（目录结构、SDLC、文档/代码规范、人机协作模型、Git 提交规范）。
 
 ## 目录结构说明 (Folder Structure)
 
 | 目录 | 内容 | 谁会看 |
 |---|---|---|
+| [`PROJECT-CONVENTIONS.md`](PROJECT-CONVENTIONS.md) | 项目工程规范总纲（目录结构、SDLC、文档/代码规范、人机协作模型） | 所有人，**必读** |
+| [`runtime-constraints.md`](runtime-constraints.md) | 运行环境硬约束（机器归属、赛题规则、Vitis 环境、版本号）--**违反会导致卡死或返工** | 所有人，动手前必读 |
 | [`requirements/`](requirements/) | 需求分析：赛道要求拆解 + 评审记录 | 所有人，尤其是新接手的人 |
-| [`design/`](design/) | 详细设计：agent 架构、知识库 schema、控制循环 | 开发者 |
+| [`design/`](design/) | 详细设计：agent 架构、TUI 设计、知识库 schema、控制循环 | 开发者 |
 | [`engineering-plan/`](engineering-plan/) | 工程计划：阶段划分 + 原子任务清单，**项目进度的唯一真相来源** | 所有人，最高频访问 |
 | [`dev-log/`](dev-log/) | 开发日志：按时间顺序记录每次开发会话做了什么、遇到什么问题、如何解决 | 所有人 |
 | [`reviews/`](reviews/) | 需求评审、设计评审的记录 | 所有人 |
 | [`test-plan/`](test-plan/) | 测试用例与测试策略 | 开发/测试 |
-| [`internal-notes/`](internal-notes/) | 探索性笔记、临时决策、踩坑记录，不追求排版精美，但要真实 | 仅开发者自己 |
+| [`internal-notes/`](internal-notes/) | 探索性笔记、临时决策、踩坑记录、技术债清单，不追求排版精美，但要真实 | 仅开发者自己 |
+| [`notes/`](notes/) | 外部背景资料库（论文、工具文档、赛题资料），不随项目进度变化 | 开发者，按需查阅 |
 
 ## 软件工程流程 (SDLC Process)
 
@@ -27,8 +32,10 @@ flowchart LR
     E --> F[总结文档/README\nSummary & README]
 ```
 
-- 需求分析和详细设计都要写到“细到不能再细”，并经过评审（记录在 `reviews/`）。
+- 需求分析和详细设计都要写到"细到不能再细"，并经过评审（记录在 `reviews/`）。
+- 测试用例在详细设计完成后就要写好，覆盖所有功能点；纯 GUI 才能验证的部分如果没有自动化手段，会在用例中明确标注"人工验证 (M)"，不假装能自动化测试。
 - 每完成一个阶段/一个原子任务，都会执行一次 git 提交并推送到 Gitee 远程仓库。
+- 每进入一个新阶段时，先细化该阶段的原子任务，不要在项目一开始就把所有阶段的任务都列出来。
 
 ## 工程计划与原子任务 (Engineering Plan & Atomic Tasks)
 
@@ -40,7 +47,7 @@ flowchart LR
 
 ### 代码注释规范
 
-- 统一用 `/** ... */` 块注释（Javadoc 风格），含 `@param`、`@return` 等标签（即使不是 Java，C/Python/JS 都用这种风格）。
+- 统一用 **Google style** docstring：模块/类/函数上方用三引号字符串 `"""..."""`，用 `Args:`、`Returns:`、`Raises:`、`Attributes:` 等段落标签（即使不是 Python 项目的语言也统一采用类似的段落式注释风格）。
 - **所有代码注释必须是纯 ASCII 英文**，避免跨平台（尤其 Windows）编码问题。
 
 ### 代码配套文档规范

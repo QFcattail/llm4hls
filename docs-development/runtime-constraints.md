@@ -170,3 +170,41 @@ harness 提供 `vitis.dockerfile`（Vitis 2025.2 环境）和 `run-vitis.sh`（�
 | 2. 工具调用预算额度 | ✅ 已解决 | csim=1 / synth=4 / cosim=20 credits，每题 task.toml 定义 |
 | 3. 隐藏测试集规模/难度 | ✅ 部分解决 | harness 给 3 道公开示例题，隐藏集结构同此 |
 | 4. Docker harness 规范 | ✅ 已解决 | harness 提供 vitis.dockerfile + run-vitis.sh |
+
+---
+
+## 七、AI 操作约束 (AI Operating Constraints)
+
+> 任何 AI/人在动手前必须遵守以下纪律，违反会导致返工或误操作。
+
+- **没做之前先读**：动手前先读 `requirements/`、`design/`、本约束、最新 `dev-log/`，不要基于假设操作。
+- **写日志**：每完成一段实质工作，立刻补 `dev-log/`（模板见 `dev-log/README.md`），不要攒。
+- **不擅自动手前先确认**：网络端口、安全降级、设备归属、服务器配置等约束类决策，先和用户确认。
+- **不擅自推进阶段**：P1 评审没过，不偷偷开始 P2。阶段推进需用户/评审确认。
+- **状态变更后验证**：TUI 状态变更后截图确认实际渲染（如可用），不只靠日志推断 UI。
+
+---
+
+## 八、版本号与界面截图 (Versioning & UI Screenshots)
+
+### 8.1 版本号每次发布必更新（硬约束）
+
+- 所有带界面的子项目，每次重新构建/部署前必须 bump 版本号，否则无法辨认跑的是新版还是旧版。
+- 本项目版本号定义在 `agent/_version.py` 的 `__version__`，语义化版本（SemVer）格式 `MAJOR.MINOR.PATCH`。
+
+| 改动类型 | bump 幅度 |
+|---|---|
+| 修了影响运行时行为的代码 | 至少 patch +1 |
+| 新功能 | minor +1 |
+| 仅文档/注释 | 可不 bump |
+
+### 8.2 界面显示版本号
+
+本项目的 TUI 仪表盘（`tui/`）是唯一带界面的子系统，**必须**在标题栏显示版本号。当排查问题时，版本号是确认"跑的是哪个版本"的唯一可靠途径。
+
+### 8.3 截图与读图
+
+TUI 运行在终端，无 GUI 截图需求。如需确认 TUI 渲染状态：
+- 在终端运行 `./run.sh` 或 `python3 fpga-agent.py`，直接观察终端输出。
+- 如需记录：用 `script` 命令录制终端会话，或终端截图工具。
+- 当前环境无 headless GUI 截图需求（Vitis csim/synth/cosim 是命令行工具，输出为日志/报告）。

@@ -1,63 +1,82 @@
-
-**/api_keys.*
-*.as
+# ---- General ----
+*.log
+*.tmp
 *.bak
-build/
+*.dat
+*.db
+*.pcap
+*.sqlite
+*.sqlite3
+.DS_Store
+Thumbs.db
+
+# ---- Editors / IDE ----
+.vscode/
+.idea/
+*.swp
+
+# ---- Python (agent, tools) ----
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
 *.cache/
 .cache/
 .cache_*/
-**/csim/
-*.dat
-*.db
-dist/
-.DS_Store
-# ---- Editors / IDE ----
-**/.env
-.env
-.env.*
-# ---- General ----
-**/hls_*.prj/
-*.hw/
-.idea/
-**/impl/
-*.ip_user_files/
-*.jou
-**/*.key
-# ---- Local debug artifacts ----
-# ---- Local LLM / agent caches ----
-*.log
+
 # ---- Node.js (if any tooling) ----
 node_modules/
 npm-debug.log*
-*.pcap
-**/*.pem
-**/*.pfx
-!**/*.pub.key
-*.pyc
-__pycache__/
-*.pyo
-# ---- Python (agent, tools) ----
-runs/
-**/secrets.*
+yarn-debug.log*
+yarn-error.log*
+dist/
+build/
+
+# ---- Windows / Visual Studio ----
+*.obj
+*.pdb
+*.exe
+*.dll
+x64/
+x86/
+Debug/
+Release/
+
 # ---- Secrets (never commit) ----
+.env
+.env.*
+**/.env
+**/api_keys.*
+**/secrets.*
+**/*.pfx
+**/*.pem
+**/*.key
+!**/*.pub.key
+config.local.*
+
+# ---- Local debug artifacts ----
+tmp/
+
+# ---- Vitis HLS / Vivado build artifacts ----
+**/csim/
+**/hls_*.prj/
+*.hw/
+**/impl/
+*.ip_user_files/
+*.jou
 **/sim/
 **/solution*/
-*.sqlite
-*.sqlite3
-*.swp
 **/syn/
-Thumbs.db
-*.tmp
-tmp/
 *.vcd
-.venv/
-venv/
-# ---- Vitis HLS / Vivado build artifacts ----
-.vscode/
 *.wdb
-.Xil/
 *.xvcd
-.env
-config.local.*
-.env
-config.local.*
+.Xil/
+*.as
+
+# ---- Local LLM / agent caches ----
+runs/*
+!runs/README.md
+
+# ---- ZCode agent internals ----
+.zcode/
