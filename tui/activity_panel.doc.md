@@ -3,7 +3,7 @@
 ## 中文说明
 
 ### 用途
-区域 C 中部主视觉 widget，用单一 RichLog 展示 agent 当前活动：LLM 调用时思维链 + 代码在同一流中交错输出，工具调用时输出工具日志，空闲时显示"等待下一步..."。
+区域 C 中部主视觉 widget，用单一 RichLog 展示 agent 当前活动：LLM 调用时思维链 + 代码在同一流中交错输出，工具调用时输出工具日志，空闲时显示"waiting for next step..."。
 
 ### 关键类/函数
 | 名称 | 类型 | 职责 |
@@ -18,7 +18,7 @@
 | ActivityPanel.show_tool_errors(log_text, phase) | method | 解析工具日志，显示错误总数 + 前 5 条错误行 |
 | ActivityPanel.clear_log() | method | 清空日志 |
 | ActivityPanel.refresh_title() | method | 仅重渲染标题行（周期 tick 调用） |
-| ActivityPanel._write_code_line(log, line) | method | 写入单行代码，用 `Syntax(line, "cpp", theme="monokai")` 高亮，失败回退纯文本 |
+| ActivityPanel._write_code_line(log, line) | method | 写入单行代码，用 `Syntax(line, "cpp", theme="github-light")` 高亮（v3 起从 monokai 换掉，配合白底），失败回退纯文本 |
 
 ### 导出
 ```python
@@ -30,7 +30,7 @@ __all__ = ["ActivityPanel", "ActivityType", "StreamKind"]
 - 外部依赖：标准库 `re`/`time`/`typing`；`textual`（ComposeResult/Vertical/Static/RichLog）；`rich.syntax.Syntax`、`rich.text.Text`
 
 ### 关键设计点
-1. **思维链与代码合并到同一 RichLog**：不再分两个 panel（设计文档 v2 变更），避免宽度问题；thinking 用 dim italic，code 用 monokai 高亮，连续输出。
+1. **思维链与代码合并到同一 RichLog**：不再分两个 panel（设计文档 v2 变更），避免宽度问题；thinking 用 dim italic（灰色，v3 浅色主题下保持不变），code 用 `github-light` 高亮（v3 起，配合白底），连续输出。普通日志文字用黑色（原白色，v3 白底主题改掉），活动标题用主题色 `#587559`。
 2. **逐 token 实时反馈**：thinking 的部分行通过独立 Static（`#ap-thinking-live`）每个 token 覆盖刷新（截取最后 200 字符），完整行（遇 `\n`）才写入 RichLog 保留；content 行缓冲遇 `\n` 才写。这避免了"每个 token 单独一行"的问题。
 3. **三类模式共用同一日志体**：llm/tool/mechanical/idle 共享一个 RichLog，`set_activity` 时清空重置，状态机简单。
 
@@ -39,7 +39,7 @@ __all__ = ["ActivityPanel", "ActivityType", "StreamKind"]
 ## English
 
 ### Purpose
-Region C middle main-visual widget: uses a single RichLog to show the agent's current activity - interleaving thinking + code in one stream during LLM calls, showing tool logs during tool calls, and "等待下一步..." when idle.
+Region C middle main-visual widget: uses a single RichLog to show the agent's current activity - interleaving thinking + code in one stream during LLM calls, showing tool logs during tool calls, and "waiting for next step..." when idle.
 
 ### Key Classes/Functions
 | Name | Type | Responsibility |
@@ -54,7 +54,7 @@ Region C middle main-visual widget: uses a single RichLog to show the agent's cu
 | ActivityPanel.show_tool_errors(log_text, phase) | method | Parses a tool log and shows total error count + top 5 error lines |
 | ActivityPanel.clear_log() | method | Clears the log |
 | ActivityPanel.refresh_title() | method | Re-renders only the title line (called from periodic tick) |
-| ActivityPanel._write_code_line(log, line) | method | Writes one code line with `Syntax(line, "cpp", theme="monokai")`, falling back to plain text on failure |
+| ActivityPanel._write_code_line(log, line) | method | Writes one code line with `Syntax(line, "cpp", theme="github-light")` (switched from monokai in v3 for the white background), falling back to plain text on failure |
 
 ### Exports
 ```python
@@ -66,6 +66,6 @@ __all__ = ["ActivityPanel", "ActivityType", "StreamKind"]
 - External: stdlib `re`/`time`/`typing`; `textual` (ComposeResult/Vertical/Static/RichLog); `rich.syntax.Syntax`, `rich.text.Text`
 
 ### Key Design Points
-1. **Thinking and code merged into one RichLog**: no longer split into two panels (design-doc v2 change) to avoid width issues; thinking uses dim italic, code uses monokai highlighting, output continuously.
+1. **Thinking and code merged into one RichLog**: no longer split into two panels (design-doc v2 change) to avoid width issues; thinking uses dim italic (gray, unchanged under the v3 light theme), code uses `github-light` highlighting (since v3, for the white background), output continuously. Plain log text is black (was white before v3), and the activity title uses the theme primary `#587559`.
 2. **Per-token live feedback**: the partial thinking line is overwritten each token via a dedicated Static (`#ap-thinking-live`, last 200 chars), and only complete lines (on `\n`) are written to the RichLog; content is line-buffered and written on `\n`. This avoids the "each token on its own line" problem.
 3. **Three modes share one log body**: llm/tool/mechanical/idle share a single RichLog; `set_activity` clears and resets it, keeping the state machine simple.

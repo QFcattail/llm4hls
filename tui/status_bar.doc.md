@@ -9,8 +9,8 @@
 | 名称 | 类型 | 职责 |
 |---|---|---|
 | _BAR_WIDTH | int (=20) | credit 进度条字符宽度 |
-| _NONE | str ("(无)") | 无错误/无 review 时的占位符，保持布局稳定 |
-| _PASS_REVIEWS | set[str] | 视为通过的 review verdict（pass/ok/accept/accepted/(无)），显示为绿色 |
+| _NONE | str ("(none)") | 无错误/无 review 时的占位符，保持布局稳定（v3 起从中文占位符改掉） |
+| _PASS_REVIEWS | set[str] | 视为通过的 review verdict（pass/ok/accept/accepted/(none)），显示为绿色 |
 | _SUMMARY_CAP | int (=40) | last_error/last_review 摘要长度上限，防第 2 行换行 |
 | _truncate(text, cap) | function | 超长截断加省略号 |
 | _credit_bar(spent, total) | function | 构造可视化进度条（`█`/`░`），返回 (bar Text, remaining)；total<=0 时返回空条避免除零 |
@@ -35,6 +35,7 @@ __all__ = ["StatusBar"]
 2. **覆写 render 避免竞态**：与 FlowChart 相同，`update` 只改字段再 `refresh()`，由 Textual 在自己的 console 上下文里渲染，规避 `Static.update` 首次布局前的 None-visual 竞态。
 3. **设计文档 §3.3 对齐**：字段语义对应 `docs-development/design/tui-design.md` §3.3 与 agent 可观测字段（credit 来自 Budget、token 来自 DeepSeekClient、last_error 来自 tool_result、last_review 来自 review 事件）。注意设计文档区域 D 现为 2 行（原第 3 行"上次工具报错"已移至独立区域 B/ToolErrorBar）。
 4. **向后兼容别名**：`update_state` 保留给旧调用方（如 `app.py`），并做 `stage_tool_calls -> stage_calls` 命名迁移。
+5. **v3 配色与文案**：credits 文字用主题色 `#587559`、进度条填充用强调金色 `#FDD100`、统计文字用黑色（`fpga-light` 白底主题，见设计文档 §3.5）；两行文案为英文（`credits: s/t left N`、`stage: tools X, reviews Y │ total LLM: N calls │ last review: ...`）。
 
 ---
 
@@ -47,8 +48,8 @@ Region D bottom resource-panel widget (fixed 2 content rows + border): shows the
 | Name | Type | Responsibility |
 |---|---|---|
 | _BAR_WIDTH | int (=20) | Character width of the credit progress bar |
-| _NONE | str ("(无)") | Sentinel for no-error/no-review, keeping layout stable |
-| _PASS_REVIEWS | set[str] | Verdicts treated as passing (pass/ok/accept/accepted/(无)), shown in green |
+| _NONE | str ("(none)") | Sentinel for no-error/no-review, keeping layout stable (English since v3) |
+| _PASS_REVIEWS | set[str] | Verdicts treated as passing (pass/ok/accept/accepted/(none)), shown in green |
 | _SUMMARY_CAP | int (=40) | Length cap for last_error/last_review summaries to prevent line 2 from wrapping |
 | _truncate(text, cap) | function | Truncates overlong text with an ellipsis |
 | _credit_bar(spent, total) | function | Builds the visual bar (`█`/`░`); returns (bar Text, remaining); renders empty bar when total<=0 to avoid divide-by-zero |
@@ -73,3 +74,4 @@ __all__ = ["StatusBar"]
 2. **Override render to avoid the race**: like FlowChart, `update` only mutates fields then calls `refresh()`; Textual renders in its own console context, sidestepping the None-visual race that `Static.update` hits before the first layout pass.
 3. **Aligned with design doc §3.3**: field semantics map to `docs-development/design/tui-design.md` §3.3 and the agent's observability fields (credits from Budget, tokens from DeepSeekClient, last_error from tool_result, last_review from review events). Note that design-doc region D is now 2 lines (the original third "last tool error" line moved to the standalone region B / ToolErrorBar).
 4. **Back-compat alias**: `update_state` is kept for older callers (e.g. `app.py`) and migrates the `stage_tool_calls -> stage_calls` name.
+5. **v3 colors and text**: credits text uses the theme primary `#587559`, the bar fill uses accent gold `#FDD100`, and stat text is black (the `fpga-light` white-background theme, design doc §3.5); both lines are in English (`credits: s/t left N`, `stage: tools X, reviews Y │ total LLM: N calls │ last review: ...`).

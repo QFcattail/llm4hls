@@ -13,12 +13,12 @@
 | _TESTCASE_RE | re.Pattern | 匹配 `Test Case ... fail/Failed/FAIL` 测试用例失败行 |
 | _GENERIC_ERROR_RE | re.Pattern | 匹配含 `ERROR/error/Error:` 的通用错误行 |
 | _NOISE_RE | re.Pattern | 排除 INFO/WARNING/Resolution 等噪声行 |
-| _MAX_ERRORS_SHOWN | int (=5) | 最多显示的错误行数，超出显示"...还有 N 个错误" |
+| _MAX_ERRORS_SHOWN | int (=5) | 最多显示的错误行数，超出显示"...and N more errors" |
 | ToolErrorBar | class(Static) | 固定高度（7）的错误栏 widget |
 | ToolErrorBar.show_result(kind, phase, ok, elapsed=0, log="") | method | 更新栏内容：ok 时显示绿色成功行；失败时解析错误行并展示前 5 条，无结构化错误则回退显示日志尾部 3 行 |
 | ToolErrorBar._extract_errors(log) | method | 从日志提取错误行（去重、保序，跳过噪声行） |
-| ToolErrorBar.clear_bar() | method | 重置为空状态（"等待工具调用..."） |
-| ToolErrorBar.show_running(kind, elapsed=0) | method | 工具运行中状态：显示 `🔄 [kind] 正在运行 {label}... 已耗时 {elapsed}s`，label 按 kind 映射中文（csim->C 仿真/synth->综合/cosim->协同仿真） |
+| ToolErrorBar.clear_bar() | method | 重置为空状态（"waiting for tool call..."） |
+| ToolErrorBar.show_running(kind, elapsed=0) | method | 工具运行中状态：显示 `🔄 [kind] running {label}... elapsed {elapsed}s`（强调金色 `#FDD100`），label 按 kind 映射英文（csim->C simulation/synth->synthesis/cosim->co-simulation） |
 
 ### 导出
 本模块**无** `__all__`；`ToolErrorBar` 需直接 `from tui.tool_error_bar import ToolErrorBar` 导入，且不在 `tui/__init__.py` 的导出中。
@@ -47,12 +47,12 @@ Region B (between the flow chart and the activity panel) fixed-height tool error
 | _TESTCASE_RE | re.Pattern | Matches `Test Case ... fail/Failed/FAIL` test-case failure lines |
 | _GENERIC_ERROR_RE | re.Pattern | Matches generic lines containing `ERROR/error/Error:` |
 | _NOISE_RE | re.Pattern | Excludes INFO/WARNING/Resolution noise lines |
-| _MAX_ERRORS_SHOWN | int (=5) | Max error lines shown; beyond that shows "...还有 N 个错误" |
+| _MAX_ERRORS_SHOWN | int (=5) | Max error lines shown; beyond that shows "...and N more errors" |
 | ToolErrorBar | class(Static) | Fixed-height (7) error-bar widget |
 | ToolErrorBar.show_result(kind, phase, ok, elapsed=0, log="") | method | Updates the bar: on ok shows a green success line; on failure parses error lines and shows the top 5, falling back to the last 3 log lines if no structured errors found |
 | ToolErrorBar._extract_errors(log) | method | Extracts error lines from a log (deduplicated, order preserved, noise skipped) |
-| ToolErrorBar.clear_bar() | method | Resets to empty state ("等待工具调用...") |
-| ToolErrorBar.show_running(kind, elapsed=0) | method | Running state: shows `🔄 [kind] 正在运行 {label}... 已耗时 {elapsed}s`; label maps kind to Chinese (csim->C 仿真/synth->综合/cosim->协同仿真) |
+| ToolErrorBar.clear_bar() | method | Resets to empty state ("waiting for tool call...") |
+| ToolErrorBar.show_running(kind, elapsed=0) | method | Running state: shows `🔄 [kind] running {label}... elapsed {elapsed}s` (accent gold `#FDD100`); label maps kind to English (csim->C simulation/synth->synthesis/cosim->co-simulation) |
 
 ### Exports
 This module has **no** `__all__`; import `ToolErrorBar` directly via `from tui.tool_error_bar import ToolErrorBar`. It is not re-exported by `tui/__init__.py`.
