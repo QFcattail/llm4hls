@@ -35,7 +35,7 @@ CLI 选项：`--backend {scripted,deepseek,openrouter}`、`--budget N`、`--work
 | `mechanical_checks.py` | **眼** | 硬性检查：签名变没变、include 在不在（不信任 LLM 的地方） |
 | `deepseek_client.py` | **嘴** | DeepSeek V4 Pro API 对接（OpenAI 兼容，推理模型，记 token） |
 | `observability.py` | **日记** | JSONL 结构化日志 + 心跳线程（卡死检测） |
-| `knowledge_base/` | **字典** | bug→修法知识库，按错误码/关键词检索注入 prompt |
+| `knowledge_base/` | **字典** | bug→修法知识库，按错误码/关键词检索注入 prompt；`entries.py` 含 7 条种子条目 |
 | `__init__.py` | | 包入口，导出 route/RunPlan/Checkpoint/Level |
 
 ---
@@ -50,11 +50,12 @@ run_agent.py (driver/CLI)
   │       ├── agent.router.route(task) → RunPlan                   │
   │       ├── agent.checkpoint.Checkpoint (存档判定)                │
   │       ├── agent.feedback.build_feedback(results) → Feedback    │
-  │       ├── agent.llm_client.HLSLLMClient                        │
-  │       │       ├── .repair(task, code, feedback, kb_text)       │
-  │       │       ├── .review(task, code, focus)                   │
-  │       │       ├── .propose_strategies(...)  [P4]               │
-  │       │       └── .apply_strategy(...)     [P4]               │
+│       ├── agent.llm_client.HLSLLMClient                        │
+│       │       ├── .repair(task, code, feedback, kb_text)       │
+│       │       ├── .review(task, code, focus)                   │
+│       │       ├── .extract_design_brief(task, code)            │
+│       │       ├── .propose_strategies(task, code, synth, brief)│
+│       │       └── .apply_strategy(task, code, strategy, brief) │
   │       │       │                                                │
   │       │       └── 注入 backend (DeepSeekClient / ScriptedClient)│
   │       │                                                        │
@@ -108,7 +109,7 @@ run_agent.py (driver/CLI)
 
 ---
 
-## 核心数据流（projection 题实测）
+## 核心数据流（projection 题实测 + v0.2.0 补全的 synth/optimize 段）
 
 ```
 route(task) → RunPlan{repair, [csim], init_level=0}
@@ -116,7 +117,7 @@ route(task) → RunPlan{repair, [csim], init_level=0}
   ▼ _reach_correctness:
   csim(code) → runtime_fail         ← Vitis 真跑出来 (9.7s)
   build_feedback(csim_r) → Feedback{runtime_fail, signatures=[]}
-  _kb_lookup(fb) → ""               ← KB 空
+  _kb_lookup(fb) → ""               ← 无命中则空串
   _repair_with_review:
     llm.repair(task, code, fb_text, "") → new_code     ← DeepSeek 修复
     mechanical_review(orig, new_code, task) → (True)    ← 签名未变
@@ -125,11 +126,23 @@ route(task) → RunPlan{repair, [csim], init_level=0}
   ckpt.should_accept(CORRECT, None) → True
   ckpt.accept(new_code, CORRECT)    ← 存档 0→1
   │
-  ▼ _do_synth:
-  synth(ckpt.code) → pass, latency
-  ckpt.accept(ckpt.code, SYNTH, latency)  ← 存档 1→2
+  ▼ _do_synth (v0.2.0: 修复循环):
+  synth(ckpt.code) → synth_error?
+    ├─ 是 → build_feedback → _kb_lookup(命中种子条目) → _repair_with_review
+    │       → 重验 csim(1 credit) → 过才再 synth(4 credits)   [§4.3]
+    └─ 否 → ckpt.accept(ckpt.code, SYNTH, latency)  ← 存档 1→2 + 记 synth_summary
   │
-  ▼ _optimize: (P4 实现，当前 stub)
+  ▼ _optimize (v0.2.0: 完整实现):
+  快照 ckpt（§4.5 回滚点）
+  extract_design_brief(task, code) → 设计摘要（一次缓存）     [AMD Phase 1]
+  每轮: propose_strategies(设计文档+摘要+最新 synth 报告)     [AMD Phase 2]
+        → 取第一个策略 → apply_strategy                       [AMD Phase 3]
+        → _apply_with_review 双闸门
+        → 重验 csim + synth → should_accept(SYNTH, lat) 同级择优
+        → 无改进 / 预算不足 / 满 4 轮 → 停
+  │
+  ▼ (需要 cosim 的题) _post_opt_cosim_recheck:
+  best 变过才回验；cosim 失败 → 真回滚到优化前快照            [§4.5]
   │
   ▼ return ckpt.code → grade() → SCORE 1.400
 ```
@@ -142,14 +155,17 @@ route(task) → RunPlan{repair, [csim], init_level=0}
 
 | 方法 | 可见性 | 职责 |
 |---|---|---|
-| `__init__(task, server, llm, kb, max_rounds, run_dir)` | public | 注入依赖 |
+| `__init__(task, server, llm, kb, max_rounds, max_synth_rounds, max_optimize_rounds, run_dir)` | public | 注入依赖 + 跨阶段状态（synth_summary/design_brief/快照） |
 | `run() -> str` | public | 入口：路由 → correctness → synth → optimize → 返回 best code |
 | `_run_plan(plan, ckpt) -> str` | private | 按 RunPlan 执行三阶段 |
 | `_reach_correctness(plan, ckpt) -> bool` | private | 阶段1：csim（+cosim）修复循环 |
 | `_repair_with_review(code, feedback, kb_text) -> str\|None` | private | 生成修复 + 机械检查 + LLM review 双层验证 |
-| `_do_synth(plan, ckpt) -> int\|None` | private | 阶段2：synth 拿 baseline latency |
-| `_optimize(plan, ckpt)` | private | 阶段3：PPA 优化循环（P4） |
-| `_post_opt_cosim_recheck(ckpt)` | private | structural 题优化后回验 cosim |
+| `_do_synth(plan, ckpt) -> int\|None` | private | 阶段2：synth 修复循环（RAG+重验 csim 再 synth），拿 baseline latency |
+| `_valid_latency(report) -> int\|None` | private(static) | latency<=0 视为缺失（latency=0 解析异常防御） |
+| `_optimize(plan, ckpt)` | private | 阶段3：PPA 优化循环（AMD Phase 1-3 + 重验 + 同级择优） |
+| `_apply_with_review(code, strategy) -> str\|None` | private | Phase 3 生成 + 双层验证（apply_strategy 变体） |
+| `_post_opt_cosim_recheck(ckpt)` | private | 需 cosim 题优化后回验，失败真回滚快照 |
+| `_restore_snapshot(ckpt, snap)` | private(static) | 快照整体恢复（§4.5） |
 | `_kb_lookup(fb) -> str` | private | 查知识库，返回命中条目文本 |
 
 ### router
@@ -178,8 +194,9 @@ route(task) → RunPlan{repair, [csim], init_level=0}
 |---|---|
 | `repair(task, code, feedback, kb_text) -> str\|None` | 让 LLM 修复代码 |
 | `review(task, code, focus) -> (bool, str)` | 交叉验证候选代码 |
-| `propose_strategies(task, code, synth) -> list[Strategy]` | AMD Phase 2：提优化策略 |
-| `apply_strategy(task, code, strategy) -> str\|None` | AMD Phase 3：按策略生成代码 |
+| `extract_design_brief(task, code) -> str` | AMD Phase 1：提炼设计摘要（功能/循环/数据流/瓶颈），optimize 前调一次缓存 |
+| `propose_strategies(task, code, synth_summary, design_brief) -> list[Strategy]` | AMD Phase 2：注入设计文档+摘要+报告，提优化策略 |
+| `apply_strategy(task, code, strategy, design_brief) -> str\|None` | AMD Phase 3：按策略生成代码 |
 
 ### mechanical_checks
 
@@ -206,6 +223,7 @@ route(task) → RunPlan{repair, [csim], init_level=0}
 | 方法 | 职责 |
 |---|---|
 | `KnowledgeBase.search(signatures) -> list[KBEntry]` | 按错误码/关键词检索条目 |
+| `seed_entries() -> list[KBEntry]` | 7 条种子条目（synth 4 + cosim 1 + csim 2），入口默认装载 |
 
 ---
 
@@ -233,12 +251,17 @@ agent 通过 import 复用官方 harness 的以下类，定义在 `contest/fpt26
 | 双层 review（机械+LLM） | 实测 LLM self-check 漏签名变更，机械检查兜底 |
 | 存档 level 单调不减 | 评分分层（correct 门 > synth > PPA），天然映射 |
 | DeepSeek max_tokens=16384 | 推理模型 reasoning_tokens 占 max_tokens |
+| optimize 先提取设计摘要再改 | AMD Phase 1：不给设计上下文，LLM 只给泛泛建议（v0.2.0） |
+| synth 修复先重验 csim 再 synth | 1 credit 比 4 credits 便宜；改 synth 可能破坏正确性（§5） |
+| 优化后 cosim 失败真回滚快照 | 曾只记日志不恢复，会带着死锁提交（§4.5，v0.2.0 修） |
 
 ---
 
 ## 已知坑点 (Known Pitfalls)
 
-- **`knowledge-base/`（连字符）vs `knowledge_base/`（下划线）**：前者是 spec 文档目录（只有 README），后者是 Python 包（`retriever.py`，可 import）。命名差异源于"文档目录用连字符、Python 包用下划线（合法标识符）"。两者都活跃，不要删任何一个。
-- **harness import 路径**：agent 模块 import `llm4hls.*` 时，需要 `contest/fpt26-harness` 在 `sys.path` 中。`scripts/run_agent.py` 和 `tui/app.py` 都做了 `sys.path.insert`，直接在别的目录跑 agent 模块会 ImportError。
+- **`knowledge-base/`（连字符）vs `knowledge_base/`（下划线）**：前者是 spec 文档目录（只有 README），后者是 Python 包（`retriever.py` + `entries.py`，可 import）。命名差异源于"文档目录用连字符、Python 包用下划线（合法标识符）"。两者都活跃，不要删任何一个。
+- **harness import 路径**：agent 模块 import `llm4hls.*` 时，需要 `contest/fpt26-harness` 在 `sys.path` 中。`scripts/run_agent.py`、`scripts/test_main_loop.py` 和 `tui/app.py` 都做了 `sys.path.insert`，直接在别的目录跑 agent 模块会 ImportError。
 - **DeepSeek reasoning_tokens**：推理模型的 reasoning 过程消耗 max_tokens 额度，如果设太小会截断 content。当前设 16384。
-- **空知识库**：`KnowledgeBase()` 当前实例化为空（待 P2-12 填充），`kb_search` 事件 hits=0。检索器已实现但无数据可检。
+- **KB 检索签名必须是短串**：检索器做整串子串匹配，`build_feedback` 产出的是错误码（`[XFORM 203-313]`）+ 关键词（`deadlock`）级短签名；整句查询永远不中。条目 signatures 同样只放短串（见 entries.py 注释）。
+- **种子 KB 默认装载**：`run_agent.py` 与 `tui/app.py` 都用 `KnowledgeBase(seed_entries())`（7 条）。P2-12 扩充时直接往 `entries.py` 加，别改两处入口。
+- **synth latency=0 解析异常**：真机出现过 synth 过但 latency=0。`Agent._valid_latency` 把 <=0 当缺失——若拿掉这层防御，"0 周期"会在同级 latency 比较中永远获胜并污染存档。根因待真机排查（dev-log 2026-07-17-01 遗留）。

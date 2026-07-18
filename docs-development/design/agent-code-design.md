@@ -86,8 +86,11 @@ Agent.run() ──► _reach_correctness ──► ToolServer.csim(code)
     ▼ (correctness 达标)               │
   _do_synth ──► ToolServer.synth(code)─┘
     │
-    ▼ (synth 过)
-  _optimize (P4) ──► propose_strategies + apply_strategy + 重验
+    ▼ (synth 过，修复循环保 correctness 重验)
+  _optimize ──► extract_design_brief(缓存) + propose_strategies + apply_strategy
+    │           + 双闸门 review + csim/synth 重验 + 同级 latency 择优
+    ▼ (需要 cosim 的题)
+  _post_opt_cosim_recheck ──► 失败真回滚到优化前快照
     │
     ▼
   return ckpt.code ──► grade() ──► Scorecard
@@ -107,6 +110,10 @@ Agent.run() ──► _reach_correctness ──► ToolServer.csim(code)
 | DeepSeek max_tokens=16384 | 推理模型 reasoning_tokens 占 max_tokens，太小会截断（17×23 就花 59 reasoning tokens） | 实测发现 |
 | 交叉验证暂不计 token | 第一次迭代只追正确性，token 优化是第二次迭代 | 用户决策 |
 | 功能 pattern 检索留到第二次迭代 | 实现复杂度高，先靠错误签名匹配跑通闭环 | 用户决策 |
+| optimize 先提取设计摘要再改（extract_design_brief） | AMD Phase 1：不给设计上下文，LLM 只给泛泛建议；"先提取设计文档，然后改进" | 用户决策 2026-07-18 |
+| synth 修复先重验 csim 再 synth | 1 credit 比 4 credits 便宜；改 synth 可能破坏 correctness（§5） | 架构 v2.3 |
+| 策略选择取第一个 | 第一次迭代固定启发式，LLM 倾向把最有把握的排最前；每轮重新 propose | 架构 v2.3 |
+| 优化后 cosim 失败真回滚快照 | 原实现只记日志不恢复，会带死锁提交；快照含 code/level/latency/cosim_ok | 实测发现（代码评审） |
 
 ---
 
@@ -114,5 +121,6 @@ Agent.run() ──► _reach_correctness ──► ToolServer.csim(code)
 
 | 日期 | 变更 | 变更人 |
 |---|---|---|
+| 2026-07-18 | v1.2。同步 v0.2.0 实现：§2 数据流的 optimize 段从"(P4)"改为真实链路（设计摘要缓存+策略+双闸门+重验+同级择优+真回滚）；§3 决策记录加 4 行（设计摘要提取/synth 先重验 csim/取首策略/真回滚）。对应 agent-architecture.md v2.3。 | Agent 主 |
 | 2026-07-15 | v1.1。代码导览部分移至 agent/README.md（和代码放一起）。本文档保留跨模块设计分析+数据流+决策记录。 | Agent 主 |
 | 2026-07-15 | v1 初稿。基于 P2 里程碑代码版本，详述所有模块的函数清单、耦合、数据流。 | Agent 主 |

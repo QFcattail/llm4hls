@@ -7,6 +7,7 @@ CLI 入口与驱动脚本。非 TUI 模式的命令行 driver。
 | 文件 | 职责 |
 |---|---|
 | `run_agent.py` | CLI driver：组装 agent 并跑端到端，输出转录 + 评分卡 |
+| `test_main_loop.py` | 主循环离线单元测试（TC-AGENT-001~006），无 Vitis/LLM 可跑 |
 
 ## run_agent.py
 
@@ -27,7 +28,7 @@ CLI 入口与驱动脚本。非 TUI 模式的命令行 driver。
 1. Vitis 守卫：检测 `vitis-run` 是否在 PATH，不在则尝试 source settings64.sh；仍不在且无 `--force` 则报错退出。
 2. `load_task(task_dir)` -> `Budget(total)` -> `ToolServer(task, budget, work_root)`
 3. backend 选择：`OpenRouterClient` / `DeepSeekClient` / `ScriptedClient`
-4. `HLSLLMClient(backend)` + `KnowledgeBase()`（当前为空）
+4. `HLSLLMClient(backend)` + `KnowledgeBase(seed_entries())`（7 条种子条目，P2-12 扩充）
 5. `Agent(task, server, llm, kb, run_dir=work_root)` -> `final = agent.run()`
 6. 输出：`usage_summary()` -> transcript -> `budget.summary()` -> `grade(task, final)` 评分卡 -> 写 `final_<kernel_name>` 文件
 
@@ -46,6 +47,9 @@ python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --bac
 
 # 离线框架测试（csim 会 compile_error）
 python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --force
+
+# 主循环离线单元测试（不需要 Vitis / LLM API，改主循环后必跑）
+python3 scripts/test_main_loop.py
 ```
 
 ## 已知坑点

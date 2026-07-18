@@ -6,7 +6,7 @@
 >
 > 每进入一个阶段先细化原子任务，原子任务一定要细，不要一个任务需要一周的量。
 
-最后更新时间 (Last Updated)：2026-07-15（**P2 里程碑达成**：Vitis 2025.2 装好，projection 题端到端真修复跑通——DeepSeek 自主诊断 bug + 修复，真 csim + synth + hidden testbench 全过，SCORE 1.400。agent 全模块在真实环境验证通过。剩 dotProduct/residual 验证 + 知识库填充。）
+最后更新时间 (Last Updated)：2026-07-18（**v0.2.0**：架构 v2.3 落地——synth 报错检索增强修复循环（§4.3）+ optimize PPA 优化循环（§4.4：设计文档提取→策略探索→改码→重验→同级择优）+ §4.5 真回滚修复 + KB 种子条目 7 条。离线 6 用例全过（TC-AGENT-001~006），真机 e2e 待服务器验证。）
 
 ---
 
@@ -42,7 +42,7 @@
 | P1 | 认知 + 环境 | 第 1 周 | 🟢 实质完成（Agent 主侧） | 读背景资料、解压 harness、跑通离线链路、架构定稿。HLS 域主侧（数电基础+Vitis 环境）进行中 |
 | P2 | 搭骨架 + 最小正确性闭环 | 第 2 周 | 🟢 **里程碑达成** | agent 骨架搭好，projection 题端到端真修复跑通（DeepSeek + 真 Vitis），SCORE 1.400。剩 dotProduct/residual 验证 + 知识库填充 |
 | P3 | 接真 Vitis + cosim + 里程碑 | 第 3-4 周 | ⚪ 未开始 | 云服务器跑真 csim/synth/cosim，扩 structural 路径，端到端跑 milestone |
-| P4 | PPA 优化冲分 + 提交物 | 第 5 周起 | ⚪ 未开始 | optimize 阶段 + token 优化（第二次迭代）+ Docker/报告/视频 |
+| P4 | PPA 优化冲分 + 提交物 | 第 5 周起 | 🟡 提前启动 | optimize 循环已实现（P4-01 🟢，v0.2.0）；真机冲分 + token 优化（第二次迭代）+ Docker/报告/视频待做 |
 
 状态图例：⚪ 未开始 🟡 进行中 🟢 已完成 🔴 阻塞
 
@@ -131,7 +131,7 @@
 | P2-06 | 实现 main_loop.py 主循环（correctness 阶段） | 🟢 | **真 Vitis + DeepSeek 跑通 projection 题：csim fail→修复→csim pass→synth pass，SCORE 1.400** |
 | P2-07 | 实现 feedback.py：从 ToolResult 构建 LLM 友好反馈 | 🟢 | 真实 csim runtime_fail 日志验证通过 |
 | P2-08 | 接 LLM（ScriptedClient + DeepSeek） | 🟢 | DeepSeek V4 Pro 端到端真修复跑通（2 次 LLM 调用，3453 tokens） |
-| P2-09 | 接知识库 + 错误签名匹配检索 | 🟡 | 检索器已实现（KnowledgeBase.search），知识库条目为空（待 P2-12 填充） |
+| P2-09 | 接知识库 + 错误签名匹配检索 | 🟢 | 检索器 + 种子条目 7 条（entries.py：synth 4/cosim 1/csim 2）接入两个入口；synth/optimize 链路已调检索。≥10 条扩充仍属 P2-12 |
 | P2-10 | 可观测性：结构化日志 + transcript + 心跳 | 🟢 | JSONL + heartbeat 真环境记录通过（route/tool_result/review/checkpoint 全事件） |
 | P2-11 | 交叉验证：机械检查 + LLM review 双层 | 🟢 | mechanical_checks 签名/include 硬门 + DeepSeek self-check，projection 运行中两层都触发 |
 
@@ -174,7 +174,7 @@
 
 | 任务ID | 任务 | 负责人 | 状态 | 备注 |
 |---|---|---|---|---|
-| P4-01 | 实现 optimize 阶段：注入综合报告 + Strategy Exploration + 存档择优 | Agent 主 | ⚪ | 对应 agent-architecture.md §4.4 |
+| P4-01 | 实现 optimize 阶段：注入综合报告 + Strategy Exploration + 存档择优 | Agent 主 | 🟢 | v0.2.0 完成：设计文档+设计摘要提取（extract_design_brief）+取首策略+重验+同级择优+真回滚；离线 6 用例过，真机待验。对应 agent-architecture.md §4.4 |
 | P4-02 | pragma 变换优化 PPA（pipeline/unroll/partition/dataflow） | Agent 主 | ⚪ | 参考 AMD 案例文章的四阶段工作流 |
 | P4-03 | 第二次迭代：token 优化（第一次迭代暂不考虑） | Agent 主 | ⚪ | 第一次迭代跑稳后，分析日志压 token |
 | P4-04 | 第二次迭代：功能 pattern 检索（agent-architecture.md §6.4） | Agent 主 | ⚪ | 难度较高，先靠错误签名匹配 |
@@ -188,6 +188,7 @@
 
 | 日期 | 变更 | 变更人 |
 |---|---|---|
+| 2026-07-18 | **v0.2.0 / 架构 v2.3 落地**。按用户指出的三处设计-实现差距补齐：① synth 报错检索增强修复循环（§4.3：失败→反馈蒸馏→KB 检索→修复→先重验 csim 再 synth，max_synth_rounds=3）；② optimize PPA 优化循环（§4.4：AMD Phase 1 设计文档 description+headers + extract_design_brief 设计摘要 + synth 报告 → Phase 2 取首策略 → Phase 3 双闸门 → 重验 csim+synth → 同级 latency 择优，max_optimize_rounds=4）；③ §4.5 真回滚修复（原实现只记日志不恢复快照）。另加 latency=0 防御、KB 种子条目 7 条（P2-09 转 🟢）、P4-01 转 🟢。验证：scripts/test_main_loop.py 离线 6 用例（TC-AGENT-001~006）×3 全过；真机 dotProduct/residual e2e 待服务器。详见 dev-log 2026-07-18-03。 | Agent 主 |
 | 2026-07-15 | **P2 里程碑达成**。Vitis 2025.2 装好（服务器 QFS-STATION），projection 题端到端真修复跑通：DeepSeek 自主诊断 csim runtime_fail → 修复 → csim pass → synth pass → hidden testbench PASS，SCORE 1.400。P2-03~P2-08/P2-10/P2-11 全部标记完成。P1-11（Vitis 安装）标记完成。P2 整体标记"里程碑达成"，剩 dotProduct/residual 验证 + 知识库填充。详见 dev-log 2026-07-15-01。 | Agent 主 |
 | 2026-07-14 | **P2/P3 大重写**：harness 解压是决定性发现。废弃 P2-01（mock）/P2-02（日志解析）/P3-01（接真接口）/P3-02（Vitis 命令行）/P3-04（预算止损）—— 全被官方实现解决。P2 重写为"搭 agent 骨架 + 最小闭环"（P2-03~P2-11），P3 重写为"接真 Vitis + cosim + milestone"（P3-03~P3-07）。新增 P1-08a~d（harness 分析/离线跑通/架构定稿/部署方案）标记完成。架构定稿见 agent-architecture.md v2.2。里程碑总览时间表压缩（P2→第2周、P3→第3-4周、P4→第5周起），因 harness 省去大量基础工作。 | Agent 主 |
 | 2026-07-11 | P1-02/03/05/06 全部完成：用户读完所有背景论文（ReAct、Anthropic agents、SWE-agent、HLS Repair、AutoChip、RTLFixer、HLSPilot、AMD案例）。AMD四阶段工作流与LLM优缺点已写入 dev-log 2026-07-11-03。用户确认已报名，只做Track A。明天开始规划agent架构。 | Agent 主 |
