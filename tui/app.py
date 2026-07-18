@@ -180,7 +180,7 @@ class AgentDashboard(App):
         from llm4hls import Budget, ToolServer, load_task
         from agent.main_loop import Agent
         from agent.llm_client import HLSLLMClient
-        from agent.knowledge_base import KnowledgeBase
+        from agent.knowledge_base import KnowledgeBase, seed_entries
 
         task = load_task(self.task_path)
         total = self.budget_override if self.budget_override is not None else task.budget
@@ -206,7 +206,7 @@ class AgentDashboard(App):
 
         self._backend_ref = backend
         llm = HLSLLMClient(backend)
-        kb = KnowledgeBase()
+        kb = KnowledgeBase(seed_entries())
 
         agent = Agent(task, server, llm, kb=kb, run_dir=work_root)
         original_event = agent.log.event

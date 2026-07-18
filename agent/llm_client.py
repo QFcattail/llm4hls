@@ -4,11 +4,17 @@ Implements agent-architecture.md §8. The harness ships two backends:
 ScriptedClient (offline, replays canned answers) and OpenRouterClient (real
 open-source model). Both satisfy `complete(system, user) -> str`.
 
-This module adds three domain methods used by the main loop:
-    repair            -> fix a correctness/synth failure
-    propose_strategies-> AMD Phase 2: list optimization strategies
-    apply_strategy    -> AMD Phase 3: generate code for a chosen strategy
-    review            -> cross-check (v2: another agent / self-check)
+This module adds five domain methods used by the main loop:
+    repair              -> fix a correctness/synth failure
+    review              -> cross-check (v2: another agent / self-check)
+    extract_design_brief-> AMD Phase 1: distill the current kernel's design
+    propose_strategies  -> AMD Phase 2: list optimization strategies
+    apply_strategy      -> AMD Phase 3: generate code for a chosen strategy
+
+Per §8.1's hard requirement, every code-changing prompt (repair /
+propose_strategies / apply_strategy) injects the official design document
+(task.description) and the read-only headers; the optimize pair additionally
+receives the synth report and the design brief.
 
 Output parsing reuses the harness _extract_code regex (a fenced ```cpp block).
 """
@@ -124,34 +130,74 @@ class HLSLLMClient:
         passed = out.strip().upper().startswith("PASS")
         return passed, out
 
-    def propose_strategies(self, task, code: str, synth_summary: str) -> list[Strategy]:
+    def extract_design_brief(self, task, code: str) -> str:
+        """AMD Phase 1: distill the current kernel's design into a brief.
+
+        Called once before the optimize loop (architecture §4.4); the result
+        is cached by the caller and injected into every strategy prompt so
+        proposals are grounded in the actual design, not generic advice.
+
+        Args:
+            task: Harness Task object (used for description, headers, name).
+            code: The current (synthesizable) kernel source.
+
+        Returns:
+            The design brief as plain text (functionality / loop structure /
+            dataflow / bottleneck hypotheses). Returns "" on empty reply.
+        """
+        system = _BRIEF_SYSTEM
+        user = (
+            f"## Kernel specification\n{task.description}\n\n"
+            f"## Fixed header(s) (read-only)\n```cpp\n{_headers(task)}\n```\n\n"
+            f"## Current kernel: {task.kernel_name}\n```cpp\n{code}\n```\n\n"
+            f"## Your task\nSummarize this design in under 200 words: "
+            f"(1) what it computes, (2) loop nest structure and trip counts, "
+            f"(3) dataflow / streaming between stages, (4) where the latency "
+            f"bottleneck most likely is and which HLS lever (PIPELINE, UNROLL, "
+            f"ARRAY_PARTITION, DATAFLOW) addresses it. Do NOT output code."
+        )
+        return self._complete(system, user).strip()
+
+    def propose_strategies(self, task, code: str, synth_summary: str,
+                           design_brief: str = "") -> list[Strategy]:
         """AMD Phase 2: ask for multiple optimization strategies with tradeoffs.
 
         Args:
             task: Harness Task object.
             code: The current synthesized kernel source.
             synth_summary: Current synthesis report summary text.
+            design_brief: Cached design brief from extract_design_brief
+                (empty string when unavailable).
 
         Returns:
             A list of parsed Strategy objects (may be empty on parse failure).
         """
         system = _STRATEGY_SYSTEM
         user = (
+            f"## Kernel specification\n{task.description}\n\n"
+            f"## Fixed header(s) (read-only)\n```cpp\n{_headers(task)}\n```\n\n"
+            f"## Design brief (extracted from the current kernel)\n"
+            f"{design_brief or '(none)'}\n\n"
             f"## Kernel\n```cpp\n{code}\n```\n\n"
             f"## Current synthesis\n{synth_summary}\n\n"
-            f"## Task\nPropose 2-4 optimization strategies. For each: name, "
-            f"rationale, expected latency gain, and risk."
+            f"## Task\nPropose 2-4 optimization strategies targeting lower "
+            f"latency on the Alveo U55C @ 200 MHz. For each give: name, "
+            f"rationale, expected latency gain, and risk. Order them by "
+            f"confidence (best first). Respect the interface contract above."
         )
         out = self._complete(system, user)
         return _parse_strategies(out)
 
-    def apply_strategy(self, task, code: str, strategy: Strategy) -> str | None:
+    def apply_strategy(self, task, code: str, strategy: Strategy,
+                       design_brief: str = "") -> str | None:
         """AMD Phase 3: generate code applying one strategy.
 
         Args:
             task: Harness Task object.
             code: The current kernel source to transform.
             strategy: The Strategy to apply.
+            design_brief: Cached design brief from extract_design_brief
+                (empty string when unavailable).
 
         Returns:
             The optimized kernel source extracted from the LLM response, or
@@ -159,11 +205,15 @@ class HLSLLMClient:
         """
         system = _REPAIR_SYSTEM
         user = (
+            f"## Kernel specification\n{task.description}\n\n"
+            f"## Fixed header(s) (read-only)\n```cpp\n{_headers(task)}\n```\n\n"
+            f"## Design brief\n{design_brief or '(none)'}\n\n"
             f"## Kernel\n```cpp\n{code}\n```\n\n"
             f"## Apply this strategy\n{strategy.name}: {strategy.rationale}\n"
             f"Expected: {strategy.expected_gain}; risk: {strategy.risk}\n\n"
             f"Output ONLY the full optimized kernel in one ```cpp block. "
-            f"Keep the top-level signature unchanged."
+            f"Keep the top-level signature and the interface contract "
+            f"unchanged. Do not modify other function calls."
         )
         return _harness_extract(self._complete(system, user))
 
@@ -184,8 +234,17 @@ _REVIEW_SYSTEM = (
 )
 
 _STRATEGY_SYSTEM = (
-    "You are an HLS design-space explorer. Given a kernel and its synthesis "
-    "report, propose concrete optimization strategies with honest tradeoffs."
+    "You are an HLS design-space explorer. Given a kernel, its design brief, "
+    "and its synthesis report, propose concrete optimization strategies with "
+    "honest tradeoffs. Respect the interface contract: the top-level "
+    "signature and headers are read-only."
+)
+
+_BRIEF_SYSTEM = (
+    "You are a senior Vitis HLS engineer. Read an HLS C++ kernel and its "
+    "specification, then distill the design's structure and likely latency "
+    "bottleneck. Be concrete: name loops, arrays, streams, and pragmas. "
+    "Output plain prose, no code."
 )
 
 

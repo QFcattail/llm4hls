@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT / "contest" / "fpt26-harness"))  # for `llm4hls`
 from llm4hls import Budget, ToolServer, grade, load_task   # noqa: E402
 from llm4hls.llm import OpenRouterClient, ScriptedClient   # noqa: E402
 
-from agent.knowledge_base import KnowledgeBase             # noqa: E402
+from agent.knowledge_base import KnowledgeBase, seed_entries  # noqa: E402
 from agent.llm_client import HLSLLMClient                  # noqa: E402
 from agent.main_loop import Agent                          # noqa: E402
 
@@ -113,7 +113,7 @@ def main() -> int:
         backend = ScriptedClient(["```cpp\n" + task.reference_code + "```"])
 
     llm = HLSLLMClient(backend)
-    kb = KnowledgeBase()           # empty for now; entries added in P2-12
+    kb = KnowledgeBase(seed_entries())   # seed corpus; P2-12 extends it
 
     print(f"=== Task {task.id} [{task.type}, difficulty {task.difficulty}] ===")
     print(f"    budget: {total} credits | backend: {args.backend}")

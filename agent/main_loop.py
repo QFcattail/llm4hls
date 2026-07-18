@@ -5,9 +5,15 @@ Implements agent-architecture.md §4. The loop is linear in order
 already-passed stages, because editing for a later bug can break an earlier
 one (see §5). The checkpoint (§2) gives rollback for free.
 
-First iteration scope: correctness stage fully wired (ScriptedClient-ready).
-synth + optimize stages are structured but their inner detail (AMD Phase 2
-strategy selection) is fleshed out in P4.
+Stage semantics (v2.3):
+  1. correctness: csim (+cosim) repair loop with KB retrieval + review gates.
+  2. synth: repair loop (§4.3) — RAG retrieval on synth errors, and every
+     edit re-verifies csim before another synth attempt is spent.
+  3. optimize (§4.4): AMD Phase 1 context loading (design document +
+     extract_design_brief + synth report) -> Phase 2 strategy exploration ->
+     Phase 3 apply_strategy -> review gates -> csim/synth re-verify ->
+     same-level latency arbitration. Structural tasks get a post-optimization
+     cosim re-check with real snapshot rollback (§4.5).
 """
 from __future__ import annotations
 
@@ -15,7 +21,7 @@ from pathlib import Path
 
 from .checkpoint import Checkpoint, Level
 from .feedback import build_feedback
-from .llm_client import HLSLLMClient
+from .llm_client import HLSLLMClient, Strategy
 from .mechanical_checks import mechanical_review
 from .observability import Heartbeat, Logger
 from .router import RunPlan, route
@@ -38,6 +44,8 @@ class Agent:
         llm: The HLSLLMClient used for repair/review/optimization calls.
         kb: Optional knowledge-base retriever (None disables KB lookup).
         max_rounds: Maximum repair attempts in the correctness stage.
+        max_synth_rounds: Maximum repair attempts after a synth failure (§4.3).
+        max_optimize_rounds: Maximum PPA optimization rounds (§4.4).
         log: Structured event logger for this run.
         hb: Background heartbeat for stall detection.
     """
@@ -49,6 +57,8 @@ class Agent:
         llm: HLSLLMClient,
         kb=None,                # knowledge_base retriever or None
         max_rounds: int = 6,
+        max_synth_rounds: int = 3,
+        max_optimize_rounds: int = 4,
         run_dir: Path | str = "runs",
     ) -> None:
         self.task = task
@@ -56,8 +66,14 @@ class Agent:
         self.llm = llm
         self.kb = kb
         self.max_rounds = max_rounds
+        self.max_synth_rounds = max_synth_rounds
+        self.max_optimize_rounds = max_optimize_rounds
         self.log = Logger(task.id, run_dir)
         self.hb = Heartbeat(self.log)
+        # Cross-stage state: filled by _do_synth / _optimize as they run.
+        self._synth_summary: str | None = None   # latest passing synth report
+        self._design_brief: str | None = None    # AMD Phase 1 brief (cached)
+        self._pre_opt_snapshot: Checkpoint | None = None  # §4.5 rollback point
 
     # -- entry point ------------------------------------------------------
     def run(self) -> str:
@@ -119,7 +135,7 @@ class Agent:
         # Stage 3: optimize
         if plan.needs_optimize and ckpt.level >= Level.SYNTH:
             self._optimize(plan, ckpt)
-            if plan.task_type == "structural":
+            if "cosim" in plan.correctness_stages:
                 self._post_opt_cosim_recheck(ckpt)
 
         return ckpt.code
@@ -270,7 +286,14 @@ class Agent:
 
     # -- stage 2: synth ---------------------------------------------------
     def _do_synth(self, plan: RunPlan, ckpt: Checkpoint) -> int | None:
-        """Run synthesis and archive the checkpoint at SYNTH level on success.
+        """Synthesis gate with a repair loop (architecture §4.3).
+
+        First attempts synth on the correct code. On failure, each round:
+        distill feedback -> KB lookup -> review-gated repair -> re-verify
+        csim (cheap, 1 credit) before spending another synth (4 credits).
+        A repair that breaks csim is iterated with the csim feedback without
+        burning a synth call. Gives up after ``max_synth_rounds`` repairs or
+        when the budget cannot afford the next tool call.
 
         Args:
             plan: The RunPlan (used for budget/context; synth applies to all).
@@ -278,53 +301,278 @@ class Agent:
 
         Returns:
             The worst (or average) latency from the synthesis report on
-            success, or None if synth was skipped or failed.
+            success, or None if synth was skipped or never passed.
         """
-        if not self.server.budget.can_afford("synth"):
-            self.log.event("skip", phase="synth", reason="no_budget")
-            return None
-        self.hb.set_stage("synth", self.server.budget.remaining())
-        r = self.server.synth(ckpt.code)
-        self.log.event("tool_result", kind="synth", phase=r.phase, ok=r.ok,
-                       elapsed_s=round(r.elapsed_s, 1),
-                       credit_spent=self.server.budget.spent,
-                       log=r.log if not r.ok else "")
-        if r.ok and r.report is not None:
-            lat = r.report.latency_worst or r.report.latency_avg
-            if ckpt.should_accept(Level.SYNTH, lat):
-                ckpt.accept(ckpt.code, Level.SYNTH, lat, cosim_ok=ckpt.cosim_ok)
-                self.log.event("checkpoint", old=Level.CORRECT, new=Level.SYNTH,
-                               latency=lat, reason="synth_ok")
-            return lat
+        fb = None   # Feedback of the latest failure, drives the next repair
+        for round_n in range(self.max_synth_rounds + 1):
+            # 1) repair pass (skipped on the first attempt: no feedback yet)
+            if fb is not None:
+                if not self.server.budget.can_afford("csim"):
+                    self.log.event("budget_exhausted", where="synth-fix-csim",
+                                   best_level=ckpt.level)
+                    return None
+                new_code = self._repair_with_review(
+                    ckpt.code, fb.as_prompt_block(), self._kb_lookup(fb))
+                if new_code is None:
+                    self.log.event("repair_failed", where="synth",
+                                   round=round_n, reason="no_code")
+                    return None
+                # Re-verify csim before spending 4 credits on synth (§5:
+                # fixing synth can break correctness).
+                self.hb.set_stage("csim", self.server.budget.remaining())
+                cr = self.server.csim(new_code)
+                self.log.event("tool_result", kind="csim", phase=cr.phase,
+                               ok=cr.ok, rc=cr.return_code,
+                               elapsed_s=round(cr.elapsed_s, 1),
+                               credit_spent=self.server.budget.spent,
+                               log=cr.log if not cr.ok else "")
+                if not cr.ok:
+                    self.log.event("synth_fix_broke_csim", round=round_n)
+                    fb = build_feedback(cr)   # iterate on the csim failure
+                    continue
+                ckpt.code = new_code   # correct candidate; synth it next
+
+            # 2) synth attempt
+            if not self.server.budget.can_afford("synth"):
+                self.log.event("skip", phase="synth", reason="no_budget")
+                return None
+            self.hb.set_stage("synth", self.server.budget.remaining())
+            r = self.server.synth(ckpt.code)
+            self.log.event("tool_result", kind="synth", phase=r.phase, ok=r.ok,
+                           elapsed_s=round(r.elapsed_s, 1),
+                           credit_spent=self.server.budget.spent,
+                           log=r.log if not r.ok else "")
+            if r.ok and r.report is not None:
+                lat = self._valid_latency(r.report)
+                self._synth_summary = r.report.summary()
+                if ckpt.should_accept(Level.SYNTH, lat):
+                    ckpt.accept(ckpt.code, Level.SYNTH, lat,
+                                cosim_ok=ckpt.cosim_ok)
+                    self.log.event("checkpoint", old=Level.CORRECT,
+                                   new=Level.SYNTH, latency=lat,
+                                   reason="synth_ok")
+                return lat
+            fb = build_feedback(r)   # synth failed; next round repairs it
+
+        self.log.event("phase_exit", phase="synth", result="failed",
+                       rounds=self.max_synth_rounds, best_level=ckpt.level)
         return None
 
-    # -- stage 3: optimize (P4 flesh-out) --------------------------------
+    @staticmethod
+    def _valid_latency(report) -> int | None:
+        """Extract a trustworthy latency from a synth report.
+
+        Defends against the known parse anomaly where synth passes but the
+        reported latency is 0 (dev-log 2026-07-17-01): a 0 would win every
+        same-level comparison and corrupt the archive, so it is treated as
+        missing data instead.
+
+        Args:
+            report: A harness SynthReport.
+
+        Returns:
+            latency_worst (falling back to latency_avg), or None when the
+            value is missing or non-positive.
+        """
+        lat = report.latency_worst or report.latency_avg
+        if lat is not None and lat <= 0:
+            return None
+        return lat
+
+    # -- stage 3: optimize -------------------------------------------------
     def _optimize(self, plan: RunPlan, ckpt: Checkpoint) -> None:
-        """Stage 3: PPA optimization (stub pending P4 flesh-out).
+        """Stage 3: PPA optimization loop (architecture §4.4).
+
+        AMD four-phase workflow per round: Phase 1 context (design document +
+        cached design brief + latest synth report) -> Phase 2 strategy
+        exploration (first strategy is picked, fixed heuristic) -> Phase 3
+        code generation with review gates -> csim/synth re-verification ->
+        same-level latency arbitration (§2 rule 2). Stops on no improvement,
+        unaffordable tools, or the round cap.
 
         Args:
             plan: The RunPlan (used for context; optimization applies to all).
-            ckpt: The checkpoint tracking the synth-correct code.
+            ckpt: The checkpoint holding the synth-correct code to improve.
         """
-        # Stub: P4 will implement AMD Phase 1+2 here. For now, no-op so the
-        # correctness-only first iteration still runs end to end.
-        self.log.event("phase_enter", phase="optimize", best_level=ckpt.level,
-                       note="stub_P4")
+        self.log.event("phase_enter", phase="optimize",
+                       best_level=ckpt.level, best_latency=ckpt.latency)
+        # Snapshot for the §4.5 post-optimization cosim rollback.
+        self._pre_opt_snapshot = Checkpoint(
+            code=ckpt.code, level=ckpt.level, latency=ckpt.latency,
+            cosim_ok=ckpt.cosim_ok)
+
+        # AMD Phase 1: extract the design brief once and cache it (§4.4).
+        if not self._design_brief:
+            self.hb.set_stage("llm", self.server.budget.remaining())
+            self._design_brief = self.llm.extract_design_brief(
+                self.task, ckpt.code)
+            self.log.event("design_brief", chars=len(self._design_brief))
+
+        for round_n in range(1, self.max_optimize_rounds + 1):
+            if not (self.server.budget.can_afford("csim")
+                    and self.server.budget.can_afford("synth")):
+                self.log.event("budget_exhausted", where="optimize",
+                               best_level=ckpt.level, best_latency=ckpt.latency)
+                break
+
+            # AMD Phase 2: strategy exploration on the latest synth data.
+            self.hb.set_stage("llm", self.server.budget.remaining())
+            strategies = self.llm.propose_strategies(
+                self.task, ckpt.code,
+                self._synth_summary or "(no synthesis report available)",
+                self._design_brief)
+            self.log.event("llm_call", purpose="propose_strategies",
+                           round=round_n, count=len(strategies))
+            if not strategies:
+                self.log.event("optimize_stop", reason="no_strategy")
+                break
+            strategy = strategies[0]   # fixed heuristic: best-first (§4.4)
+            self.log.event("strategy_select", round=round_n,
+                           name=strategy.name)
+
+            # AMD Phase 3: generate the candidate behind the review gates.
+            cand = self._apply_with_review(ckpt.code, strategy)
+            if cand is None or cand.strip() == ckpt.code.strip():
+                self.log.event("optimize_stop", reason="no_candidate")
+                break
+
+            # Re-verify already-passed stages before arbitrating (§5).
+            self.hb.set_stage("csim", self.server.budget.remaining())
+            cr = self.server.csim(cand)
+            self.log.event("tool_result", kind="csim", phase=cr.phase,
+                           ok=cr.ok, rc=cr.return_code,
+                           elapsed_s=round(cr.elapsed_s, 1),
+                           credit_spent=self.server.budget.spent,
+                           log=cr.log if not cr.ok else "")
+            if not cr.ok:
+                self.log.event("optimize_discard", round=round_n,
+                               reason="csim_broken", phase=cr.phase)
+                continue
+            self.hb.set_stage("synth", self.server.budget.remaining())
+            sr = self.server.synth(cand)
+            self.log.event("tool_result", kind="synth", phase=sr.phase,
+                           ok=sr.ok, elapsed_s=round(sr.elapsed_s, 1),
+                           credit_spent=self.server.budget.spent,
+                           log=sr.log if not sr.ok else "")
+            if not sr.ok or sr.report is None:
+                self.log.event("optimize_discard", round=round_n,
+                               reason="synth_failed", phase=sr.phase)
+                continue
+
+            # Same-level arbitration: accept only a strictly faster design.
+            lat = self._valid_latency(sr.report)
+            if ckpt.should_accept(Level.SYNTH, lat):
+                old_lat = ckpt.latency
+                # The new code has not been cosim-verified (§4.5 re-checks).
+                ckpt.accept(cand, Level.SYNTH, lat, cosim_ok=None)
+                self._synth_summary = sr.report.summary()
+                self.log.event("checkpoint", old=Level.SYNTH, new=Level.SYNTH,
+                               old_latency=old_lat, new_latency=lat,
+                               reason="optimize_improve")
+                continue
+            self.log.event("optimize_stop", reason="no_improvement",
+                           best_latency=ckpt.latency, cand_latency=lat)
+            break
+
+        self.log.event("phase_exit", phase="optimize",
+                       best_level=ckpt.level, best_latency=ckpt.latency)
+
+    def _apply_with_review(self, code: str, strategy: Strategy) -> str | None:
+        """Generate an optimized candidate, then cross-check before returning.
+
+        Mirrors ``_repair_with_review`` but the generator is
+        ``llm.apply_strategy`` (AMD Phase 3). Gate 1 is the deterministic
+        mechanical review; gate 2 is the LLM review focused on pragma
+        interaction hazards (AMD's named LLM weakness).
+
+        Args:
+            code: The current best kernel source.
+            strategy: The Strategy selected this round.
+
+        Returns:
+            The reviewed candidate kernel source, or None if the LLM produced
+            no parseable code.
+        """
+        for retry in range(self.llm.max_review_retries + 1):
+            self.hb.set_stage("llm", self.server.budget.remaining())
+            new_code = self.llm.apply_strategy(
+                self.task, code, strategy, self._design_brief)
+            if new_code is None:
+                return None
+
+            # Gate 1: mechanical (hard) checks
+            mech_ok, mech_issues = mechanical_review(code, new_code, self.task)
+            self.log.event("mechanical_review", passed=mech_ok,
+                           issues=mech_issues if not mech_ok else [])
+            if not mech_ok:
+                # Fold the issues into the strategy for the retry attempt.
+                strategy = Strategy(
+                    name=strategy.name,
+                    rationale=strategy.rationale
+                    + "\nMUST FIX: " + "; ".join(mech_issues),
+                    expected_gain=strategy.expected_gain,
+                    risk=strategy.risk)
+                continue
+
+            # Gate 2: LLM review (self-check)
+            passed, issues = self.llm.review(
+                self.task, new_code,
+                focus="signature/interface unchanged; pragma interaction rules "
+                      "(no PIPELINE+DATAFLOW at the same level, no dead "
+                      "streams); strategy correctly applied: " + strategy.name,
+            )
+            self.log.event("review", verdict="pass" if passed else "reject",
+                           retry=retry, issues=issues[:200])
+            if passed:
+                return new_code
+        return new_code   # exhausted retries; return last attempt anyway
 
     def _post_opt_cosim_recheck(self, ckpt: Checkpoint) -> None:
-        """structural: re-verify cosim after optimization (architecture §4.5).
+        """Re-verify cosim after optimization, with real rollback (§4.5).
+
+        Runs only when the best code actually changed during optimization
+        (otherwise the cosim-verified correctness version still stands). On
+        cosim failure — or when cosim is unaffordable — restores the
+        pre-optimization snapshot in full (code/level/latency/cosim_ok).
 
         Args:
             ckpt: The checkpoint holding the optimized code to re-verify.
         """
+        snap = self._pre_opt_snapshot
+        if snap is None or ckpt.code.strip() == snap.code.strip():
+            return   # best unchanged by optimization; nothing to re-verify
         if not self.server.budget.can_afford("cosim"):
+            self.log.event("rollback", reason="cosim_unaffordable",
+                           note="restored pre-optimization verified version")
+            self._restore_snapshot(ckpt, snap)
             return
         self.hb.set_stage("cosim", self.server.budget.remaining())
         r = self.server.cosim(ckpt.code)
-        self.log.event("tool_result", kind="cosim_recheck", phase=r.phase,
-                       ok=r.ok, credit_spent=self.server.budget.spent)
-        if not r.ok:
-            self.log.event("rollback", reason="optimization_reintroduced_hazard")
+        self.log.event("tool_result", kind="cosim", phase=r.phase, ok=r.ok,
+                       elapsed_s=round(r.elapsed_s, 1),
+                       credit_spent=self.server.budget.spent,
+                       log=r.log if not r.ok else "")
+        if r.ok:
+            ckpt.cosim_ok = True
+            self.log.event("cosim_recheck", result="pass")
+        else:
+            self.log.event("rollback",
+                           reason="optimization_reintroduced_hazard",
+                           note="restored pre-optimization verified version")
+            self._restore_snapshot(ckpt, snap)
+
+    @staticmethod
+    def _restore_snapshot(ckpt: Checkpoint, snap: Checkpoint) -> None:
+        """Restore a checkpoint in full from a snapshot (§4.5 rollback).
+
+        Args:
+            ckpt: The live checkpoint to overwrite.
+            snap: The snapshot taken at optimize entry.
+        """
+        ckpt.code = snap.code
+        ckpt.level = snap.level
+        ckpt.latency = snap.latency
+        ckpt.cosim_ok = snap.cosim_ok
 
     # -- knowledge base ---------------------------------------------------
     def _kb_lookup(self, fb) -> str:
