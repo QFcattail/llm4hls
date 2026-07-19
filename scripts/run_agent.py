@@ -66,6 +66,12 @@ def _auto_source_vitis() -> bool:
 
 
 def main() -> int:
+    """Parse CLI args, assemble the agent, run one task, and grade it.
+
+    Returns:
+        Process exit code: 0 on success, 1 when Vitis is unavailable or
+        the scripted backend has no reference code to replay.
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("task_dir")
     ap.add_argument("--backend", choices=["scripted", "openrouter", "deepseek"],

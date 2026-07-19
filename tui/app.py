@@ -71,6 +71,7 @@ class QuitConfirmScreen(ModalScreen):
     ]
 
     def compose(self) -> ComposeResult:
+        """Build the quit-confirmation dialog (message + Yes/Cancel buttons)."""
         with Vertical(id="quit-dialog"):
             yield Label("Quit the agent? (agent continues in background)", id="quit-msg")
             with Horizontal():
@@ -78,15 +79,18 @@ class QuitConfirmScreen(ModalScreen):
                 yield Button("Cancel (n)", id="quit-no", variant="default")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Dismiss with True (quit) or False (cancel) based on the button."""
         if event.button.id == "quit-yes":
             self.dismiss(True)
         else:
             self.dismiss(False)
 
     def action_confirm(self) -> None:
+        """Keyboard 'y'/Enter binding: confirm quit."""
         self.dismiss(True)
 
     def action_cancel(self) -> None:
+        """Keyboard 'n'/Esc binding: cancel quit."""
         self.dismiss(False)
 
 
@@ -155,6 +159,7 @@ class AgentDashboard(App):
         self._tool_start_time: float = 0  # when the tool started
 
     def compose(self) -> ComposeResult:
+        """Build the four-region dashboard layout (A chart/B bar/C activity/D status)."""
         yield Header()
         with Vertical(id="dashboard"):
             yield FlowChart()
@@ -195,6 +200,7 @@ class AgentDashboard(App):
         if self.backend == "deepseek":
             from agent.deepseek_client import DeepSeekClient
             def stream_cb(kind: str, text: str) -> None:
+                """Forward one streamed LLM token to the UI event queue."""
                 self._event_queue.put(("stream", {"kind": kind, "text": text}))
             backend = DeepSeekClient(stream=True, on_stream=stream_cb)
         elif self.backend == "openrouter":
@@ -215,6 +221,7 @@ class AgentDashboard(App):
         original_event = agent.log.event
 
         def queued_event(event: str, **fields) -> None:
+            """Write the JSONL event, then forward it to the UI event queue."""
             original_event(event, **fields)
             self._event_queue.put(("event", {"name": event, **fields}))
 
@@ -223,6 +230,7 @@ class AgentDashboard(App):
         original_hb_set = agent.hb.set_stage
 
         def queued_hb(stage: str, credit_remaining=None) -> None:
+            """Update the heartbeat stage, then forward it to the UI queue."""
             original_hb_set(stage, credit_remaining)
             self._event_queue.put(("heartbeat", {
                 "stage": stage,

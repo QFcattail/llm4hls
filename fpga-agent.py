@@ -105,6 +105,12 @@ def _pick_task_interactive() -> str | None:
 
 
 def main() -> int:
+    """Parse CLI args, pick a task (interactively or via --task), and launch.
+
+    Returns:
+        Process exit code: 0 on success, 1 on invalid arguments or a
+        missing Vitis toolchain without --force.
+    """
     ap = argparse.ArgumentParser(
         description="FPGA Agent - LLM4HLS repair & optimization",
         formatter_class=argparse.RawDescriptionHelpFormatter,

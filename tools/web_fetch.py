@@ -138,6 +138,7 @@ def _absolutize_links(md: str, base_url: str) -> str:
     """
     # turn ](/relative/path) into ](absolute)
     def fix(m: "re.Match[str]") -> str:
+        """Absolutize one matched markdown link (skip scheme/anchor links)."""
         prefix, path = m.group(1), m.group(2)
         if re.match(r"^[a-z]+://|^mailto:|^#", path, re.I):
             return m.group(0)

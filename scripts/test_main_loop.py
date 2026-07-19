@@ -130,6 +130,7 @@ class FakeToolServer:
             elapsed_s=120.0)
 
     def csim(self, code: str) -> ToolResult:
+        """Charge 1 credit and pass unless the code carries BREAK_CSIM."""
         self.budget.charge("csim")
         self.csim_calls += 1
         if "BREAK_CSIM" in code:
@@ -140,11 +141,13 @@ class FakeToolServer:
                           log="", elapsed_s=9.7)
 
     def synth(self, code: str) -> ToolResult:
+        """Charge 4 credits and delegate to the per-test synth handler."""
         self.budget.charge("synth")
         self.synth_calls += 1
         return self.synth_handler(code)
 
     def cosim(self, code: str) -> ToolResult:
+        """Charge 20 credits and delegate to the per-test cosim handler."""
         self.budget.charge("cosim")
         self.cosim_calls += 1
         return self.cosim_handler(code)
@@ -175,6 +178,16 @@ class CannedBackend:
         return queue[min(i, len(queue) - 1)]
 
     def complete(self, system: str, user: str) -> str:
+        """Dispatch a canned reply based on the prompt's task phrase.
+
+        Args:
+            system: Ignored (kept for the harness LLMClient contract).
+            user: The user prompt; sniffed for each domain method's marker.
+
+        Returns:
+            The canned response for the matched call type, or "" when no
+            marker matches (which makes the caller's parser return None).
+        """
         if "Summarize this design" in user:
             return self.brief
         if "Pick the strategy or compatible combination" in user:
@@ -204,6 +217,7 @@ def _make_agent(task: FakeTask, server: FakeToolServer, backend: CannedBackend,
     original_event = agent.log.event
 
     def capture(event: str, **fields) -> None:
+        """Record the event for assertions, then forward to the real log."""
         events.append((event, fields))
         original_event(event, **fields)
 
@@ -222,6 +236,7 @@ def tc_001() -> None:
     state = {"synths": 0}
 
     def synth_handler(code: str) -> ToolResult:
+        """Per-test scripted response for this tool kind."""
         state["synths"] += 1
         if state["synths"] == 1:
             return _synth_result(
@@ -254,6 +269,7 @@ def tc_002() -> None:
     server = FakeToolServer(total=40)
 
     def synth_handler(code: str) -> ToolResult:
+        """Per-test scripted response for this tool kind."""
         if "FAST60" in code:
             return _synth_result(True, code, 60)
         return _synth_result(True, code, 100)
@@ -316,9 +332,11 @@ def tc_004() -> None:
     server = FakeToolServer(total=80)
 
     def synth_handler(code: str) -> ToolResult:
+        """Per-test scripted response for this tool kind."""
         return _synth_result(True, code, 60 if "FAST60" in code else 100)
 
     def cosim_handler(code: str) -> ToolResult:
+        """Per-test scripted response for this tool kind."""
         if "FAST60" in code:   # optimization reintroduces a deadlock
             return ToolResult(kind="cosim", ok=False, phase="cosim_fail",
                               return_code=1, log="deadlock detected in RTL sim\n",
@@ -377,6 +395,7 @@ def tc_006() -> None:
     server = FakeToolServer(total=40)
 
     def synth_handler(code: str) -> ToolResult:
+        """Per-test scripted response for this tool kind."""
         # candidate reports the anomalous zero; baseline reports 100
         return _synth_result(True, code, 0 if "FAST0" in code else 100)
 
@@ -401,6 +420,7 @@ def tc_007() -> None:
     server = FakeToolServer(total=40)
 
     def synth_handler(code: str) -> ToolResult:
+        """Per-test scripted response for this tool kind."""
         return _synth_result(True, code, 55 if "FAST55" in code else 100)
 
     server.synth_handler = synth_handler
@@ -430,6 +450,7 @@ def tc_008() -> None:
     server = FakeToolServer(total=40)
 
     def synth_handler(code: str) -> ToolResult:
+        """Per-test scripted response for this tool kind."""
         return _synth_result(True, code, 70 if "FAST70" in code else 100)
 
     server.synth_handler = synth_handler

@@ -75,6 +75,7 @@ class TaskPickerScreen(Screen):
         return self._selected
 
     def compose(self) -> ComposeResult:
+        """Build the picker layout: title, task list, custom-path input."""
         yield Header(name="FPGA Agent - Select Task")
         with Vertical(id="picker"):
             yield Label("Select a task (↑↓ to navigate, Enter to start):",

@@ -1,6 +1,6 @@
 # Agent 架构设计 (Agent Architecture)
 
-> 状态：草案 v2.4（2026-07-18）
+> 状态：草案 v2.5（2026-07-19）
 > 阶段：P2 启动前的架构定稿
 > 依据：官方 harness（contest/fpt26-harness/）+ AMD LLM4HLS SHA-256 案例文章 + 本仓库 dev-log 2026-07-11-03
 >
@@ -186,6 +186,85 @@ Lv4: Lv3 + latency 比 baseline 好   → PPA 分（+0.3×diff）
 ## 4. 主循环（Main Loop）
 
 主循环是线性流程 + 回溯重验 + 存档判定。以下用 Mermaid 流程图体现核心结构（控制流含分支与回退，用 flowchart 而非放射状 mindmap 表达）。
+
+### 4.0 全流程总览（LLM 调用标注法 v1）
+
+§4.1-§4.5 是控制流细节图。本节是全流程总览，用一套**标注画法**让路人也能一眼看清：流程怎么走、每次 LLM 调用注入了什么（信息从哪来）、输出什么、有什么权力。
+
+**画法规范（4 条）：**
+
+1. **节点分型**：体育场形 `([...])` = LLM 调用（四行卡）；矩形 = 工具调用（标 credit 成本）；圆柱 = 数据源（编号 D1-Dn）；子程序形 = 存档/缓存；菱形 = 判定/闸门。
+2. **LLM 调用四行卡**（固定格式，每行回答一个问题）：① `LLM#n 名称` ② `注入: 内容(来源编号)`——注入了什么 + 从哪来（D1-Dn 数据源 / #n 上游 LLM 产物 / 工具 / 缓存）③ `输出: 产物` ④ `职责: 权限边界`。
+3. **不画数据流虚线边**：注入来源已在卡内编号，实线边只表达控制流——避免交叉虚线把图变成蜘蛛网。
+4. **职责权限词汇表**（统一术语，一眼区分"只选"还是"可驳回"）：
+
+| 词汇 | 含义 | 例子 |
+|---|---|---|
+| **生成** | 只产出内容，无决策权 | repair / apply_strategies / extract_design_brief / propose_strategies |
+| **选择** | 从候选中挑选，解析失败有确定性回退 | select_strategies（回退 [0]） |
+| **可驳回** | reject 触发重新生成，无权直接改代码 | LLM review |
+| **硬门** | 确定性规则拦截，不过即驳回（非 LLM） | mechanical_review（签名/include） |
+| **仲裁** | 决定什么进存档 best（非 LLM） | checkpoint 三条规则 |
+
+```mermaid
+flowchart TD
+    subgraph DS["数据源（免费读取，不花 credit）"]
+        D1[("D1 task.toml<br/>type / budget / requires_cosim")]
+        D2[("D2 description.md<br/>接口契约（官方设计文档）")]
+        D3[("D3 headers<br/>只读顶层签名")]
+        D4[("D4 KB 条目<br/>错误签名→修法")]
+    end
+
+    Start([进入一道题]) --> Route["路由器<br/>读 D1 → RunPlan"]
+    Route --> P0
+
+    subgraph S1["阶段 1 correctness"]
+        P0(["LLM#1 repair（pre-csim 免费审查）<br/>注入: D2截选 + D3 + 当前代码 + 反馈(工具)<br/>输出: 修复候选<br/>职责: 生成（双闸门把关）"])
+        P0 --> G1{"闸门<br/>mechanical 硬门<br/>+ LLM#1b review 可驳回"}
+        G1 -- "驳回(回灌问题重试)" --> P0
+        G1 -- "过" --> T1["csim · 1 cr"]
+        T1 --> Q1{csim 过?}
+        Q1 -- "否" --> KB["反馈蒸馏 → 检索 D4"] --> P0
+        Q1 -- "是" --> Q2{需要 cosim?}
+        Q2 -- "是" --> T2["cosim · 20 cr"] --> Q3{cosim 过?}
+        Q3 -- "否" --> KB
+        Q2 -- "否" --> CK1[["存档 Lv1<br/>correct 分到手"]]
+        Q3 -- "是" --> CK1
+    end
+
+    CK1 --> T3
+
+    subgraph S2["阶段 2 synth"]
+        T3["synth · 4 cr"] --> Q4{synth 过?}
+        Q4 -- "否 → §4.3 修复循环<br/>反馈→D4→LLM#1→先重验 csim" --> T3
+        Q4 -- "是" --> CK2[["存档 Lv2 + 缓存 synth 报告<br/>(latency/II/资源)"]]
+    end
+
+    CK2 --> P1
+
+    subgraph S3["阶段 3 optimize（每轮）"]
+        P1(["LLM#2 extract_design_brief（仅首轮, 后缓存）<br/>注入: D2 + D3 + 当前代码<br/>输出: 设计摘要(功能/循环/数据流/瓶颈)<br/>职责: 生成"])
+        P1 --> P2(["LLM#3 propose_strategies<br/>注入: D2 + D3 + #2摘要 + synth报告(缓存)<br/>输出: 2-4 策略(含 combinable_with 标注)<br/>职责: 生成"])
+        P2 --> P3(["LLM#4 select_strategies（评审 AI）<br/>注入: #3策略 + #2摘要 + synth报告<br/>输出: 兼容子集 + 理由<br/>职责: 选择（可否决组合; 解析失败回退[0]）"])
+        P3 --> P4(["LLM#5 apply_strategies<br/>注入: D2 + D3 + #2摘要 + #4子集<br/>输出: 合并候选代码<br/>职责: 生成"])
+        P4 --> G2{"双闸门<br/>mechanical 硬门<br/>+ LLM#5b review 可驳回"}
+        G2 -- "驳回" --> P4
+        G2 -- "过" --> T4["csim · 1 cr"] --> Q5{过?}
+        Q5 -- "否" --> FB{组合且未退过?}
+        Q5 -- "是" --> T5["synth · 4 cr"] --> Q6{过?}
+        Q6 -- "否" --> FB
+        Q6 -- "是" --> Q7{latency 更低?}
+        Q7 -- "是" --> CK3[["存档更新 + synth报告"]]
+        Q7 -- "否" --> FB
+        FB -- "回退首策略" --> P4
+        FB -- "否" --> Stop([收敛停止])
+        CK3 --> P2
+    end
+
+    Stop --> End([交 best → grade<br/>hidden testbench 复评])
+```
+
+**读图示例**（回答"review 只负责选还是有驳回权"这类问题）：图上两种评审角色一目了然——`LLM#1b/#5b review` 职责标"可驳回"（reject 会触发重新生成，有否决权）；`LLM#4 select_strategies` 职责标"选择（可否决组合；解析失败回退[0]）"（它的权力是从候选里挑子集，且能否决提出者的兼容性声明，但自身失败时不阻塞流程、确定性回退到第一个策略）。
 
 ### 4.1 总体流程
 
@@ -595,6 +674,7 @@ agent 跑一道题可能持续数分钟到数十分钟（cosim 单次最长 15 �
 
 | 日期 | 变更 | 变更人 |
 |---|---|---|
+| 2026-07-19 | v2.5。新增 §4.0「全流程总览（LLM 调用标注法 v1）」：一套让路人一眼看懂流程 + 每次 LLM 调用注入/输出/职责的画法规范——① 节点分型（体育场=LLM 调用/矩形=工具/圆柱=数据源编号 D1-Dn/子程序=存档/菱形=闸门）；② LLM 调用四行卡（名称/注入含来源编号/输出/职责权限）；③ 不画数据流虚线、实线只走控制流；④ 职责权限词汇表（生成/选择/可驳回/硬门/仲裁）。附全管线总览图（mermaid-cli 渲染验证通过）+ 读图示例（review 可驳回 vs select 选择的区分）。 | Agent 主 |
 | 2026-07-18 | v2.4。§4.4 Phase 2/3 重写（用户三决策）：① 策略从"取首策略"改为**组合子集**——propose 时逐策略标注 `combinable_with`，新增评审 AI `select_strategies`（同模型换 prompt self-check）复核兼容性并选子集，**双重确认（提出者+评审者都认互不干扰）才允许组合**，`apply_strategies` 把子集合并应用为一份候选；② 失败回退做组合归因：组合候选失败/无改进 → 回退子集首策略单试一次 → 仍失败才停（每轮最多 2 候选 10 credits）；③ review focus 加"多策略 pragma 交互"。§7 映射表、§8.1 接口（select_strategies 新增、apply_strategies 多策略签名）、§11 交叉验证形式补注同步。 | Agent 主 |
 | 2026-07-18 | v2.3。按实现差距补齐四处：① §4.3 synth 修复循环细化（每轮先重验 csim 再 synth、max_synth_rounds=3、latency 无效值防御）；② §4.4 optimize 循环细化（Phase 1 Context Loading 三件套：官方设计文档+extract_design_brief 设计摘要+synth 报告；取首策略启发式；max_optimize_rounds=4；停止条件）；③ §4.5 回滚语义明确（快照整体恢复，修"只记日志不真回滚"的实现 bug；回验前提改为"cosim in correctness_stages 且 best 变过"）；④ §8.1 prompt 硬要求（改代码类方法必注 description+headers）+ extract_design_brief 接口。§7 映射表、§9 模块划分（entries.py）、§11 待细化四项销项同步更新。 | Agent 主 |
 | 2026-07-14 | v2.2。三处：① 修 §4.1 总览图存档逻辑（correctness/synth 达标后显式加存档更新节点 Ckpt1/Ckpt2 + synth 失败止损分支）；② 新增 §12 可观测性（三层日志：transcript/结构化JSONL/心跳；12 个日志点；活跃度 STALE 告警；双层超时 + 兜底；与 transcript 关联）；③ 定可观测方案——第一次迭代用结构化日志 + tail -f，不做 WebUI（数据源可复用，第二次迭代升级）。 | Agent 主 |
