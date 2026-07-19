@@ -16,8 +16,9 @@
 | `Agent._repair_with_review(code, feedback_text, kb_text) -> str\|None` | method | 两道闸门：mechanical checks（硬）与 LLM review（语义），失败时把 mechanical 问题回灌反馈再重试 |
 | `Agent._do_synth(plan, ckpt) -> int\|None` | method | synth 修复循环（§4.3）：失败时反馈蒸馏+KB 检索+修复，**先重验 csim 再花 synth**；修 csim 崩了则带 csim 反馈续修；成功记录 `_synth_summary` |
 | `Agent._valid_latency(report) -> int\|None` | static method | latency 无效值防御：None 或 <=0 视为缺失（防 latency=0 解析异常污染存档） |
-| `Agent._optimize(plan, ckpt)` | method | optimize 循环（§4.4）：入口存档快照 → Phase 1 设计摘要提取（一次缓存）→ 每轮 Phase 2 提策略（取第一个）→ Phase 3 生成+双闸门 → 重验 csim+synth → 同级 latency 择优；无改进/预算不足/轮数尽则停 |
-| `Agent._apply_with_review(code, strategy) -> str\|None` | method | Phase 3 生成的双闸门变体：生成器为 apply_strategy，mechanical 失败时把问题折进 strategy 重试 |
+| `Agent._optimize(plan, ckpt)` | method | optimize 循环（§4.4，v2.4）：入口存档快照 → Phase 1 设计摘要缓存 → Phase 2a 提策略（含兼容性标注）→ **Phase 2b 评审 AI 选兼容子集（双重确认）** → Phase 3 合并生成+双闸门 → 重验 csim+synth → 同级 latency 择优；组合失败回退首策略一次（归因），单策略失败/无改进/预算尽/轮数尽则停 |
+| `Agent._try_opt_candidate(ckpt, strategies, round_n) -> str` | method | 单候选完整流水线：review 闸门生成 → csim 重验 → synth 重验 → 同级择优；返回 "improved"/"no_improvement"/"failed"（接受时更新存档与 synth_summary） |
+| `Agent._apply_with_review(code, strategies) -> str\|None` | method | Phase 3 生成的双闸门变体：生成器为 apply_strategies（组合子集），mechanical 失败时把问题折进首个 strategy 重试 |
 | `Agent._post_opt_cosim_recheck(ckpt)` | method | §4.5：仅当 best 在优化中变过才回验 cosim；失败或 cosim 不可负担时**真回滚**到优化前快照 |
 | `Agent._restore_snapshot(ckpt, snap)` | static method | 快照整体恢复（code/level/latency/cosim_ok） |
 | `Agent._kb_lookup(fb) -> str` | method | 用 fb.signatures 查知识库，返回命中摘要文本（KB 关闭或无命中返回空串） |
@@ -33,7 +34,7 @@
 - 线性带回溯：correctness 阶段首轮 pre-csim review 可在花 csim 信用前抓 bug；每次编辑候选不提升 level，仅下次输入。
 - 双闸门修复：mechanical（确定性，捕获签名/头文件变更）在前，LLM review 在后；mechanical 失败时问题回灌反馈再修（最多 max_review_retries 次额外重试）。
 - synth 修复循环（§4.3）：每轮修复后先重验 csim（1 credit）再 synth（4 credits），csim 崩了的候选不浪费 synth；`max_synth_rounds=3`。
-- optimize 循环（§4.4）：AMD Phase 1 三件套（官方设计文档 description+headers、extract_design_brief 设计摘要缓存、synth 报告）注入每次策略探索；取首策略启发式；`max_optimize_rounds=4`（每轮 csim1+synth4=5 credits）。
+- optimize 循环（§4.4）：AMD Phase 1 三件套（官方设计文档 description+headers、extract_design_brief 设计摘要缓存、synth 报告）注入每次策略探索；v2.4 策略组合——propose 标兼容性、select 评审 AI 双重确认选子集、apply 合并应用；组合失败回退子集首策略一次（归因），仍失败才停；`max_optimize_rounds=4`（每轮最坏 2×5=10 credits）。
 - 环境错误检测：csim 失败且 elapsed_s<0.5 且日志为空时判定 vitis-run 缺失，抛 RuntimeError 给出修复指引。
 - latency=0 防御：`_valid_latency` 把 <=0 当缺失，防止"0 周期"在同级的 latency 比较中永远获胜、污染存档（dev-log 2026-07-17-01 记录的解析异常）。
 - 真回滚（§4.5）：optimize 入口快照 Checkpoint 全字段；cosim 回验失败或不可负担时整体恢复，不只记日志。
@@ -57,8 +58,9 @@ Implements the agent-architecture.md §4 main loop: linear order (correctness ->
 | `Agent._repair_with_review(code, feedback_text, kb_text) -> str\|None` | method | Two gates: mechanical checks (hard) then LLM review (semantic); feeds mechanical issues back into the next repair retry |
 | `Agent._do_synth(plan, ckpt) -> int\|None` | method | Synth repair loop (§4.3): on failure distills feedback, queries KB, repairs, and **re-verifies csim before spending another synth**; a csim-breaking repair iterates on the csim feedback; records `_synth_summary` on success |
 | `Agent._valid_latency(report) -> int\|None` | static method | Invalid-latency guard: None or <=0 is treated as missing (keeps the latency=0 parse anomaly out of the archive) |
-| `Agent._optimize(plan, ckpt)` | method | Optimize loop (§4.4): snapshot at entry -> Phase 1 design-brief extraction (cached once) -> per-round Phase 2 strategy proposals (first strategy picked) -> Phase 3 generation with gates -> csim+synth re-verify -> same-level latency arbitration; stops on no improvement / unaffordable tools / round cap |
-| `Agent._apply_with_review(code, strategy) -> str\|None` | method | Review-gated variant for Phase 3: the generator is apply_strategy; mechanical failures are folded back into the strategy for the retry |
+| `Agent._optimize(plan, ckpt)` | method | Optimize loop (§4.4, v2.4): snapshot at entry -> Phase 1 cached design brief -> Phase 2a proposals (with compatibility annotations) -> **Phase 2b selector review AI picks a compatible subset (dual confirmation)** -> Phase 3 combined generation with gates -> csim+synth re-verify -> same-level latency arbitration; a failed combo falls back to the first strategy once (attribution); stops on single-strategy failure / no improvement / unaffordable tools / round cap |
+| `Agent._try_opt_candidate(ckpt, strategies, round_n) -> str` | method | Full per-candidate pipeline: review-gated generation -> csim re-verify -> synth re-verify -> same-level arbitration; returns "improved"/"no_improvement"/"failed" (acceptance updates the archive and synth_summary) |
+| `Agent._apply_with_review(code, strategies) -> str\|None` | method | Review-gated variant for Phase 3: the generator is apply_strategies (combined subset); mechanical failures are folded into the first strategy for the retry |
 | `Agent._post_opt_cosim_recheck(ckpt)` | method | §4.5: re-verifies cosim only when best changed during optimization; on failure (or unaffordable cosim) **really rolls back** to the pre-optimization snapshot |
 | `Agent._restore_snapshot(ckpt, snap)` | static method | Restores all snapshot fields (code/level/latency/cosim_ok) |
 | `Agent._kb_lookup(fb) -> str` | method | Queries KB with fb.signatures; returns hits summary (empty when KB disabled or no hits) |
@@ -74,7 +76,7 @@ No `__all__`; primary export is the `Agent` class.
 - Linear with backtracking: the first-round pre-csim review can catch bugs before spending a csim credit; each edited candidate does not advance level, only feeds the next input.
 - Two-gate repair: mechanical (deterministic, catches signature/header changes) first, LLM review second; mechanical failures are re-fed into the next repair (up to max_review_retries extra retries).
 - Synth repair loop (§4.3): every repair re-verifies csim (1 credit) before another synth (4 credits), so a correctness-breaking candidate never burns a synth call; `max_synth_rounds=3`.
-- Optimize loop (§4.4): AMD Phase 1's three-piece context (official design document description+headers, the cached extract_design_brief summary, the synth report) is injected into every strategy exploration; first-strategy heuristic; `max_optimize_rounds=4` (each round costs csim 1 + synth 4 = 5 credits).
+- Optimize loop (§4.4): AMD Phase 1's three-piece context (official design document description+headers, the cached extract_design_brief summary, the synth report) is injected into every strategy exploration; v2.4 strategy combos — propose annotates compatibility, the selector review AI dually confirms and picks a subset, apply merges them; a failed combo falls back to the subset's first strategy once (attribution) and only a further failure stops the loop; `max_optimize_rounds=4` (worst case 2×5=10 credits per round).
 - Environment-error detection: csim failure with elapsed_s<0.5 and empty log is treated as a missing vitis-run, raising a RuntimeError with fix guidance.
 - Latency=0 guard: `_valid_latency` treats <=0 as missing so a "0-cycle" report can never win every same-level latency comparison and corrupt the archive (parse anomaly noted in dev-log 2026-07-17-01).
 - Real rollback (§4.5): the optimize-entry snapshot covers all Checkpoint fields; a failed (or unaffordable) cosim re-check restores them wholesale instead of merely logging.

@@ -16,7 +16,7 @@ Textual TUI 主入口，组装三个区域 widget（流程图 / 工具错误栏 
 | AgentDashboard._run_agent | method | 后台线程内构造 Agent（加载 task、Budget、ToolServer、LLM backend、KnowledgeBase），劫持 `log.event` 与 `hb.set_stage` 把事件/心跳入队 |
 | AgentDashboard._poll_events | method | 每 150ms 抽空事件队列并调用 `_handle_event`，随后 `_refresh_ui`；整体包了 `NoMatches` 兜底，丢弃关闭过程中最后一拍 |
 | AgentDashboard._handle_event | method | 分发 init/event/stream/heartbeat/done/error 六类事件 |
-| AgentDashboard._handle_agent_event | method | 处理 route/phase_enter/phase_exit/tool_result/review/mechanical_review/checkpoint/submit 等日志事件，更新各 widget |
+| AgentDashboard._handle_agent_event | method | 处理 route/phase_enter/phase_exit/tool_result/review/mechanical_review/strategy_select/optimize_fallback/checkpoint/submit 等日志事件，更新各 widget |
 | AgentDashboard._handle_stream | method | 处理 LLM 流式 token，注入"上次工具结果"上下文后写入 ActivityPanel |
 | AgentDashboard._refresh_ui | method | 刷新 ActivityPanel 渲染、ToolErrorBar 实时计时、StatusBar 全量状态 |
 | run_tui(task_path, backend, budget) | function | 入口：构造 AgentDashboard 并 `.run()` |
@@ -56,7 +56,7 @@ Main Textual TUI entry point: assembles the four region widgets (flow chart / to
 | AgentDashboard._run_agent | method | In background thread builds the Agent (load_task, Budget, ToolServer, LLM backend, KnowledgeBase) and wraps `log.event`/`hb.set_stage` to enqueue events/heartbeats |
 | AgentDashboard._poll_events | method | Every 150ms drains the queue calling `_handle_event`, then `_refresh_ui`; wrapped in a `NoMatches` guard that drops the final tick during shutdown |
 | AgentDashboard._handle_event | method | Dispatches six event kinds: init/event/stream/heartbeat/done/error |
-| AgentDashboard._handle_agent_event | method | Handles log events (route/phase_enter/phase_exit/tool_result/review/mechanical_review/checkpoint/submit) and updates widgets |
+| AgentDashboard._handle_agent_event | method | Handles log events (route/phase_enter/phase_exit/tool_result/review/mechanical_review/strategy_select/optimize_fallback/checkpoint/submit) and updates widgets |
 | AgentDashboard._handle_stream | method | Handles LLM streaming tokens, injects last tool result context, writes to ActivityPanel |
 | AgentDashboard._refresh_ui | method | Refreshes ActivityPanel render, ToolErrorBar live timer, and full StatusBar state |
 | run_tui(task_path, backend, budget) | function | Entry point: builds AgentDashboard and calls `.run()` |

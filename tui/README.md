@@ -63,3 +63,4 @@ pip install textual rich
 - **ToolErrorBar 噪声过滤**：Vitis 日志含大量 INFO/WARNING 行，需过滤只留 error 行，否则 7 行不够用。HLS 错误码（如 `@E`）需排除误报。
 - **Header 不显示 name 参数**：`Header(name=...)` 只是 DOM 节点名，标题栏显示的是 `app.title`。版本号要用 `self.title = ...` 设置，否则标题栏只显示类名。
 - **关闭时 NoMatches 竞态**：150ms 轮询定时器在关闭卸载 widget 后可能再触发一拍，`query_one` 抛 `NoMatches`。`_poll_events` 已包兜底丢弃该拍（v0.1.1 修复）。
+- **心跳覆盖分区内容**：`_refresh_ui` 每 150ms 调 `ToolErrorBar.show_running`——若 bar 用一次性 `update()` 写内容，心跳会把其他分区（如 v0.3.0 的 optimize 策略面板）擦掉。ToolErrorBar 已改**状态驱动渲染**（内部分区状态 + `_rebuild()` 拼接，v0.3.0）：新增分区信息时务必走 `show_*` 方法改状态，不要直接 `update()`。

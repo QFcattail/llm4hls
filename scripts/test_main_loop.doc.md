@@ -3,26 +3,29 @@
 ## 中文说明
 
 ### 用途
-agent 主循环的离线单元测试（TC-AGENT-001 ~ TC-AGENT-006），用例编号对齐 `docs-development/test-plan/README.md` 规范。本机无 Vitis、无 LLM API 也能跑：FakeToolServer 按规则回放 ToolResult（计费走真 harness Budget），CannedBackend 按 prompt 内容分发预设答案驱动 HLSLLMClient。钉住 v2.3 三阶段语义，防止回归。
+agent 主循环的离线单元测试（TC-AGENT-001 ~ TC-AGENT-009），用例编号对齐 `docs-development/test-plan/README.md` 规范。本机无 Vitis、无 LLM API 也能跑：FakeToolServer 按规则回放 ToolResult（计费走真 harness Budget），CannedBackend 按 prompt 内容分发预设答案驱动 HLSLLMClient。钉住 v2.3/v2.4 三阶段语义，防止回归。
 
 ### 关键类/函数
 | 名称 | 类型 | 职责 |
 |---|---|---|
 | `FakeTask` | dataclass | 最小 Task 替身，覆盖 agent 链路触及的字段（id/type/requires_cosim/kernel_code/top/headers/budget 等） |
 | `FakeToolServer` | class | 规则化工具替身：csim 遇 `BREAK_CSIM` 标记失败；synth/cosim 委托给每测例的 handler 闭包；内部走真 `Budget.charge` |
-| `CannedBackend` | class | 按 prompt 嗅探的 LLM 后端：brief/策略/review 固定答案；repair 与 apply_strategy 从每测例代码队列循环取答 |
-| `tc_001` ~ `tc_006` | function | 六个测例（见下表） |
+| `CannedBackend` | class | 按 prompt 嗅探的 LLM 后端：brief/策略/review/select 固定答案（`select_pick` 控制评审 AI 选的编号）；repair 与 apply_strategies 从每测例代码队列循环取答 |
+| `tc_001` ~ `tc_009` | function | 九个测例（见下表） |
 | `main() -> int` | function | 跑全部测例，全过返回 0 |
 
 ### 测例一览（对应架构章节）
 | 用例 | 验什么 | 架构 |
 |---|---|---|
 | TC-AGENT-001 | synth 首败 -> 修复循环（先重验 csim）-> synth 过 -> Lv2，且 synth 错误签名命中 KB | §4.3 |
-| TC-AGENT-002 | optimize 接受更快候选（100->60），次轮无改进停止 | §4.4 + §2 规则 2 |
-| TC-AGENT-003 | optimize 候选破坏 csim -> discard，best 不动 | §4.4 + §5 |
+| TC-AGENT-002 | optimize 接受更快候选（100->60），次轮无改进停止；strategy_select 事件字段供 TUI | §4.4 + §2 规则 2 |
+| TC-AGENT-003 | optimize 候选破坏 csim -> discard，best 不动；单策略失败即停（v2.4 fail-fast） | §4.4 + §5 |
 | TC-AGENT-004 | structural：优化后 cosim 回验失败 -> 真回滚快照（code+latency 全恢复） | §4.5 |
 | TC-AGENT-005 | 种子 KB 检索：错误码/关键词探针命中预期条目 | §6.3 |
 | TC-AGENT-006 | latency=0 防御：零 latency 候选不进存档 | §4.3 要点 |
+| TC-AGENT-007 | v2.4：评审 AI 选兼容策略对（1+2）-> 组合候选接受（100->55），无 fallback | §4.4 双重确认 |
+| TC-AGENT-008 | v2.4：组合失败 -> optimize_fallback -> 首策略单试接受（100->70） | §4.4 组合归因 |
+| TC-AGENT-009 | v2.4 TUI：ToolErrorBar 策略面板与工具错误共存；150ms 心跳 show_running 擦不掉策略行 | tui-design §3.2 |
 
 ### 导出
 无 `__all__`；作为脚本直接执行：`python3 scripts/test_main_loop.py`。
@@ -42,26 +45,29 @@ agent 主循环的离线单元测试（TC-AGENT-001 ~ TC-AGENT-006），用例�
 ## English
 
 ### Purpose
-Offline unit tests for the agent main loop (TC-AGENT-001 ~ TC-AGENT-006), numbered per `docs-development/test-plan/README.md`. Runs on machines without Vitis or an LLM API: FakeToolServer replays rule-based ToolResults against a real harness Budget, and a prompt-sniffing CannedBackend drives HLSLLMClient. Pins the v2.3 three-stage semantics against regressions.
+Offline unit tests for the agent main loop (TC-AGENT-001 ~ TC-AGENT-009), numbered per `docs-development/test-plan/README.md`. Runs on machines without Vitis or an LLM API: FakeToolServer replays rule-based ToolResults against a real harness Budget, and a prompt-sniffing CannedBackend drives HLSLLMClient. Pins the v2.3/v2.4 three-stage semantics against regressions.
 
 ### Key Classes/Functions
 | Name | Type | Responsibility |
 |---|---|---|
 | `FakeTask` | dataclass | Minimal Task stand-in covering every field the agent stack touches (id/type/requires_cosim/kernel_code/top/headers/budget, etc.) |
 | `FakeToolServer` | class | Rule-based tool stand-in: csim fails on the `BREAK_CSIM` marker; synth/cosim delegate to per-test handler closures; charges a real `Budget` |
-| `CannedBackend` | class | Prompt-sniffing LLM backend: fixed brief/strategy/review answers; repair and apply_strategy cycle through per-test code queues |
-| `tc_001` ~ `tc_006` | function | The six test cases (table below) |
+| `CannedBackend` | class | Prompt-sniffing LLM backend: fixed brief/strategy/review/select answers (`select_pick` controls the selector AI's pick); repair and apply_strategies cycle through per-test code queues |
+| `tc_001` ~ `tc_009` | function | The nine test cases (table below) |
 | `main() -> int` | function | Runs all cases; returns 0 iff all pass |
 
 ### Test Cases (mapped to architecture sections)
 | Case | What it verifies | Architecture |
 |---|---|---|
 | TC-AGENT-001 | Synth fails once -> repair loop (csim re-verified first) -> synth passes -> Lv2, with a KB hit on the synth error signature | §4.3 |
-| TC-AGENT-002 | Optimize accepts the faster candidate (100->60), then stops on no improvement | §4.4 + §2 rule 2 |
-| TC-AGENT-003 | Optimize discards a candidate that breaks csim; best untouched | §4.4 + §5 |
+| TC-AGENT-002 | Optimize accepts the faster candidate (100->60), then stops on no improvement; strategy_select event fields feed the TUI | §4.4 + §2 rule 2 |
+| TC-AGENT-003 | Optimize discards a candidate that breaks csim; best untouched; single-strategy failure stops the loop (v2.4 fail-fast) | §4.4 + §5 |
 | TC-AGENT-004 | Structural: post-optimization cosim re-check fails -> real snapshot rollback (code+latency restored) | §4.5 |
 | TC-AGENT-005 | Seed KB retrieval: error-code/keyword probes hit the intended entries | §6.3 |
 | TC-AGENT-006 | Latency=0 guard: a zero-latency candidate never enters the archive | §4.3 notes |
+| TC-AGENT-007 | v2.4: selector picks a compatible PAIR (1+2) -> combined candidate accepted (100->55), no fallback | §4.4 dual confirmation |
+| TC-AGENT-008 | v2.4: combo fails -> optimize_fallback -> first strategy alone accepted (100->70) | §4.4 combo attribution |
+| TC-AGENT-009 | v2.4 TUI: ToolErrorBar strategy panel coexists with tool errors; the 150ms show_running heartbeat cannot wipe it | tui-design §3.2 |
 
 ### Exports
 No `__all__`; run directly: `python3 scripts/test_main_loop.py`.

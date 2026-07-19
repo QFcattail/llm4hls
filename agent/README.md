@@ -55,7 +55,8 @@ run_agent.py (driver/CLI)
 │       │       ├── .review(task, code, focus)                   │
 │       │       ├── .extract_design_brief(task, code)            │
 │       │       ├── .propose_strategies(task, code, synth, brief)│
-│       │       └── .apply_strategy(task, code, strategy, brief) │
+│       │       ├── .select_strategies(...)  [v2.4 评审 AI]      │
+│       │       └── .apply_strategies(subset, brief) [v2.4 组合] │
   │       │       │                                                │
   │       │       └── 注入 backend (DeepSeekClient / ScriptedClient)│
   │       │                                                        │
@@ -132,14 +133,15 @@ route(task) → RunPlan{repair, [csim], init_level=0}
     │       → 重验 csim(1 credit) → 过才再 synth(4 credits)   [§4.3]
     └─ 否 → ckpt.accept(ckpt.code, SYNTH, latency)  ← 存档 1→2 + 记 synth_summary
   │
-  ▼ _optimize (v0.2.0: 完整实现):
+  ▼ _optimize (v0.3.0: 策略组合 + 评审 AI):
   快照 ckpt（§4.5 回滚点）
   extract_design_brief(task, code) → 设计摘要（一次缓存）     [AMD Phase 1]
-  每轮: propose_strategies(设计文档+摘要+最新 synth 报告)     [AMD Phase 2]
-        → 取第一个策略 → apply_strategy                       [AMD Phase 3]
-        → _apply_with_review 双闸门
+  每轮: propose_strategies(设计文档+摘要+最新 synth 报告)     [AMD Phase 2a]
+        → 每策略标 combinable_with 兼容性
+        → select_strategies 评审 AI 复核+选兼容子集           [Phase 2b 双重确认]
+        → apply_strategies(子集合并) → _apply_with_review     [AMD Phase 3]
         → 重验 csim + synth → should_accept(SYNTH, lat) 同级择优
-        → 无改进 / 预算不足 / 满 4 轮 → 停
+        → 组合失败 → 回退子集首策略单试一次（归因），仍失败才停
   │
   ▼ (需要 cosim 的题) _post_opt_cosim_recheck:
   best 变过才回验；cosim 失败 → 真回滚到优化前快照            [§4.5]
@@ -162,8 +164,9 @@ route(task) → RunPlan{repair, [csim], init_level=0}
 | `_repair_with_review(code, feedback, kb_text) -> str\|None` | private | 生成修复 + 机械检查 + LLM review 双层验证 |
 | `_do_synth(plan, ckpt) -> int\|None` | private | 阶段2：synth 修复循环（RAG+重验 csim 再 synth），拿 baseline latency |
 | `_valid_latency(report) -> int\|None` | private(static) | latency<=0 视为缺失（latency=0 解析异常防御） |
-| `_optimize(plan, ckpt)` | private | 阶段3：PPA 优化循环（AMD Phase 1-3 + 重验 + 同级择优） |
-| `_apply_with_review(code, strategy) -> str\|None` | private | Phase 3 生成 + 双层验证（apply_strategy 变体） |
+| `_optimize(plan, ckpt)` | private | 阶段3：PPA 优化循环（Phase 1-3 + 评审 AI 选子集 + 组合生成 + 失败回退） |
+| `_try_opt_candidate(ckpt, strategies, round_n) -> str` | private | 单候选流水线：生成→重验→同级择优，返回 improved/no_improvement/failed |
+| `_apply_with_review(code, strategies) -> str\|None` | private | Phase 3 生成 + 双层验证（apply_strategies 组合变体） |
 | `_post_opt_cosim_recheck(ckpt)` | private | 需 cosim 题优化后回验，失败真回滚快照 |
 | `_restore_snapshot(ckpt, snap)` | private(static) | 快照整体恢复（§4.5） |
 | `_kb_lookup(fb) -> str` | private | 查知识库，返回命中条目文本 |
@@ -195,8 +198,9 @@ route(task) → RunPlan{repair, [csim], init_level=0}
 | `repair(task, code, feedback, kb_text) -> str\|None` | 让 LLM 修复代码 |
 | `review(task, code, focus) -> (bool, str)` | 交叉验证候选代码 |
 | `extract_design_brief(task, code) -> str` | AMD Phase 1：提炼设计摘要（功能/循环/数据流/瓶颈），optimize 前调一次缓存 |
-| `propose_strategies(task, code, synth_summary, design_brief) -> list[Strategy]` | AMD Phase 2：注入设计文档+摘要+报告，提优化策略 |
-| `apply_strategy(task, code, strategy, design_brief) -> str\|None` | AMD Phase 3：按策略生成代码 |
+| `propose_strategies(task, code, synth_summary, design_brief) -> list[Strategy]` | AMD Phase 2a：注入设计文档+摘要+报告，提策略（标 combinable_with） |
+| `select_strategies(task, code, strategies, synth_summary, design_brief) -> (list[int], str)` | Phase 2b 评审 AI：复核兼容性选子集；解析失败回退 [0] |
+| `apply_strategies(task, code, strategies, design_brief) -> str\|None` | AMD Phase 3：兼容子集合并生成（双重确认） |
 
 ### mechanical_checks
 
@@ -252,6 +256,8 @@ agent 通过 import 复用官方 harness 的以下类，定义在 `contest/fpt26
 | 存档 level 单调不减 | 评分分层（correct 门 > synth > PPA），天然映射 |
 | DeepSeek max_tokens=16384 | 推理模型 reasoning_tokens 占 max_tokens |
 | optimize 先提取设计摘要再改 | AMD Phase 1：不给设计上下文，LLM 只给泛泛建议（v0.2.0） |
+| 策略组合需双重确认才合并 | pragma 交互是 LLM 高错点；提出者+评审者都认互不干扰才组合（v0.3.0，用户决策） |
+| 组合失败回退首策略一次 | 组合候选失败无法归因到单个策略，缩小集合重试（v0.3.0） |
 | synth 修复先重验 csim 再 synth | 1 credit 比 4 credits 便宜；改 synth 可能破坏正确性（§5） |
 | 优化后 cosim 失败真回滚快照 | 曾只记日志不恢复，会带着死锁提交（§4.5，v0.2.0 修） |
 
