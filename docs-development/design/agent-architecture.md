@@ -1,6 +1,6 @@
 # Agent 架构设计 (Agent Architecture)
 
-> 状态：草案 v2.5（2026-07-19）
+> 状态：草案 v2.6（2026-07-19）
 > 阶段：P2 启动前的架构定稿
 > 依据：官方 harness（contest/fpt26-harness/）+ AMD LLM4HLS SHA-256 案例文章 + 本仓库 dev-log 2026-07-11-03
 >
@@ -187,84 +187,130 @@ Lv4: Lv3 + latency 比 baseline 好   → PPA 分（+0.3×diff）
 
 主循环是线性流程 + 回溯重验 + 存档判定。以下用 Mermaid 流程图体现核心结构（控制流含分支与回退，用 flowchart 而非放射状 mindmap 表达）。
 
-### 4.0 全流程总览（LLM 调用标注法 v1）
+### 4.0 全流程总览（LLM 调用标注法 v2）
 
-§4.1-§4.5 是控制流细节图。本节是全流程总览，用一套**标注画法**让路人也能一眼看清：流程怎么走、每次 LLM 调用注入了什么（信息从哪来）、输出什么、有什么权力。
+§4.1-§4.5 是控制流细节图。本节是全流程总览，用一套**标注画法**让路人也能一眼看清：流程怎么走、每次 LLM 调用注入了什么（信息从哪来，**虚线箭头直接连过来**）、输出什么、有什么权力。
 
-**画法规范（4 条）：**
+**画法规范（v2，4 条）：**
 
-1. **节点分型**：体育场形 `([...])` = LLM 调用（四行卡）；矩形 = 工具调用（标 credit 成本）；圆柱 = 数据源（编号 D1-Dn）；子程序形 = 存档/缓存；菱形 = 判定/闸门。
-2. **LLM 调用四行卡**（固定格式，每行回答一个问题）：① `LLM#n 名称` ② `注入: 内容(来源编号)`——注入了什么 + 从哪来（D1-Dn 数据源 / #n 上游 LLM 产物 / 工具 / 缓存）③ `输出: 产物` ④ `职责: 权限边界`。
-3. **不画数据流虚线边**：注入来源已在卡内编号，实线边只表达控制流——避免交叉虚线把图变成蜘蛛网。
-4. **职责权限词汇表**（统一术语，一眼区分"只选"还是"可驳回"）：
+1. **节点分型**：矩形 = LLM 调用（四行卡，见规范 2）或工具调用（标 credit 成本）；圆柱 = 数据源（编号 D1-Dn）；子程序形 = 存档/缓存；菱形 = 判定/硬门；体育场形 = 起止。
+2. **LLM 调用矩形卡固定四行**：`LLM#n 名称` / `注入: 注入了什么` / `输出: 产物（review 类必须写明 PASS / 驳回+理由）` / `职责: 一句人话写清权力边界`——职责不写抽象单词，写清"做什么 + 有无否决权 + 失败怎么办"，例如"检查明显错误并生成正确代码（无权直接提交，须过双闸门+工具验证）"。
+3. **数据流画虚线箭头**：注入来源（数据源 / 缓存 / 上游产物）用虚线连到消费它的 LLM 节点；实线只走控制流。为可读性，**数据源就近放在消费它的阶段图内**，不画跨阶段长虚线——所以全览图按阶段拆为三张（骨架 + correctness + optimize），而非一张大图。
+4. **review 双闸门必须完整展开**：mechanical（签名/include 硬门，非 LLM）画菱形即可；LLM review 必须画矩形四行卡，且两条出边显式标注——`驳回+理由 → 回生成节点`、`PASS → 下一关"。
+
+**职责权限词汇表**（职责行里的关键词统一用这套）：
 
 | 词汇 | 含义 | 例子 |
 |---|---|---|
 | **生成** | 只产出内容，无决策权 | repair / apply_strategies / extract_design_brief / propose_strategies |
-| **选择** | 从候选中挑选，解析失败有确定性回退 | select_strategies（回退 [0]） |
+| **选择** | 从候选中挑选，解析失败有确定性回退 | select_strategies（回退第一个策略） |
 | **可驳回** | reject 触发重新生成，无权直接改代码 | LLM review |
 | **硬门** | 确定性规则拦截，不过即驳回（非 LLM） | mechanical_review（签名/include） |
 | **仲裁** | 决定什么进存档 best（非 LLM） | checkpoint 三条规则 |
 
+#### 图 A：全流程骨架（三阶段 + 提交）
+
 ```mermaid
 flowchart TD
-    subgraph DS["数据源（免费读取，不花 credit）"]
-        D1[("D1 task.toml<br/>type / budget / requires_cosim")]
-        D2[("D2 description.md<br/>接口契约（官方设计文档）")]
-        D3[("D3 headers<br/>只读顶层签名")]
-        D4[("D4 KB 条目<br/>错误签名→修法")]
-    end
-
-    Start([进入一道题]) --> Route["路由器<br/>读 D1 → RunPlan"]
-    Route --> P0
-
-    subgraph S1["阶段 1 correctness"]
-        P0(["LLM#1 repair（pre-csim 免费审查）<br/>注入: D2截选 + D3 + 当前代码 + 反馈(工具)<br/>输出: 修复候选<br/>职责: 生成（双闸门把关）"])
-        P0 --> G1{"闸门<br/>mechanical 硬门<br/>+ LLM#1b review 可驳回"}
-        G1 -- "驳回(回灌问题重试)" --> P0
-        G1 -- "过" --> T1["csim · 1 cr"]
-        T1 --> Q1{csim 过?}
-        Q1 -- "否" --> KB["反馈蒸馏 → 检索 D4"] --> P0
-        Q1 -- "是" --> Q2{需要 cosim?}
-        Q2 -- "是" --> T2["cosim · 20 cr"] --> Q3{cosim 过?}
-        Q3 -- "否" --> KB
-        Q2 -- "否" --> CK1[["存档 Lv1<br/>correct 分到手"]]
-        Q3 -- "是" --> CK1
-    end
-
-    CK1 --> T3
-
-    subgraph S2["阶段 2 synth"]
-        T3["synth · 4 cr"] --> Q4{synth 过?}
-        Q4 -- "否 → §4.3 修复循环<br/>反馈→D4→LLM#1→先重验 csim" --> T3
-        Q4 -- "是" --> CK2[["存档 Lv2 + 缓存 synth 报告<br/>(latency/II/资源)"]]
-    end
-
-    CK2 --> P1
-
-    subgraph S3["阶段 3 optimize（每轮）"]
-        P1(["LLM#2 extract_design_brief（仅首轮, 后缓存）<br/>注入: D2 + D3 + 当前代码<br/>输出: 设计摘要(功能/循环/数据流/瓶颈)<br/>职责: 生成"])
-        P1 --> P2(["LLM#3 propose_strategies<br/>注入: D2 + D3 + #2摘要 + synth报告(缓存)<br/>输出: 2-4 策略(含 combinable_with 标注)<br/>职责: 生成"])
-        P2 --> P3(["LLM#4 select_strategies（评审 AI）<br/>注入: #3策略 + #2摘要 + synth报告<br/>输出: 兼容子集 + 理由<br/>职责: 选择（可否决组合; 解析失败回退[0]）"])
-        P3 --> P4(["LLM#5 apply_strategies<br/>注入: D2 + D3 + #2摘要 + #4子集<br/>输出: 合并候选代码<br/>职责: 生成"])
-        P4 --> G2{"双闸门<br/>mechanical 硬门<br/>+ LLM#5b review 可驳回"}
-        G2 -- "驳回" --> P4
-        G2 -- "过" --> T4["csim · 1 cr"] --> Q5{过?}
-        Q5 -- "否" --> FB{组合且未退过?}
-        Q5 -- "是" --> T5["synth · 4 cr"] --> Q6{过?}
-        Q6 -- "否" --> FB
-        Q6 -- "是" --> Q7{latency 更低?}
-        Q7 -- "是" --> CK3[["存档更新 + synth报告"]]
-        Q7 -- "否" --> FB
-        FB -- "回退首策略" --> P4
-        FB -- "否" --> Stop([收敛停止])
-        CK3 --> P2
-    end
-
-    Stop --> End([交 best → grade<br/>hidden testbench 复评])
+    Start([进入一道题]) --> R["路由器<br/>读 task.toml → RunPlan"]
+    R --> S1["阶段 1 correctness<br/>csim（+cosim）修复循环<br/>LLM 调用详解见下图 B"]
+    S1 -->|correctness 达标| S2["阶段 2 synth<br/>拿 baseline PPA + 缓存 synth 报告"]
+    S2 -->|synth 过| S3["阶段 3 optimize<br/>PPA 优化循环<br/>LLM 调用详解见下图 C"]
+    S3 --> SUB["交 best → grade<br/>hidden testbench 复评出 SCORE"]
 ```
 
-**读图示例**（回答"review 只负责选还是有驳回权"这类问题）：图上两种评审角色一目了然——`LLM#1b/#5b review` 职责标"可驳回"（reject 会触发重新生成，有否决权）；`LLM#4 select_strategies` 职责标"选择（可否决组合；解析失败回退[0]）"（它的权力是从候选里挑子集，且能否决提出者的兼容性声明，但自身失败时不阻塞流程、确定性回退到第一个策略）。
+#### 图 B：correctness 阶段（LLM 调用详解）
+
+```mermaid
+flowchart TD
+    D1[("D1 设计文档包<br/>task.toml + description.md + headers")]
+    D2[("D2 KB 条目<br/>错误签名 → 修法")]
+
+    L1["LLM#1 修复生成 repair<br/>────────────<br/>注入: 接口契约 + 只读签名 + 当前代码 + 错误反馈<br/>输出: 修正后的完整代码<br/>职责: 检查明显错误并生成正确代码<br/>（无权直接提交，须过双闸门 + 工具验证）"]
+    M1{"签名/include 硬门<br/>mechanical（非 LLM）"}
+    L2["LLM#2 复审 review<br/>────────────<br/>注入: 候选代码 + 检查清单（接口/新bug/pragma）<br/>输出: PASS / 驳回+理由<br/>职责: 有否决权——驳回触发重新生成，无权改码"]
+    T1["csim · 1 cr"]
+    Q1{csim 过?}
+    T2["cosim · 20 cr<br/>（仅 structural 题）"]
+    Q2{cosim 过?}
+    KB["反馈蒸馏 → 检索 D2"]
+    CK1[["存档 Lv1<br/>correct 分到手"]]
+
+    L1 --> M1
+    M1 -- "驳回（问题回灌）" --> L1
+    M1 -- "过" --> L2
+    L2 -- "驳回+理由" --> L1
+    L2 -- "PASS" --> T1
+    T1 --> Q1
+    Q1 -- "否" --> KB
+    KB --> L1
+    Q1 -- "是" --> T2
+    T2 --> Q2
+    Q2 -- "否" --> KB
+    Q1 -- "是（repair/optimize 题）" --> CK1
+    Q2 -- "是" --> CK1
+
+    D1 -.-> L1
+    D2 -.-> KB
+```
+
+注：首轮进入时 LLM#1 先做一次"静态体检"（不花 credit 的免费审查，直接看原始代码找明显 bug），跑通 residual 题时它一次性修掉了死锁模式，省下一次 20 cr 的失败 cosim + 15 分钟超时。
+
+#### 图 C：optimize 阶段（LLM 调用详解）
+
+```mermaid
+flowchart TD
+    D1[("D1 设计文档包<br/>task.toml + description.md + headers")]
+    C2[["缓存: synth 报告<br/>（来自阶段 2，随优化更新）"]]
+
+    L3["LLM#3 设计摘要 brief（仅首轮）<br/>────────────<br/>注入: 接口契约 + 签名 + 当前代码<br/>输出: 设计摘要（功能/循环/数据流/瓶颈）<br/>职责: 提炼设计意图供后续策略使用（无决策权）"]
+    C1[["缓存: 设计摘要"]]
+    L4["LLM#4 策略提案 propose<br/>────────────<br/>注入: 接口契约 + 设计摘要 + synth报告<br/>输出: 2-4 个策略（含兼容性标注）<br/>职责: 枚举候选方案（无决策权）"]
+    L5["LLM#5 策略评审 select（评审 AI）<br/>────────────<br/>注入: 策略列表 + 设计摘要 + synth报告<br/>输出: 兼容子集 + 选择理由<br/>职责: 从候选中选子集；能否决不兼容组合；<br/>解析失败回退第一个策略（不阻塞流程）"]
+    L6["LLM#6 优化生成 apply<br/>────────────<br/>注入: 接口契约 + 设计摘要 + 选中子集<br/>输出: 合并应用后的优化代码<br/>职责: 按选中策略生成代码（须过双闸门 + 工具验证）"]
+    M2{"签名/include 硬门<br/>mechanical（非 LLM）"}
+    L7["LLM#7 复审 review<br/>────────────<br/>注入: 候选代码 + 检查清单（pragma交互/接口）<br/>输出: PASS / 驳回+理由<br/>职责: 有否决权——驳回触发重新生成"]
+    T4["csim · 1 cr"]
+    Q4{csim 过?}
+    T5["synth · 4 cr"]
+    Q5{synth 过?}
+    Q6{latency 更低?}
+    FB{组合且未退过?}
+    CK3[["存档更新 → 下一轮"]]
+    Stop([收敛停止])
+
+    L3 --> L4
+    L4 --> L5
+    L5 --> L6
+    L6 --> M2
+    M2 -- "驳回" --> L6
+    M2 -- "过" --> L7
+    L7 -- "驳回+理由" --> L6
+    L7 -- "PASS" --> T4
+    T4 --> Q4
+    Q4 -- "否" --> FB
+    Q4 -- "是" --> T5
+    T5 --> Q5
+    Q5 -- "否" --> FB
+    Q5 -- "是" --> Q6
+    Q6 -- "是" --> CK3
+    CK3 --> L4
+    Q6 -- "否" --> FB
+    FB -- "回退首策略" --> L6
+    FB -- "否" --> Stop
+
+    D1 -.-> L3
+    D1 -.-> L4
+    D1 -.-> L6
+    L3 -.-> C1
+    C1 -.-> L4
+    C1 -.-> L5
+    C1 -.-> L6
+    C2 -.-> L4
+    C2 -.-> L5
+```
+
+**读图示例**（回答"review 只负责选还是有驳回权"这类问题）：两种评审角色一目了然——`LLM#2/#7 复审 review` 职责行写明"**有否决权**——驳回触发重新生成"，出边有两条（驳回回生成节点 / PASS 进工具验证）；`LLM#5 策略评审 select` 职责行写明"**从候选中选子集**；能否决不兼容组合；解析失败回退第一个策略（不阻塞流程）"——它能否决提出者的兼容性声明，但自身失败时不阻塞流程。
 
 ### 4.1 总体流程
 
@@ -674,7 +720,7 @@ agent 跑一道题可能持续数分钟到数十分钟（cosim 单次最长 15 �
 
 | 日期 | 变更 | 变更人 |
 |---|---|---|
-| 2026-07-19 | v2.5。新增 §4.0「全流程总览（LLM 调用标注法 v1）」：一套让路人一眼看懂流程 + 每次 LLM 调用注入/输出/职责的画法规范——① 节点分型（体育场=LLM 调用/矩形=工具/圆柱=数据源编号 D1-Dn/子程序=存档/菱形=闸门）；② LLM 调用四行卡（名称/注入含来源编号/输出/职责权限）；③ 不画数据流虚线、实线只走控制流；④ 职责权限词汇表（生成/选择/可驳回/硬门/仲裁）。附全管线总览图（mermaid-cli 渲染验证通过）+ 读图示例（review 可驳回 vs select 选择的区分）。 | Agent 主 |
+| 2026-07-19 | v2.6。§4.0 按用户反馈重做（标注法 v1→v2）：① 注入来源从"卡内编号注释"改为**虚线箭头真实连接**（数据源/缓存就近放在消费它的阶段图内，不画跨阶段长虚线）；② 全览图从一张大图拆为三张（图 A 三阶段骨架 / 图 B correctness 详解 / 图 C optimize 详解），布局可读性优先；③ 职责行从抽象单词改为一句人话（如 repair="检查明显错误并生成正确代码（无权直接提交，须过双闸门+工具验证）"）；④ review 双闸门完整展开——mechanical 画菱形（非 LLM 硬门），LLM review 画矩形四行卡，出边显式标"驳回+理由→回生成节点 / PASS→下一关"；⑤ "pre-csim 免费审查"正名为 LLM#1 修复生成（首轮=静态体检，附 residual 实例注）。三张图均经 mermaid-cli 渲染验证。 | Agent 主 |
 | 2026-07-18 | v2.4。§4.4 Phase 2/3 重写（用户三决策）：① 策略从"取首策略"改为**组合子集**——propose 时逐策略标注 `combinable_with`，新增评审 AI `select_strategies`（同模型换 prompt self-check）复核兼容性并选子集，**双重确认（提出者+评审者都认互不干扰）才允许组合**，`apply_strategies` 把子集合并应用为一份候选；② 失败回退做组合归因：组合候选失败/无改进 → 回退子集首策略单试一次 → 仍失败才停（每轮最多 2 候选 10 credits）；③ review focus 加"多策略 pragma 交互"。§7 映射表、§8.1 接口（select_strategies 新增、apply_strategies 多策略签名）、§11 交叉验证形式补注同步。 | Agent 主 |
 | 2026-07-18 | v2.3。按实现差距补齐四处：① §4.3 synth 修复循环细化（每轮先重验 csim 再 synth、max_synth_rounds=3、latency 无效值防御）；② §4.4 optimize 循环细化（Phase 1 Context Loading 三件套：官方设计文档+extract_design_brief 设计摘要+synth 报告；取首策略启发式；max_optimize_rounds=4；停止条件）；③ §4.5 回滚语义明确（快照整体恢复，修"只记日志不真回滚"的实现 bug；回验前提改为"cosim in correctness_stages 且 best 变过"）；④ §8.1 prompt 硬要求（改代码类方法必注 description+headers）+ extract_design_brief 接口。§7 映射表、§9 模块划分（entries.py）、§11 待细化四项销项同步更新。 | Agent 主 |
 | 2026-07-14 | v2.2。三处：① 修 §4.1 总览图存档逻辑（correctness/synth 达标后显式加存档更新节点 Ckpt1/Ckpt2 + synth 失败止损分支）；② 新增 §12 可观测性（三层日志：transcript/结构化JSONL/心跳；12 个日志点；活跃度 STALE 告警；双层超时 + 兜底；与 transcript 关联）；③ 定可观测方案——第一次迭代用结构化日志 + tail -f，不做 WebUI（数据源可复用，第二次迭代升级）。 | Agent 主 |
