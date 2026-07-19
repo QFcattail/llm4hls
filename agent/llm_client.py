@@ -334,11 +334,17 @@ def _headers(task) -> str:
 def _parse_strategies(text: str) -> list[Strategy]:
     """Best-effort parse of a free-form strategy list into Strategy objects.
 
-    The LLM is asked for a structured-ish list; we tolerate simple formats.
+    Tolerates real LLM markdown: `**bold**` markers are stripped, numbered
+    headings may carry `#` prefixes (`#### 2. Name`), and non-strategy
+    blocks (diagnosis / recommendation / summary sections that real models
+    tend to prepend/append) are filtered out — a block only counts as a
+    strategy when it carries a gain or risk field.
     """
+    cleaned = text.replace("**", "")
     strategies: list[Strategy] = []
-    # Split on blank-line-separated blocks or numbered headings.
-    blocks = re.split(r"\n\s*(?:\d+[.)]|-{3,})\s*\n", text)
+    # Split BEFORE each numbered heading line ("1." alone, or "#### 2. Name"
+    # with the title on the same line — real LLM markdown uses both).
+    blocks = re.split(r"\n(?=\s*#{0,4}\s*\d+[.)]\s)", cleaned)
     for b in blocks:
         b = b.strip()
         if not b:
@@ -347,15 +353,26 @@ def _parse_strategies(text: str) -> list[Strategy]:
         gain_m = re.search(r"(?:gain|expected|latency)\s*[:：]\s*(.+)", b, re.IGNORECASE)
         risk_m = re.search(r"risk\s*[:：]\s*(.+)", b, re.IGNORECASE)
         comb_m = re.search(r"combinable(?:_with)?\s*[:：]\s*(.+)", b, re.IGNORECASE)
-        name = name_m.group(1).strip() if name_m else b.split("\n")[0][:60]
+        raw_name = name_m.group(1).strip() if name_m else b.split("\n")[0][:60]
+        name = re.sub(r"^[\s#*]*\d*[.)]?\s*", "", raw_name).strip("#* \t")
+        if not name or _NON_STRATEGY_RE.search(name):
+            continue
+        # A real strategy block must quantify gain or risk; this drops the
+        # diagnosis/recommendation sections real LLMs wrap strategies in.
+        if gain_m is None and risk_m is None:
+            continue
         strategies.append(Strategy(
-            name=name,
+            name=name[:80],
             rationale=b[:200],
             expected_gain=gain_m.group(1).strip() if gain_m else "?",
             risk=risk_m.group(1).strip() if risk_m else "?",
             combinable_with=comb_m.group(1).strip() if comb_m else "",
         ))
     return strategies
+
+
+_NON_STRATEGY_RE = re.compile(
+    r"diagnos|recommend|conclusion|summary|overview|analysis", re.IGNORECASE)
 
 
 _PICK_RE = re.compile(r"PICK\s*[:：]\s*([\d,\s]+)", re.IGNORECASE)

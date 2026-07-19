@@ -496,10 +496,50 @@ def tc_009() -> None:
     print("TC-AGENT-009 PASS  strategy panel coexists; heartbeat cannot wipe it")
 
 
+# Real DeepSeek output shape captured from the 2026-07-18 projection run:
+# markdown headers, **bold**, plus diagnosis/recommendation wrapper sections.
+_MARKDOWN_STRATEGIES = """**Diagnosis of the original bug (fixed in provided code)**
+
+The z coordinate dropped one vertex term; the fix averages all three.
+
+### Optimization strategies to reduce **real latency**
+
+#### 1. Pipeline the angle==0 branch
+rationale: the branch is on the critical path; PIPELINE shortens it
+gain: fewer cycles per invocation
+risk: none
+combinable_with: 2
+
+#### 2. Multiply-and-shift with DSP48 slices
+rationale: replace the divider logic with DSP-based shifts
+gain: lower combinational depth
+risk: may increase DSP usage
+combinable_with: 1
+
+**Recommendation:** Start with Strategy 1 as it gives the best tradeoff.
+"""
+
+
+def tc_010() -> None:
+    """TC-AGENT-010: _parse_strategies tolerates real LLM markdown output."""
+    from agent.llm_client import _parse_strategies
+
+    strategies = _parse_strategies(_MARKDOWN_STRATEGIES)
+    names = [s.name for s in strategies]
+    assert len(strategies) == 2, f"want exactly 2 real strategies, got {names}"
+    assert names[0] == "Pipeline the angle==0 branch", names
+    assert names[1] == "Multiply-and-shift with DSP48 slices", names
+    assert strategies[0].combinable_with == "2"
+    assert strategies[1].combinable_with == "1"
+    assert all("Diagnosis" not in n and "Recommendation" not in n
+               for n in names), names
+    print("TC-AGENT-010 PASS  markdown strategies parsed, wrappers filtered")
+
+
 def main() -> int:
     """Run all TC-AGENT cases; return 0 iff every one passes."""
     cases = [tc_001, tc_002, tc_003, tc_004, tc_005, tc_006,
-             tc_007, tc_008, tc_009]
+             tc_007, tc_008, tc_009, tc_010]
     failed = 0
     for tc in cases:
         try:
