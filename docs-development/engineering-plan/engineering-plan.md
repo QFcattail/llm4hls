@@ -6,7 +6,7 @@
 >
 > 每进入一个阶段先细化原子任务，原子任务一定要细，不要一个任务需要一周的量。
 
-最后更新时间 (Last Updated)：2026-07-18（**v0.3.0**：架构 v2.4 落地——optimize 策略组合（propose 标兼容性 + 评审 AI 双重确认选子集 + apply 合并应用）+ 组合失败归因回退 + TUI error tab optimize 策略面板（状态驱动渲染）。离线 9 用例全过（TC-AGENT-001~009），真机 e2e 待服务器验证。）
+最后更新时间 (Last Updated)：2026-07-18（**真机 e2e 重大突破**：v0.3.0 在 QFS-STATION（Vitis 2025.2 + DeepSeek V4 Pro）验证——projection 回归 SCORE 1.400 持平；**dotProduct optimize 循环 SCORE 3.000 满分**（baseline 1027 → candidate 14 cyc，73.36× 加速，4 轮优化中三组合/排他二组合/保守单选三种机制全部走到）。修复真机暴露的策略解析器问题（两轮）。剩 residual(structural) 真机验证。）
 
 ---
 
@@ -157,7 +157,7 @@
 | P3-03 | 在云服务器（SSH）上跑通真 csim/synth/cosim | ⚪ | harness run_poc.py 在服务器上对 3 道题跑出真结果（非 compile_error 占位） |
 | P3-04 | ~~加预算计数与止损~~ | ✅ | **官方 Budget + BudgetExceeded 已实现。已废弃。** |
 | P3-05 | 扩 main_loop 的 structural 路径：csim+cosim 双验证 + 优化后回验 | ⚪ | 在 residual 题上自动修到 csim+cosim 全过（真 cosim，非 Scripted） |
-| P3-06 | 端到端测试：3 道公开题跑完整流程 + 评分 | ⚪ | 输出每题 scorecard，≥60% correctness 全绿 |
+| P3-06 | 端到端测试：3 道公开题跑完整流程 + 评分 | 🟡 | 2/3 真机过：projection SCORE 1.400（回归持平）、dotProduct **SCORE 3.000 满分**（73.36× 加速）；剩 residual |
 | P3-07 | 里程碑演示：录一段 agent 自动修 HLS 的日志/录屏 | ⚪ | 可复现脚本 + 演示 |
 
 #### HLS 域主
@@ -175,7 +175,7 @@
 | 任务ID | 任务 | 负责人 | 状态 | 备注 |
 |---|---|---|---|---|
 | P4-01 | 实现 optimize 阶段：注入综合报告 + Strategy Exploration + 存档择优 | Agent 主 | 🟢 | v0.2.0 完成：设计文档+设计摘要提取（extract_design_brief）+取首策略+重验+同级择优+真回滚；离线 6 用例过，真机待验。对应 agent-architecture.md §4.4 |
-| P4-02 | pragma 变换优化 PPA（pipeline/unroll/partition/dataflow） | Agent 主 | ⚪ | 参考 AMD 案例文章的四阶段工作流 |
+| P4-02 | pragma 变换优化 PPA（pipeline/unroll/partition/dataflow） | Agent 主 | 🟢 | **真机实证**：dotProduct 73.36× 加速、SCORE 3.000 满分（策略组合：PIPELINE+UNROLL+ARRAY_PARTITION+加法树重构） |
 | P4-03 | 第二次迭代：token 优化（第一次迭代暂不考虑） | Agent 主 | ⚪ | 第一次迭代跑稳后，分析日志压 token |
 | P4-04 | 第二次迭代：功能 pattern 检索（agent-architecture.md §6.4） | Agent 主 | ⚪ | 难度较高，先靠错误签名匹配 |
 | P4-05 | Docker 镜像打包 | Agent 主 | ⚪ | 复用官方 vitis.dockerfile |
@@ -188,6 +188,7 @@
 
 | 日期 | 变更 | 变更人 |
 |---|---|---|
+| 2026-07-18 | **真机 e2e 验证（QFS-STATION）**。rsync 同步后服务器离线 10/10 过。projection 回归 SCORE 1.400 持平；**dotProduct optimize 循环 SCORE 3.000 满分**（baseline 1027→14 cyc，73.36× 加速；4 轮优化：R1 三组合 38→37、R2 排他二组合 37→22、R3 保守单选 22→14、R4 无改进收敛）。修复真机暴露的策略解析器问题两轮（markdown 标题 + 无冒号字段标签 + 非策略块过滤），TC-AGENT-010 新增。P3-06 转 🟡（2/3）、P4-02 转 🟢。详见 dev-log 2026-07-18-05。 | Agent 主 |
 | 2026-07-18 | **v0.3.0 / 架构 v2.4 落地**。按用户三决策升级 optimize：① 策略从单选改组合——propose 逐策略标 `combinable_with`，新增评审 AI `select_strategies`（同模型换 prompt）复核兼容性选子集，**双重确认才允许组合**，`apply_strategies` 合并应用为一份候选；② 组合失败归因回退：组合候选失败/无改进 → 回退子集首策略单试一次 → 仍失败才停（单策略失败 fail-fast）；③ TUI error tab 在 optimize 阶段复用为策略面板（策略区≤2行+工具区≤3行共存），ToolErrorBar 改状态驱动渲染（防 150ms 心跳 show_running 擦掉策略行）。tui-design v4 同步。验证：TC-AGENT-007/008/009 新增 + 002/003 语义更新，离线 9 用例 ×3 全过。详见 dev-log 2026-07-18-04。 | Agent 主 |
 | 2026-07-18 | **v0.2.0 / 架构 v2.3 落地**。按用户指出的三处设计-实现差距补齐：① synth 报错检索增强修复循环（§4.3：失败→反馈蒸馏→KB 检索→修复→先重验 csim 再 synth，max_synth_rounds=3）；② optimize PPA 优化循环（§4.4：AMD Phase 1 设计文档 description+headers + extract_design_brief 设计摘要 + synth 报告 → Phase 2 取首策略 → Phase 3 双闸门 → 重验 csim+synth → 同级 latency 择优，max_optimize_rounds=4）；③ §4.5 真回滚修复（原实现只记日志不恢复快照）。另加 latency=0 防御、KB 种子条目 7 条（P2-09 转 🟢）、P4-01 转 🟢。验证：scripts/test_main_loop.py 离线 6 用例（TC-AGENT-001~006）×3 全过；真机 dotProduct/residual e2e 待服务器。详见 dev-log 2026-07-18-03。 | Agent 主 |
 | 2026-07-15 | **P2 里程碑达成**。Vitis 2025.2 装好（服务器 QFS-STATION），projection 题端到端真修复跑通：DeepSeek 自主诊断 csim runtime_fail → 修复 → csim pass → synth pass → hidden testbench PASS，SCORE 1.400。P2-03~P2-08/P2-10/P2-11 全部标记完成。P1-11（Vitis 安装）标记完成。P2 整体标记"里程碑达成"，剩 dotProduct/residual 验证 + 知识库填充。详见 dev-log 2026-07-15-01。 | Agent 主 |
