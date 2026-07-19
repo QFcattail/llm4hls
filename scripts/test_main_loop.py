@@ -496,27 +496,41 @@ def tc_009() -> None:
     print("TC-AGENT-009 PASS  strategy panel coexists; heartbeat cannot wipe it")
 
 
-# Real DeepSeek output shape captured from the 2026-07-18 projection run:
-# markdown headers, **bold**, plus diagnosis/recommendation wrapper sections.
-_MARKDOWN_STRATEGIES = """**Diagnosis of the original bug (fixed in provided code)**
+# Real DeepSeek V4 Pro output shape captured from the 2026-07-18 dotProduct
+# probe: "### Strategy N: Name" headings + bold labels on their own lines.
+_MARKDOWN_STRATEGIES = """Here are three optimization strategies ordered by confidence.
 
-The z coordinate dropped one vertex term; the fix averages all three.
+---
 
-### Optimization strategies to reduce **real latency**
+### Strategy 1: Loop Pipelining (II = 1)
 
-#### 1. Pipeline the angle==0 branch
-rationale: the branch is on the critical path; PIPELINE shortens it
-gain: fewer cycles per invocation
-risk: none
-combinable_with: 2
+**Rationale**
+Insert `#pragma HLS PIPELINE II=1` immediately before the loop.
 
-#### 2. Multiply-and-shift with DSP48 slices
-rationale: replace the divider logic with DSP-based shifts
-gain: lower combinational depth
-risk: may increase DSP usage
-combinable_with: 1
+**Expected latency gain**
+~15x reduction (from ~16384 cycles to ~1030 cycles).
 
-**Recommendation:** Start with Strategy 1 as it gives the best tradeoff.
+**Risk**
+Very low. The only dependency is the running sum.
+
+**Combinable with**
+Strategy 2 and Strategy 3.
+
+---
+
+### Strategy 2: Full Unrolling by PAR_FACTOR with Array Partitioning
+
+**Rationale**
+Unroll factor=32 and partition both input arrays cyclic factor=32.
+
+**Expected latency gain**
+~400-500x reduction (to ~40-50 cycles).
+
+**Risk**
+Moderate to high. DSP count jumps from 1 to 32.
+
+**Combinable with**
+Strategy 1 (pipelining the unrolled loop).
 """
 
 
@@ -527,12 +541,14 @@ def tc_010() -> None:
     strategies = _parse_strategies(_MARKDOWN_STRATEGIES)
     names = [s.name for s in strategies]
     assert len(strategies) == 2, f"want exactly 2 real strategies, got {names}"
-    assert names[0] == "Pipeline the angle==0 branch", names
-    assert names[1] == "Multiply-and-shift with DSP48 slices", names
-    assert strategies[0].combinable_with == "2"
-    assert strategies[1].combinable_with == "1"
-    assert all("Diagnosis" not in n and "Recommendation" not in n
-               for n in names), names
+    assert names[0] == "Loop Pipelining (II = 1)", names
+    assert names[1] == "Full Unrolling by PAR_FACTOR with Array Partitioning", names
+    assert strategies[0].combinable_with == "Strategy 2 and Strategy 3."
+    assert strategies[0].expected_gain.startswith("~15x")
+    assert strategies[0].rationale.startswith("Insert `#pragma HLS PIPELINE")
+    # old "1.\nname: x" label format still parses (regression guard)
+    old = _parse_strategies(_STRATEGY_TEXT)
+    assert len(old) == 2 and old[0].name == "pipeline accumulation loop"
     print("TC-AGENT-010 PASS  markdown strategies parsed, wrappers filtered")
 
 

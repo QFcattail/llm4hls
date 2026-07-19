@@ -334,36 +334,48 @@ def _headers(task) -> str:
 def _parse_strategies(text: str) -> list[Strategy]:
     """Best-effort parse of a free-form strategy list into Strategy objects.
 
-    Tolerates real LLM markdown: `**bold**` markers are stripped, numbered
-    headings may carry `#` prefixes (`#### 2. Name`), and non-strategy
-    blocks (diagnosis / recommendation / summary sections that real models
-    tend to prepend/append) are filtered out — a block only counts as a
-    strategy when it carries a gain or risk field.
+    Tolerates the two shapes real LLMs emit (verified against DeepSeek V4
+    Pro e2e output):
+      1. "1.\\nname: x\\ngain: y\\nrisk: z"          (label: value lines)
+      2. "### Strategy 1: Name\\n\\nRationale\\n...\\nExpected latency gain\\n~x"
+         (markdown headings + bold labels on their own line, no colons)
+
+    `**bold**` markers are stripped up front; non-strategy blocks
+    (diagnosis/recommendation/intro sections) are dropped by requiring a
+    gain or risk field and by the name filter.
     """
     cleaned = text.replace("**", "")
     strategies: list[Strategy] = []
-    # Split BEFORE each numbered heading line ("1." alone, or "#### 2. Name"
-    # with the title on the same line — real LLM markdown uses both).
-    blocks = re.split(r"\n(?=\s*#{0,4}\s*\d+[.)]\s)", cleaned)
+    # Split BEFORE each numbered heading line: "1." alone, "#### 2. Name",
+    # or "### Strategy 1: Name" (title on the same line).
+    blocks = re.split(r"\n(?=\s*#{0,4}\s*(?:strategy\s+)?\d+\s*[:.)])",
+                      cleaned, flags=re.IGNORECASE)
     for b in blocks:
         b = b.strip()
         if not b:
             continue
         name_m = re.search(r"(?:name|strategy)\s*[:：]\s*(.+)", b, re.IGNORECASE)
-        gain_m = re.search(r"(?:gain|expected|latency)\s*[:：]\s*(.+)", b, re.IGNORECASE)
-        risk_m = re.search(r"risk\s*[:：]\s*(.+)", b, re.IGNORECASE)
-        comb_m = re.search(r"combinable(?:_with)?\s*[:：]\s*(.+)", b, re.IGNORECASE)
-        raw_name = name_m.group(1).strip() if name_m else b.split("\n")[0][:60]
-        name = re.sub(r"^[\s#*]*\d*[.)]?\s*", "", raw_name).strip("#* \t")
+        # Field labels allow "Label: value" and "Label\nvalue" (bold style).
+        rat_m = re.search(r"rationale\s*[:：]?\s*\n?\s*(.+)", b, re.IGNORECASE)
+        gain_m = re.search(
+            r"(?:expected\s+(?:latency\s+)?gain|latency\s+gain|gain)"
+            r"\s*[:：]?\s*\n?\s*(.+)", b, re.IGNORECASE)
+        risk_m = re.search(r"risk\s*[:：]?\s*\n?\s*(.+)", b, re.IGNORECASE)
+        comb_m = re.search(
+            r"combinable(?:_with|\s+with)?\s*[:：]?\s*\n?\s*(.+)",
+            b, re.IGNORECASE)
+        raw_name = name_m.group(1).strip() if name_m else b.split("\n")[0]
+        name = re.sub(r"^[\s#*]*(?:strategy\s+)?\d*\s*[:.)]?\s*", "",
+                      raw_name, flags=re.IGNORECASE).strip("#* \t")
         if not name or _NON_STRATEGY_RE.search(name):
             continue
         # A real strategy block must quantify gain or risk; this drops the
-        # diagnosis/recommendation sections real LLMs wrap strategies in.
+        # diagnosis/recommendation/intro sections real LLMs wrap strategies in.
         if gain_m is None and risk_m is None:
             continue
         strategies.append(Strategy(
             name=name[:80],
-            rationale=b[:200],
+            rationale=(rat_m.group(1).strip() if rat_m else b[:200])[:200],
             expected_gain=gain_m.group(1).strip() if gain_m else "?",
             risk=risk_m.group(1).strip() if risk_m else "?",
             combinable_with=comb_m.group(1).strip() if comb_m else "",
