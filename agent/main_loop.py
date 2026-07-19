@@ -351,6 +351,8 @@ class Agent:
                     self.log.event("checkpoint", old=Level.CORRECT,
                                    new=Level.SYNTH, latency=lat,
                                    reason="synth_ok")
+                self.log.event("phase_exit", phase="synth", result="ok",
+                               latency=lat)
                 return lat
             fb = build_feedback(r)   # synth failed; next round repairs it
 
@@ -425,7 +427,9 @@ class Agent:
                 self._synth_summary or "(no synthesis report available)",
                 self._design_brief)
             self.log.event("llm_call", purpose="propose_strategies",
-                           round=round_n, count=len(strategies))
+                           round=round_n, count=len(strategies),
+                           raw_head=(self.llm.last_propose_raw[:800]
+                                     if len(strategies) <= 1 else ""))
             if not strategies:
                 self.log.event("optimize_stop", reason="no_strategy")
                 break
@@ -468,7 +472,7 @@ class Agent:
                            best_latency=ckpt.latency)
             break
 
-        self.log.event("phase_exit", phase="optimize",
+        self.log.event("phase_exit", phase="optimize", result="ok",
                        best_level=ckpt.level, best_latency=ckpt.latency)
 
     def _try_opt_candidate(self, ckpt: Checkpoint,

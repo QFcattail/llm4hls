@@ -9,4 +9,4 @@ running. Bump according to the rules in PROJECT-CONVENTIONS.md section 11:
     - Docs/comments only -> no bump needed
 """
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"

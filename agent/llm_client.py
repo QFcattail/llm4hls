@@ -77,6 +77,9 @@ class HLSLLMClient:
     def __init__(self, backend, max_review_retries: int = 1) -> None:
         self.backend = backend
         self.max_review_retries = max_review_retries
+        # Raw text of the latest propose_strategies reply, kept so the main
+        # loop can log it when parsing looks suspicious (count <= 1).
+        self.last_propose_raw: str = ""
 
     # -- low-level --------------------------------------------------------
     def _complete(self, system: str, user: str) -> str:
@@ -187,13 +190,21 @@ class HLSLLMClient:
             f"## Kernel\n```cpp\n{code}\n```\n\n"
             f"## Current synthesis\n{synth_summary}\n\n"
             f"## Task\nPropose 2-4 optimization strategies targeting lower "
-            f"latency on the Alveo U55C @ 200 MHz. For each give: name, "
-            f"rationale, expected latency gain, risk, and combinable_with "
-            f"(the numbers of the OTHER strategies in your list that it does "
-            f"not interfere with, or 'standalone'). Order them by confidence "
-            f"(best first). Respect the interface contract above."
+            f"latency on the Alveo U55C @ 200 MHz, ordered by confidence "
+            f"(best first). Respect the interface contract above.\n"
+            f"Format each strategy EXACTLY as follows (plain text, numbered "
+            f"lines, no markdown headings, no bold, no intro or closing "
+            f"remarks):\n"
+            f"1. name: <short name>\n"
+            f"rationale: <why it works>\n"
+            f"gain: <expected latency gain>\n"
+            f"risk: <what could go wrong>\n"
+            f"combinable_with: <numbers of the OTHER strategies it does not "
+            f"interfere with, or 'standalone'>\n"
+            f"2. name: ...\n"
         )
         out = self._complete(system, user)
+        self.last_propose_raw = out   # kept for parse-failure diagnostics
         return _parse_strategies(out)
 
     def select_strategies(self, task, code: str, strategies: list[Strategy],
@@ -346,10 +357,14 @@ def _parse_strategies(text: str) -> list[Strategy]:
     """
     cleaned = text.replace("**", "")
     strategies: list[Strategy] = []
-    # Split BEFORE each numbered heading line: "1." alone, "#### 2. Name",
-    # or "### Strategy 1: Name" (title on the same line).
-    blocks = re.split(r"\n(?=\s*#{0,4}\s*(?:strategy\s+)?\d+\s*[:.)])",
-                      cleaned, flags=re.IGNORECASE)
+    # Split BEFORE each numbered heading line. Tolerated shapes (verified
+    # against real DeepSeek samples): "1." alone, "#### 2. Name",
+    # "### Strategy 1: Name", "Strategy 1: Name", "- Strategy 1: Name",
+    # "1 — Name" (em/en dash; a plain hyphen is NOT accepted so lines like
+    # "128-bit accumulator" cannot cause false splits), bullets "- 1. Name".
+    blocks = re.split(
+        r"\n(?=\s*(?:#{1,4}\s+|[-•*]\s+)?(?:strategy\s+)?\d+\s*[:.)—–])",
+        cleaned, flags=re.IGNORECASE)
     for b in blocks:
         b = b.strip()
         if not b:
