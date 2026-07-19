@@ -156,8 +156,8 @@
 | P3-02 | ~~本地接 Vitis HLS 命令行~~ | ✅ | **官方 vitis.py 已封装（vitis-run --mode hls）。已废弃。** |
 | P3-03 | 在云服务器（SSH）上跑通真 csim/synth/cosim | ⚪ | harness run_poc.py 在服务器上对 3 道题跑出真结果（非 compile_error 占位） |
 | P3-04 | ~~加预算计数与止损~~ | ✅ | **官方 Budget + BudgetExceeded 已实现。已废弃。** |
-| P3-05 | 扩 main_loop 的 structural 路径：csim+cosim 双验证 + 优化后回验 | ⚪ | 在 residual 题上自动修到 csim+cosim 全过（真 cosim，非 Scripted） |
-| P3-06 | 端到端测试：3 道公开题跑完整流程 + 评分 | 🟡 | 2/3 真机过：projection SCORE 1.400（回归持平）、dotProduct **SCORE 3.000 满分**（73.36× 加速）；剩 residual |
+| P3-05 | 扩 main_loop 的 structural 路径：csim+cosim 双验证 + 优化后回验 | 🟢 | **residual 真机跑通（SCORE 3.098）**：pre-csim review 一次修掉死锁（cosim 首跑即过），§4.5 回滚路径就绪（best 未变跳过回验） |
+| P3-06 | 端到端测试：3 道公开题跑完整流程 + 评分 | 🟢 | **3/3 真机全过**：projection 1.400 / dotProduct 3.000（满分）/ residual 3.098，correctness 全绿 100%（DoD ≥60% 达标） |
 | P3-07 | 里程碑演示：录一段 agent 自动修 HLS 的日志/录屏 | ⚪ | 可复现脚本 + 演示 |
 
 #### HLS 域主
@@ -188,6 +188,7 @@
 
 | 日期 | 变更 | 变更人 |
 |---|---|---|
+| 2026-07-19 | **三类题真机全部验证 + v0.4.1**。residual(structural) 真机首跑 SCORE **3.098**（baseline 135→68 cyc，1.99×）：pre-csim review 一次修掉死锁（cosim 首跑即过，省 20 credits+15min 超时）；优化轮评审 AI 拦下 DATA_PACK 误用（retry 后过）；组合候选 synth 失败（pragma 写在文件作用域）→ 回退首策略单试（v2.4 归因回退真机首验）→ 无改进收敛。P3-05/P3-06 转 🟢（3/3 全过，correctness 全绿 100%）。另修阶段切换 last review/error 残留（v0.4.1）。 | Agent 主 |
 | 2026-07-19 | **v0.4.0（TUI 得分区 + error tab 阶段感知）**。按用户实测反馈：① TUI agent 线程补 grade() 调用——submit stat 显示 SCORE、区域 C 打印 Scorecard + 最近 5 次得分历史（新模块 agent/score_history.py，runs/<task>/scores.jsonl，CLI/TUI 双入口互通）；② error tab 三规则（tui-design v5）——mechanical review 失败进工具区、就绪行跟 llm_call 子阶段（补 extract_brief/apply_strategies 事件）、等待行带阶段标签；③ 修 TUI 启动崩溃（_compose 撞名 Textual 内部方法 → _build_render + 真挂载冒烟）；④ 修策略解析发散（严格 prompt + 宽容解析 + raw_head 诊断）；⑤ DONE 行加总耗时。TC-AGENT-011 新增，11/11 全过。详见 dev-log 2026-07-19-01。 | Agent 主 |
 | 2026-07-18 | **真机 e2e 验证（QFS-STATION）**。rsync 同步后服务器离线 10/10 过。projection 回归 SCORE 1.400 持平；**dotProduct optimize 循环 SCORE 3.000 满分**（baseline 1027→14 cyc，73.36× 加速；4 轮优化：R1 三组合 38→37、R2 排他二组合 37→22、R3 保守单选 22→14、R4 无改进收敛）。修复真机暴露的策略解析器问题两轮（markdown 标题 + 无冒号字段标签 + 非策略块过滤），TC-AGENT-010 新增。P3-06 转 🟡（2/3）、P4-02 转 🟢。详见 dev-log 2026-07-18-05。 | Agent 主 |
 | 2026-07-18 | **v0.3.0 / 架构 v2.4 落地**。按用户三决策升级 optimize：① 策略从单选改组合——propose 逐策略标 `combinable_with`，新增评审 AI `select_strategies`（同模型换 prompt）复核兼容性选子集，**双重确认才允许组合**，`apply_strategies` 合并应用为一份候选；② 组合失败归因回退：组合候选失败/无改进 → 回退子集首策略单试一次 → 仍失败才停（单策略失败 fail-fast）；③ TUI error tab 在 optimize 阶段复用为策略面板（策略区≤2行+工具区≤3行共存），ToolErrorBar 改状态驱动渲染（防 150ms 心跳 show_running 擦掉策略行）。tui-design v4 同步。验证：TC-AGENT-007/008/009 新增 + 002/003 语义更新，离线 9 用例 ×3 全过。详见 dev-log 2026-07-18-04。 | Agent 主 |
