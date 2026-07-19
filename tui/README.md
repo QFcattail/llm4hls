@@ -64,3 +64,4 @@ pip install textual rich
 - **Header 不显示 name 参数**：`Header(name=...)` 只是 DOM 节点名，标题栏显示的是 `app.title`。版本号要用 `self.title = ...` 设置，否则标题栏只显示类名。
 - **关闭时 NoMatches 竞态**：150ms 轮询定时器在关闭卸载 widget 后可能再触发一拍，`query_one` 抛 `NoMatches`。`_poll_events` 已包兜底丢弃该拍（v0.1.1 修复）。
 - **心跳覆盖分区内容**：`_refresh_ui` 每 150ms 调 `ToolErrorBar.show_running`——若 bar 用一次性 `update()` 写内容，心跳会把其他分区（如 v0.3.0 的 optimize 策略面板）擦掉。ToolErrorBar 已改**状态驱动渲染**（内部分区状态 + `_rebuild()` 拼接，v0.3.0）：新增分区信息时务必走 `show_*` 方法改状态，不要直接 `update()`。
+- **自定义方法名撞 Textual 内部方法**：v0.3.0 把组合方法命名 `_compose()`，与 `Widget._compose()`（框架挂载时调用，期望组件生成器）撞名，真终端启动即崩 `TypeError: object Text can't be used in 'await' expression`（v0.3.1 修为 `_build_render`）。给 widget 加方法避开 `compose`/`_compose`/`render`/`_render` 等框架保留名；**TUI 改动必须过一次 `run_test()` 真挂载冒烟**，只测组合方法不够。

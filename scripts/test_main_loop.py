@@ -459,19 +459,19 @@ def tc_009() -> None:
     from tui.tool_error_bar import ToolErrorBar
 
     bar = ToolErrorBar()
-    bar.update = lambda *a, **k: None   # headless: we assert on _compose()
+    bar.update = lambda *a, **k: None   # headless: we assert on _build_render()
     err_log = "\n".join(f"kernel.cpp:{i}:{i}: error: boom{i}" for i in range(1, 8))
 
     # 1) no strategy panel: 3 error rows + header + "and N more" (5 rows max)
     bar.show_result("csim", "compile_error", False, 1.0, err_log)
-    text = bar._compose().plain
+    text = bar._build_render().plain
     assert text.count("boom") == 3 and "and 4 more errors" in text, text
 
     # 2) strategy panel shrinks the tool zone to 1 error row + more note
     bar.show_strategies(["pipeline acc", "array partition"],
                         ["pipeline acc", "array partition"],
                         "confirmed compatible")
-    text = bar._compose().plain
+    text = bar._build_render().plain
     lines = text.split("\n")
     assert "🎯 2 strategies" in lines[0]
     assert "▶ selector picked pipeline acc+array partition" in lines[1]
@@ -480,18 +480,18 @@ def tc_009() -> None:
 
     # 3) heartbeat show_running must NOT wipe the strategy panel (v4 bug class)
     bar.show_running("synth", 3.0)
-    text = bar._compose().plain
+    text = bar._build_render().plain
     assert "🎯 2 strategies" in text and "running synthesis" in text, text
 
     # 4) fallback rewrites only the picked line
     bar.update_picked(["pipeline acc"], "fallback: combo failed")
-    text = bar._compose().plain
+    text = bar._build_render().plain
     assert "▶ selector picked pipeline acc: fallback: combo failed" in text
 
     # 5) clearing the panel restores the full 3-error tool zone
     bar.clear_strategies()
     bar.show_result("csim", "compile_error", False, 1.0, err_log)
-    text = bar._compose().plain
+    text = bar._build_render().plain
     assert "🎯" not in text and text.count("boom") == 3, text
     print("TC-AGENT-009 PASS  strategy panel coexists; heartbeat cannot wipe it")
 

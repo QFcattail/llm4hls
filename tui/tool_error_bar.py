@@ -180,7 +180,7 @@ class ToolErrorBar(Static):
         self._rebuild()
 
     # -- rendering --------------------------------------------------------
-    def _compose(self) -> Text:
+    def _build_render(self) -> Text:
         """Compose strategy zone (<=2 rows) + tool zone (rest) as one Text.
 
         The error list shrinks to fit the remaining rows (5 without a
@@ -209,7 +209,7 @@ class ToolErrorBar(Static):
 
     def _rebuild(self) -> None:
         """Push the composed content into the widget."""
-        self.update(self._compose())
+        self.update(self._build_render())
 
     def _extract_errors(self, log: str) -> list[str]:
         """Extract error lines from a tool log.

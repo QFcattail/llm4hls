@@ -19,8 +19,8 @@
 | ToolErrorBar.show_strategies(all_names, picked, reason="") | method | 显示策略面板：🎯 目录行（全部候选编号+名）+ ▶ 选中行（评审 AI 子集+理由）；空列表时显示"proposing strategies..."就绪行 |
 | ToolErrorBar.update_picked(picked, reason="") | method | 只改写 ▶ 行（optimize_fallback 事件：组合失败回退首策略） |
 | ToolErrorBar.clear_strategies() | method | 清除策略面板（optimize 阶段结束） |
-| ToolErrorBar._compose() -> Text | method | 拼接策略区+工具区为一份 Text（无头测试直接断言它） |
-| ToolErrorBar._rebuild() | method | 把 _compose 结果推入 widget |
+| ToolErrorBar._build_render() -> Text | method | 拼接策略区+工具区为一份 Text（无头测试直接断言它） |
+| ToolErrorBar._rebuild() | method | 把 _build_render 结果推入 widget |
 | ToolErrorBar._extract_errors(log) | method | 从日志提取错误行（去重、保序，跳过噪声行） |
 
 ### 导出
@@ -57,8 +57,8 @@ Region B (between the flow chart and the activity panel): a fixed-height bar sho
 | ToolErrorBar.show_strategies(all_names, picked, reason="") | method | Shows the strategy panel: 🎯 catalog line (all proposals, numbered) + ▶ pick line (selector subset + reason); empty lists show a "proposing strategies..." ready line |
 | ToolErrorBar.update_picked(picked, reason="") | method | Rewrites only the ▶ line (optimize_fallback event: combo failed, retrying first strategy) |
 | ToolErrorBar.clear_strategies() | method | Removes the strategy panel (optimize stage exited) |
-| ToolErrorBar._compose() -> Text | method | Joins strategy zone + tool zone into one Text (headless tests assert on it directly) |
-| ToolErrorBar._rebuild() | method | Pushes the _compose output into the widget |
+| ToolErrorBar._build_render() -> Text | method | Joins strategy zone + tool zone into one Text (headless tests assert on it directly) |
+| ToolErrorBar._rebuild() | method | Pushes the _build_render output into the widget |
 | ToolErrorBar._extract_errors(log) | method | Extracts error lines from a log (deduplicated, order preserved, noise skipped) |
 
 ### Exports
