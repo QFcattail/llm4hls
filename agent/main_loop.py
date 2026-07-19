@@ -381,14 +381,17 @@ class Agent:
 
     # -- stage 3: optimize -------------------------------------------------
     def _optimize(self, plan: RunPlan, ckpt: Checkpoint) -> None:
-        """Stage 3: PPA optimization loop (architecture §4.4).
+        """Stage 3: PPA optimization loop (architecture §4.4, v2.4).
 
         AMD four-phase workflow per round: Phase 1 context (design document +
-        cached design brief + latest synth report) -> Phase 2 strategy
-        exploration (first strategy is picked, fixed heuristic) -> Phase 3
+        cached design brief + latest synth report) -> Phase 2a strategy
+        exploration with compatibility annotations -> Phase 2b selector
+        review AI (dually-confirmed compatible subset) -> Phase 3 combined
         code generation with review gates -> csim/synth re-verification ->
-        same-level latency arbitration (§2 rule 2). Stops on no improvement,
-        unaffordable tools, or the round cap.
+        same-level latency arbitration (§2 rule 2). A failed multi-strategy
+        candidate falls back to the subset's first strategy alone (combo
+        attribution). Stops on single-strategy failure / no improvement /
+        unaffordable tools / the round cap.
 
         Args:
             plan: The RunPlan (used for context; optimization applies to all).
@@ -415,7 +418,7 @@ class Agent:
                                best_level=ckpt.level, best_latency=ckpt.latency)
                 break
 
-            # AMD Phase 2: strategy exploration on the latest synth data.
+            # AMD Phase 2a: strategy exploration on the latest synth data.
             self.hb.set_stage("llm", self.server.budget.remaining())
             strategies = self.llm.propose_strategies(
                 self.task, ckpt.code,
@@ -426,77 +429,143 @@ class Agent:
             if not strategies:
                 self.log.event("optimize_stop", reason="no_strategy")
                 break
-            strategy = strategies[0]   # fixed heuristic: best-first (§4.4)
-            self.log.event("strategy_select", round=round_n,
-                           name=strategy.name)
 
-            # AMD Phase 3: generate the candidate behind the review gates.
-            cand = self._apply_with_review(ckpt.code, strategy)
-            if cand is None or cand.strip() == ckpt.code.strip():
-                self.log.event("optimize_stop", reason="no_candidate")
-                break
+            # AMD Phase 2b: selector review AI picks a compatible subset
+            # (dual confirmation: proposer + selector must both agree the
+            # strategies do not interfere, §4.4).
+            self.hb.set_stage("llm", self.server.budget.remaining())
+            indices, sel_reason = self.llm.select_strategies(
+                self.task, ckpt.code, strategies,
+                self._synth_summary or "(no synthesis report available)",
+                self._design_brief)
+            self.log.event("llm_call", purpose="select_strategies",
+                           round=round_n)
+            subset = [strategies[i] for i in indices]
+            self.log.event("strategy_select", round=round_n, indices=indices,
+                           picked=[s.name for s in subset],
+                           all=[s.name for s in strategies],
+                           reason=sel_reason)
 
-            # Re-verify already-passed stages before arbitrating (§5).
-            self.hb.set_stage("csim", self.server.budget.remaining())
-            cr = self.server.csim(cand)
-            self.log.event("tool_result", kind="csim", phase=cr.phase,
-                           ok=cr.ok, rc=cr.return_code,
-                           elapsed_s=round(cr.elapsed_s, 1),
-                           credit_spent=self.server.budget.spent,
-                           log=cr.log if not cr.ok else "")
-            if not cr.ok:
-                self.log.event("optimize_discard", round=round_n,
-                               reason="csim_broken", phase=cr.phase)
-                continue
-            self.hb.set_stage("synth", self.server.budget.remaining())
-            sr = self.server.synth(cand)
-            self.log.event("tool_result", kind="synth", phase=sr.phase,
-                           ok=sr.ok, elapsed_s=round(sr.elapsed_s, 1),
-                           credit_spent=self.server.budget.spent,
-                           log=sr.log if not sr.ok else "")
-            if not sr.ok or sr.report is None:
-                self.log.event("optimize_discard", round=round_n,
-                               reason="synth_failed", phase=sr.phase)
+            # AMD Phase 3: apply the subset as ONE candidate, then arbitrate.
+            outcome = self._try_opt_candidate(ckpt, subset, round_n)
+            if outcome == "improved":
                 continue
 
-            # Same-level arbitration: accept only a strictly faster design.
-            lat = self._valid_latency(sr.report)
-            if ckpt.should_accept(Level.SYNTH, lat):
-                old_lat = ckpt.latency
-                # The new code has not been cosim-verified (§4.5 re-checks).
-                ckpt.accept(cand, Level.SYNTH, lat, cosim_ok=None)
-                self._synth_summary = sr.report.summary()
-                self.log.event("checkpoint", old=Level.SYNTH, new=Level.SYNTH,
-                               old_latency=old_lat, new_latency=lat,
-                               reason="optimize_improve")
-                continue
-            self.log.event("optimize_stop", reason="no_improvement",
-                           best_latency=ckpt.latency, cand_latency=lat)
+            # Combo attribution fallback (§4.4): when a multi-strategy
+            # candidate fails (or does not improve), we cannot tell which
+            # strategy caused it — retry once with the subset's first
+            # strategy alone. Only a single-strategy failure stops the loop.
+            if len(subset) > 1:
+                self.log.event("optimize_fallback", round=round_n,
+                               picked=[subset[0].name],
+                               reason="combo failed; retrying first "
+                                      "strategy only")
+                outcome = self._try_opt_candidate(ckpt, subset[:1], round_n)
+                if outcome == "improved":
+                    continue
+
+            self.log.event("optimize_stop", reason=outcome,
+                           best_latency=ckpt.latency)
             break
 
         self.log.event("phase_exit", phase="optimize",
                        best_level=ckpt.level, best_latency=ckpt.latency)
 
-    def _apply_with_review(self, code: str, strategy: Strategy) -> str | None:
+    def _try_opt_candidate(self, ckpt: Checkpoint,
+                           strategies: list[Strategy], round_n: int) -> str:
+        """Generate, verify, and arbitrate one optimization candidate.
+
+        The full per-candidate pipeline (§4.4): review-gated generation ->
+        csim re-verify -> synth re-verify -> same-level latency arbitration
+        (§2 rule 2). On acceptance the checkpoint and the cached synth
+        summary are updated.
+
+        Args:
+            ckpt: The checkpoint holding the current best code.
+            strategies: The selected Strategy subset to apply together.
+            round_n: Current optimize round number (for logging).
+
+        Returns:
+            "improved" when the candidate was accepted as strictly faster;
+            "no_improvement" when it verified but was not faster;
+            "failed" when generation or verification failed (discard).
+        """
+        cand = self._apply_with_review(ckpt.code, strategies)
+        if cand is None or cand.strip() == ckpt.code.strip():
+            self.log.event("optimize_discard", round=round_n,
+                           reason="no_candidate")
+            return "failed"
+
+        # Re-verify already-passed stages before arbitrating (§5).
+        if not self.server.budget.can_afford("csim"):
+            self.log.event("budget_exhausted", where="optimize-csim",
+                           best_latency=ckpt.latency)
+            return "failed"
+        self.hb.set_stage("csim", self.server.budget.remaining())
+        cr = self.server.csim(cand)
+        self.log.event("tool_result", kind="csim", phase=cr.phase,
+                       ok=cr.ok, rc=cr.return_code,
+                       elapsed_s=round(cr.elapsed_s, 1),
+                       credit_spent=self.server.budget.spent,
+                       log=cr.log if not cr.ok else "")
+        if not cr.ok:
+            self.log.event("optimize_discard", round=round_n,
+                           reason="csim_broken", phase=cr.phase)
+            return "failed"
+        if not self.server.budget.can_afford("synth"):
+            self.log.event("budget_exhausted", where="optimize-synth",
+                           best_latency=ckpt.latency)
+            return "failed"
+        self.hb.set_stage("synth", self.server.budget.remaining())
+        sr = self.server.synth(cand)
+        self.log.event("tool_result", kind="synth", phase=sr.phase,
+                       ok=sr.ok, elapsed_s=round(sr.elapsed_s, 1),
+                       credit_spent=self.server.budget.spent,
+                       log=sr.log if not sr.ok else "")
+        if not sr.ok or sr.report is None:
+            self.log.event("optimize_discard", round=round_n,
+                           reason="synth_failed", phase=sr.phase)
+            return "failed"
+
+        # Same-level arbitration: accept only a strictly faster design.
+        lat = self._valid_latency(sr.report)
+        if ckpt.should_accept(Level.SYNTH, lat):
+            old_lat = ckpt.latency
+            # The new code has not been cosim-verified (§4.5 re-checks).
+            ckpt.accept(cand, Level.SYNTH, lat, cosim_ok=None)
+            self._synth_summary = sr.report.summary()
+            self.log.event("checkpoint", old=Level.SYNTH, new=Level.SYNTH,
+                           old_latency=old_lat, new_latency=lat,
+                           reason="optimize_improve")
+            return "improved"
+        self.log.event("optimize_discard", round=round_n,
+                       reason="no_improvement",
+                       best_latency=ckpt.latency, cand_latency=lat)
+        return "no_improvement"
+
+    def _apply_with_review(self, code: str,
+                           strategies: list[Strategy]) -> str | None:
         """Generate an optimized candidate, then cross-check before returning.
 
         Mirrors ``_repair_with_review`` but the generator is
-        ``llm.apply_strategy`` (AMD Phase 3). Gate 1 is the deterministic
-        mechanical review; gate 2 is the LLM review focused on pragma
+        ``llm.apply_strategies`` (AMD Phase 3, v2.4: a dually-confirmed
+        compatible subset). Gate 1 is the deterministic mechanical review;
+        gate 2 is the LLM review focused on multi-strategy pragma
         interaction hazards (AMD's named LLM weakness).
 
         Args:
             code: The current best kernel source.
-            strategy: The Strategy selected this round.
+            strategies: The Strategy subset selected this round.
 
         Returns:
             The reviewed candidate kernel source, or None if the LLM produced
             no parseable code.
         """
+        names = "+".join(s.name for s in strategies)
         for retry in range(self.llm.max_review_retries + 1):
             self.hb.set_stage("llm", self.server.budget.remaining())
-            new_code = self.llm.apply_strategy(
-                self.task, code, strategy, self._design_brief)
+            new_code = self.llm.apply_strategies(
+                self.task, code, strategies, self._design_brief)
             if new_code is None:
                 return None
 
@@ -505,13 +574,15 @@ class Agent:
             self.log.event("mechanical_review", passed=mech_ok,
                            issues=mech_issues if not mech_ok else [])
             if not mech_ok:
-                # Fold the issues into the strategy for the retry attempt.
-                strategy = Strategy(
-                    name=strategy.name,
-                    rationale=strategy.rationale
+                # Fold the issues into the first strategy for the retry.
+                strategies = [Strategy(
+                    name=strategies[0].name,
+                    rationale=strategies[0].rationale
                     + "\nMUST FIX: " + "; ".join(mech_issues),
-                    expected_gain=strategy.expected_gain,
-                    risk=strategy.risk)
+                    expected_gain=strategies[0].expected_gain,
+                    risk=strategies[0].risk,
+                    combinable_with=strategies[0].combinable_with,
+                )] + strategies[1:]
                 continue
 
             # Gate 2: LLM review (self-check)
@@ -519,7 +590,8 @@ class Agent:
                 self.task, new_code,
                 focus="signature/interface unchanged; pragma interaction rules "
                       "(no PIPELINE+DATAFLOW at the same level, no dead "
-                      "streams); strategy correctly applied: " + strategy.name,
+                      "streams, no conflicting partitions); strategies "
+                      "correctly combined: " + names,
             )
             self.log.event("review", verdict="pass" if passed else "reject",
                            retry=retry, issues=issues[:200])

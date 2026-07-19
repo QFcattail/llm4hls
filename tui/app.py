@@ -305,12 +305,22 @@ class AgentDashboard(App):
             self._stage_tool_calls = 0
             self._stage_reviews = 0
             fc.mark_current(phase if phase in ("correctness", "synth", "optimize") else "correctness")
+            # Arm the optimize-stage strategy panel (v4); outside optimize
+            # the strategy zone stays cleared.
+            teb = self.query_one(ToolErrorBar)
+            if phase == "optimize":
+                teb.clear_bar()
+                teb.show_strategies([], [], "")
+            else:
+                teb.clear_strategies()
 
         elif name == "phase_exit":
             phase = data.get("phase", "")
             result = data.get("result", "")
             status = "done" if result == "ok" else "failed"
             fc.update_stage(phase, status)
+            if phase == "optimize":
+                self.query_one(ToolErrorBar).clear_strategies()
 
         elif name == "tool_result":
             kind_t = data.get("kind", "")
@@ -357,6 +367,18 @@ class AgentDashboard(App):
             if not passed:
                 issues = data.get("issues", [])
                 self._last_review = f"mechanical ❌: {'; '.join(issues)[:80]}"
+
+        elif name == "strategy_select":
+            # optimize v2.4: selector AI picked a (possibly combined) subset
+            teb = self.query_one(ToolErrorBar)
+            teb.show_strategies(data.get("all", []), data.get("picked", []),
+                                data.get("reason", ""))
+
+        elif name == "optimize_fallback":
+            # combo failed -> retrying the first strategy alone
+            teb = self.query_one(ToolErrorBar)
+            teb.update_picked(data.get("picked", []),
+                              "fallback: " + data.get("reason", ""))
 
         elif name == "checkpoint":
             old = data.get("old", 0)

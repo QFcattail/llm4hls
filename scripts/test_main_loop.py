@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Offline unit tests for agent/main_loop.py (TC-AGENT-001 .. TC-AGENT-006).
+"""Offline unit tests for agent/main_loop.py (TC-AGENT-001 .. TC-AGENT-009).
 
 No Vitis and no LLM API needed: FakeToolServer replays rule-based
 ToolResults against a real harness Budget, and a prompt-sniffing canned
-backend drives HLSLLMClient. The tests pin the v2.3 stage semantics
+backend drives HLSLLMClient. The tests pin the v2.3/v2.4 stage semantics
 (agent-architecture.md §4.3-§4.5):
 
   TC-AGENT-001  synth failure -> repair loop -> csim re-verify -> synth pass,
@@ -16,6 +16,12 @@ backend drives HLSLLMClient. The tests pin the v2.3 stage semantics
   TC-AGENT-005  seed KB retrieval: error codes / keywords hit the right entries
   TC-AGENT-006  latency<=0 guard: a zero-latency synth report never enters
                 the archive (dev-log 2026-07-17-01 known anomaly)
+  TC-AGENT-007  v2.4: selector picks a compatible PAIR -> combined candidate
+                accepted (strategy combo, dual confirmation)
+  TC-AGENT-008  v2.4: combo fails -> optimize_fallback -> first strategy
+                alone accepted (combo attribution)
+  TC-AGENT-009  v2.4 TUI: ToolErrorBar strategy panel coexists with tool
+                errors; the 150ms show_running heartbeat cannot wipe it
 
 Usage:
     python3 scripts/test_main_loop.py
@@ -54,6 +60,8 @@ BASE_CODE = (
 )
 FIXED_CODE = BASE_CODE + "// FIXED\n"
 FAST60_CODE = BASE_CODE + "// FAST60 optimized\n"
+FAST55_CODE = BASE_CODE + "// FAST55 combo optimized\n"
+FAST70_CODE = BASE_CODE + "// FAST70 fallback optimized\n"
 SAME100_CODE = BASE_CODE + "// SAME100 candidate\n"
 BREAK_CODE = BASE_CODE + "// BREAK_CSIM\n"
 FAST0_CODE = BASE_CODE + "// FAST0 zero-latency anomaly\n"
@@ -64,6 +72,13 @@ _STRATEGY_TEXT = (
     "rationale: add PIPELINE II=1 to the main loop\n"
     "gain: much lower cycle count\n"
     "risk: none\n"
+    "combinable_with: 2\n"
+    "2.\n"
+    "name: array partition\n"
+    "rationale: partition both input arrays for parallel reads\n"
+    "gain: fewer memory stalls\n"
+    "risk: more LUTs\n"
+    "combinable_with: 1\n"
 )
 
 
@@ -136,16 +151,20 @@ class FakeToolServer:
 
 
 class CannedBackend:
-    """Prompt-sniffing LLM backend: brief / strategies / review are fixed;
-    repair and apply_strategy answers cycle through per-test code queues."""
+    """Prompt-sniffing LLM backend: brief / strategies / review / select are
+    fixed; repair and apply_strategies answers cycle through per-test queues."""
 
     def __init__(self, repair_codes: list[str] | None = None,
                  apply_codes: list[str] | None = None,
-                 review: str = "PASS", brief: str = "sequential accumulation") -> None:
+                 review: str = "PASS", brief: str = "sequential accumulation",
+                 select_pick: str = "1",
+                 select_reason: str = "confirmed compatible") -> None:
         self.repair_codes = repair_codes or []
         self.apply_codes = apply_codes or []
         self.review = review
         self.brief = brief
+        self.select_pick = select_pick
+        self.select_reason = select_reason
         self._ri = 0
         self._ai = 0
 
@@ -158,11 +177,13 @@ class CannedBackend:
     def complete(self, system: str, user: str) -> str:
         if "Summarize this design" in user:
             return self.brief
+        if "Pick the strategy or compatible combination" in user:
+            return f"PICK: {self.select_pick}\nREASON: {self.select_reason}"
         if "Propose 2-4 optimization strategies" in user:
             return _STRATEGY_TEXT
         if "Reply PASS or FAIL" in user:
             return self.review
-        if "## Apply this strategy" in user:
+        if "## Apply these strategies" in user:
             code = self._cycle(self.apply_codes, self._ai)
             self._ai += 1
             return f"```cpp\n{code}```" if code is not None else ""
@@ -254,11 +275,19 @@ def tc_002() -> None:
     improves = [f for e, f in events
                 if e == "checkpoint" and f.get("reason") == "optimize_improve"]
     assert improves and improves[0]["new_latency"] == 60
+    selects = [f for e, f in events if e == "strategy_select"]
+    assert selects and selects[0]["indices"] == [0], \
+        f"selector should pick strategy 1 (index 0): {selects}"
+    assert len(selects[0]["all"]) == 2, "both proposed strategies reach the TUI"
     print("TC-AGENT-002 PASS  optimize accepted 100->60, stopped on no improvement")
 
 
 def tc_003() -> None:
-    """TC-AGENT-003: optimize discards a csim-breaking candidate; best kept."""
+    """TC-AGENT-003: optimize discards a csim-breaking candidate; best kept.
+
+    v2.4 semantics: a single-strategy subset has no fallback, so one failed
+    verification stops the loop (fail-fast) instead of continuing rounds.
+    """
     task = FakeTask(type="optimize")
     server = FakeToolServer(total=40)
     events: list = []
@@ -271,10 +300,13 @@ def tc_003() -> None:
     assert final == BASE_CODE, "best must stay the baseline after discards"
     discards = [f for e, f in events
                 if e == "optimize_discard" and f.get("reason") == "csim_broken"]
-    assert len(discards) == 2, f"expected 2 csim_broken discards, got {discards}"
+    assert len(discards) == 1, f"expected 1 csim_broken discard, got {discards}"
+    stops = [f for e, f in events if e == "optimize_stop"]
+    assert stops and stops[0].get("reason") == "failed", \
+        f"single-strategy failure must stop the loop: {stops}"
     submits = [f for e, f in events if e == "submit"]
     assert submits[0]["final_latency"] == 100
-    print("TC-AGENT-003 PASS  csim-breaking candidates discarded, best untouched")
+    print("TC-AGENT-003 PASS  csim-breaking candidate discarded, best untouched")
 
 
 def tc_004() -> None:
@@ -363,9 +395,111 @@ def tc_006() -> None:
     print("TC-AGENT-006 PASS  latency=0 rejected; archive keeps baseline 100")
 
 
+def tc_007() -> None:
+    """TC-AGENT-007: selector picks a compatible PAIR; combo candidate accepted."""
+    task = FakeTask(type="optimize")
+    server = FakeToolServer(total=40)
+
+    def synth_handler(code: str) -> ToolResult:
+        return _synth_result(True, code, 55 if "FAST55" in code else 100)
+
+    server.synth_handler = synth_handler
+    events: list = []
+    agent = _make_agent(task, server,
+                        CannedBackend(repair_codes=[BASE_CODE],
+                                      apply_codes=[FAST55_CODE],
+                                      select_pick="1,2"),
+                        events, max_optimize_rounds=1)
+    final = agent.run()
+
+    assert final == FAST55_CODE, "combined candidate should be archived"
+    selects = [f for e, f in events if e == "strategy_select"]
+    assert selects and selects[0]["indices"] == [0, 1], \
+        f"selector picked the pair: {selects}"
+    assert len(selects[0]["picked"]) == 2
+    assert not [f for e, f in events if e == "optimize_fallback"], \
+        "combo succeeded on first try; no fallback expected"
+    submits = [f for e, f in events if e == "submit"]
+    assert submits[0]["final_latency"] == 55
+    print("TC-AGENT-007 PASS  selector combo (1+2) applied and accepted 100->55")
+
+
+def tc_008() -> None:
+    """TC-AGENT-008: combo fails -> optimize_fallback -> first strategy accepted."""
+    task = FakeTask(type="optimize")
+    server = FakeToolServer(total=40)
+
+    def synth_handler(code: str) -> ToolResult:
+        return _synth_result(True, code, 70 if "FAST70" in code else 100)
+
+    server.synth_handler = synth_handler
+    events: list = []
+    agent = _make_agent(
+        task, server,
+        CannedBackend(repair_codes=[BASE_CODE],
+                      # combo candidate breaks csim; fallback candidate wins
+                      apply_codes=[BREAK_CODE, FAST70_CODE],
+                      select_pick="1,2"),
+        events, max_optimize_rounds=1)
+    final = agent.run()
+
+    assert final == FAST70_CODE, "fallback candidate should be archived"
+    fallbacks = [f for e, f in events if e == "optimize_fallback"]
+    assert len(fallbacks) == 1 and len(fallbacks[0]["picked"]) == 1, \
+        f"exactly one fallback to the first strategy: {fallbacks}"
+    stops = [f for e, f in events if e == "optimize_stop"]
+    assert not stops, f"fallback succeeded; no optimize_stop expected: {stops}"
+    submits = [f for e, f in events if e == "submit"]
+    assert submits[0]["final_latency"] == 70
+    print("TC-AGENT-008 PASS  combo failed -> fallback accepted 100->70")
+
+
+def tc_009() -> None:
+    """TC-AGENT-009: ToolErrorBar strategy panel + tool zone coexistence."""
+    from tui.tool_error_bar import ToolErrorBar
+
+    bar = ToolErrorBar()
+    bar.update = lambda *a, **k: None   # headless: we assert on _compose()
+    err_log = "\n".join(f"kernel.cpp:{i}:{i}: error: boom{i}" for i in range(1, 8))
+
+    # 1) no strategy panel: 3 error rows + header + "and N more" (5 rows max)
+    bar.show_result("csim", "compile_error", False, 1.0, err_log)
+    text = bar._compose().plain
+    assert text.count("boom") == 3 and "and 4 more errors" in text, text
+
+    # 2) strategy panel shrinks the tool zone to 1 error row + more note
+    bar.show_strategies(["pipeline acc", "array partition"],
+                        ["pipeline acc", "array partition"],
+                        "confirmed compatible")
+    text = bar._compose().plain
+    lines = text.split("\n")
+    assert "🎯 2 strategies" in lines[0]
+    assert "▶ selector picked pipeline acc+array partition" in lines[1]
+    assert text.count("boom") == 1 and "and 6 more errors" in text, text
+    assert len(lines) == 5, f"strategy 2 + header 1 + err 1 + more 1 = 5: {lines}"
+
+    # 3) heartbeat show_running must NOT wipe the strategy panel (v4 bug class)
+    bar.show_running("synth", 3.0)
+    text = bar._compose().plain
+    assert "🎯 2 strategies" in text and "running synthesis" in text, text
+
+    # 4) fallback rewrites only the picked line
+    bar.update_picked(["pipeline acc"], "fallback: combo failed")
+    text = bar._compose().plain
+    assert "▶ selector picked pipeline acc: fallback: combo failed" in text
+
+    # 5) clearing the panel restores the full 3-error tool zone
+    bar.clear_strategies()
+    bar.show_result("csim", "compile_error", False, 1.0, err_log)
+    text = bar._compose().plain
+    assert "🎯" not in text and text.count("boom") == 3, text
+    print("TC-AGENT-009 PASS  strategy panel coexists; heartbeat cannot wipe it")
+
+
 def main() -> int:
     """Run all TC-AGENT cases; return 0 iff every one passes."""
-    cases = [tc_001, tc_002, tc_003, tc_004, tc_005, tc_006]
+    cases = [tc_001, tc_002, tc_003, tc_004, tc_005, tc_006,
+             tc_007, tc_008, tc_009]
     failed = 0
     for tc in cases:
         try:
