@@ -1,6 +1,6 @@
 # TUI 交互式仪表盘设计 (TUI Design)
 
-> 状态：v3（2026-07-18，新增浅色主题配色 + 界面文案全英文）
+> 状态：v4（2026-07-18，区域 B 在 optimize 阶段复用为策略面板 + ToolErrorBar 改状态驱动渲染）
 > 框架：Textual + Rich
 > 数据源：agent/observability.py 的 Logger 事件流 + harness transcript
 
@@ -27,15 +27,18 @@
 │  └──────┘    └────────────┘    └──────┘    └────────┘    └────────┘ │
 │                csim×3 2218tok        ↑ CURRENT                        │
 ├─────────────────────────────────────────────────────────────────────┤
-│  区域 B：上次工具报错（固定高度，独立一栏）                                │
+│  区域 B：上次工具报错（固定高度，独立一栏；v4 起 optimize 阶段复用为策略面板）│
 │                                                                       │
+│  (非 optimize 阶段, 工具失败时):                                        │
 │  📋 [csim] compile_error  (3 errors)                                  │
 │    1. projection.cpp:1:2: error: invalid preprocessing directive      │
 │    2. projection.cpp:4:17: error: unknown type name 'Triangle_3D'    │
-│    3. projection.cpp:4:42: error: unknown type name 'Triangle_2D'    │
 │    ...and 1 more errors                                               │
 │                                                                       │
-│  (工具通过时显示: ✅ [csim] pass (9.7s))                               │
+│  (optimize 阶段: 策略面板 ≤2 行 + 工具区 ≤3 行共存, §3.2)                │
+│  🎯 3 strategies: 1.pipeline acc  2.array partition  3.unroll x4      │
+│  ▶ selector picked 1+2: confirmed compatible, biggest combined gain   │
+│  ✅ [csim] pass (9.7s)                                                │
 ├─────────────────────────────────────────────────────────────────────┤
 │  区域 C：当前活动（中部，自适应高度，主视觉区）                            │
 │                                                                       │
@@ -87,9 +90,9 @@
 
 **交互**：按 `1`-`5` 跳转到对应阶段的详细日志。
 
-### 3.2 区域 B：上次工具报错（固定高度，独立一栏）
+### 3.2 区域 B：上次工具报错 + optimize 策略面板（固定高度，独立一栏）
 
-**显示内容**：最近一次工具调用（csim/synth/cosim）的结果和错误详情。
+**显示内容**：最近一次工具调用（csim/synth/cosim）的结果和错误详情；v4 起 optimize 阶段复用上部空间显示策略面板。
 
 **工具失败时**（从日志提取 gcc 风格错误行）：
 ```
@@ -109,10 +112,27 @@
 - 匹配 `file:line:col: error: ...` 格式（gcc/clang 编译错误）
 - 匹配 `[XFORM 203-313]`、`[SIM 211-2]` 等 Vitis 错误码
 - 匹配含 `ERROR`/`error`/`fail`/`Failed` 的行
-- 最多显示 5 行，超出显示"...and N more errors"
+- 最多显示 5 行（optimize 阶段有策略面板时收缩为 3 行），超出显示"...and N more errors"
 - runtime_fail（非编译错）时显示 test case 失败信息
 
 **为什么独立一栏**：gcc 编译错误通常很长（行号 + 错误类型 + 上下文），塞在状态栏一行里显示不了。独立一栏能让 LLM 和用户都清楚看到"上次工具报了什么错"。
+
+#### optimize 阶段复用为策略面板（v4 新增）
+
+**复用理由**：optimize 循环里每次工具调用（csim/synth 重验）之前都经过 review 闸门，工具结果以 pass 为主——报错栏在 optimize 阶段大面积闲置。而 optimize 的"提了几个策略、评审 AI 选了哪几个、为什么"恰好是需要常驻显示的信息（区域 A stat 槽单行放不下 2-4 个策略名，流式输出滚过即失）。
+
+**共存布局**（区域总高 7 行不变 = 内容 5 行）：策略区 ≤2 行 + 工具区 ≤3 行。
+```
+🎯 3 strategies: 1.pipeline acc  2.array partition  3.unroll x4
+▶ selector picked 1+2: confirmed compatible, biggest combined gain
+✅ [csim] pass (9.7s)
+```
+- **策略行 1（🎯）**：`strategy_select` 事件的 `all` 字段（全部候选策略名，编号 + 截断）
+- **策略行 2（▶）**：同事件的 `picked`（评审 AI 选中的子集，用 `+` 连接）+ `reason` 截断；组合失败回退时由 `optimize_fallback` 事件改写为 `▶ fallback: strategy 1 only (combo failed)`
+- **工具区**：照旧显示 running / pass / 错误详情；候选验证失败（optimize_discard）时错误照常显示——策略面板不遮盖真实报错
+- optimize 阶段结束（`phase_exit`）后清空策略区，工具区独占 5 行（恢复非 optimize 行为）
+
+**状态驱动渲染（v4 实现要点）**：ToolErrorBar 从一次性 `update()` 改为内部状态（`_strategy_lines` + `_tool_parts`）+ `_rebuild()` 拼接渲染（同 StatusBar 的 render 模式）。否则 `_refresh_ui` 每 150ms 一次的 `show_running` 心跳会把策略行擦掉。公开方法签名不变（`show_result`/`show_running`/`clear_bar`），新增 `show_strategies(all_names, picked, reason)`。
 
 ### 3.3 区域 C：当前活动（中部，自适应高度，主视觉）
 
@@ -206,6 +226,7 @@ TUI 的所有数据来自现有模块，不需要改 agent 逻辑：
 | 本环节调用次数 | 从 transcript 按 kind 过滤计数 | ✅ 已有 |
 | 上次工具报错 | 最近一条 `tool_result` 的 `phase` + `log_tail` | ✅ 已有 |
 | 上次 review 意见 | 最近一条 `review` 事件的 `issues` | ✅ 已有 |
+| 策略面板（区域 B，optimize） | `strategy_select` 事件的 `all`/`picked`/`reason` + `optimize_fallback` 事件 | 🆕 v4 新增 |
 
 **唯一需要新增的**：DeepSeek API 改为 stream 模式（`stream: true`），逐 token 返回 reasoning_content 和 content。这是区域 B 流式输出的前提。
 
@@ -298,3 +319,4 @@ TUI 是体验优化，不是功能必需。先用 `tail -f` JSONL 日志（已�
 | 2026-07-15 | v1 初稿。基于用户 UI 描述设计三区域布局（流程图/当前活动/资源面板）。 | Agent 主 |
 | 2026-07-17 | v2 四区域重设计：工具报错独立一栏（区域 B），thinking+code 合并流式输出，资源面板精简为 2 行。 | Agent 主 |
 | 2026-07-18 | v3 新增 §3.5 主题配色（`fpga-light`：primary `#587559` / accent `#FDD100` / 白底黑字 / CoT 灰色不变）；界面文案全部改英文；代码高亮主题 monokai -> `github-light`。 | Agent 主 |
+| 2026-07-18 | v4 区域 B 在 optimize 阶段复用为策略面板（用户决策：该阶段工具以 pass 为主，报错栏闲置；区域 A stat 槽放不下多策略名）：策略区 ≤2 行 + 工具区 ≤3 行共存，报错不被遮盖；ToolErrorBar 改状态驱动渲染（防 150ms 心跳 show_running 擦掉策略行）。数据源表加 `strategy_select`/`optimize_fallback`。配套 agent-architecture v2.4（策略组合 + 评审 AI）。 | Agent 主 |

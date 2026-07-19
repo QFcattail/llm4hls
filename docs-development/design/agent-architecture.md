@@ -1,6 +1,6 @@
 # Agent 架构设计 (Agent Architecture)
 
-> 状态：草案 v2.3（2026-07-18）
+> 状态：草案 v2.4（2026-07-18）
 > 阶段：P2 启动前的架构定稿
 > 依据：官方 harness（contest/fpt26-harness/）+ AMD LLM4HLS SHA-256 案例文章 + 本仓库 dev-log 2026-07-11-03
 >
@@ -310,35 +310,40 @@ flowchart TD
     Lp([优化循环 每轮]) --> Q1{credit 够跑<br/>csim + synth?}
     Q1 -- 否 --> Exit([退出循环])
 
-    Q1 -- 是 --> AMD["AMD Phase 2: Strategy Exploration<br/>注入(设计文档+设计摘要+最新综合报告)<br/>LLM 提 2-4 个策略 + 权衡"]
-    AMD --> Sel["选一个策略<br/>(固定启发式: 取第一个, v2.3 定)"]
-    Sel --> Gen["AMD Phase 3: apply_strategy<br/>按策略改代码 → 候选"]
-    Gen --> Review["交叉验证 review 候选<br/>重点查: pragma 交互规则 / 接口破坏 / AMD 点名短板"]
+    Q1 -- 是 --> AMD["AMD Phase 2a: propose_strategies<br/>注入(设计文档+设计摘要+最新综合报告)<br/>LLM 提 2-4 个策略 + 权衡<br/>每个标注 combinable_with (兼容性)"]
+    AMD --> Sel["Phase 2b: select_strategies 评审 AI<br/>(同模型换 prompt self-check)<br/>复核兼容性 + 选出子集(1~N个) + 理由<br/>★ 双重确认: 提出者+评审者都认<br/>为互不干扰才允许组合"]
+    Sel --> Gen["AMD Phase 3: apply_strategies<br/>选中子集【合并应用】为一份候选<br/>(单策略 = N=1 特例)"]
+    Gen --> Review["交叉验证 review 候选<br/>重点查: 多策略 pragma 交互 /<br/>接口破坏 / AMD 点名短板"]
     Review --> Q2{review 通过?}
     Q2 -- 否 --> Gen
 
     Q2 -- 是 --> Recheck["重验 (改代码可能破坏已通过关卡, §5)"]
     Recheck --> RCsim["跑 csim"]
     RCsim --> QC{csim 过?}
-    QC -- 否 --> Discard["discard<br/>best 不动"]
-    Discard --> Lp
+    QC -- 否 --> FB1["组合失败归因回退 (v2.4)"]
     QC -- 是 --> RSynth["跑 synth"]
     RSynth --> QS{synth 过?}
-    QS -- 否 --> Discard
+    QS -- 否 --> FB1
 
     QS -- 是 --> Cmp["存档判定 (§2 规则 2)<br/>同关卡比 latency"]
     Cmp --> QL{候选 latency <<br/>best latency?}
     QL -- 是 --> Update["更新存档 + synth_summary<br/>继续下一轮"]
     Update --> Lp
-    QL -- 否 --> Stop(["没变好 → 停止优化"])
+    QL -- 否 --> FB1
+
+    FB1 --> QF{子集 >1 策略<br/>且未回退过?}
+    QF -- 是 --> FB2["optimize_fallback:<br/>只用子集首策略重新生成+重验"]
+    FB2 --> Gen
+    QF -- 否 --> Stop(["停止优化"])
 ```
 
 **要点：**
 - **优化必须先提取设计文档再改进（v2.3 明确）**：AMD Phase 1 Context Loading 三件套缺一不可——① 官方设计文档（task.description 接口契约 + headers，防优化破坏接口）；② 设计摘要提取（`extract_design_brief`：LLM 先从当前 kernel 提取功能/循环结构/数据流/瓶颈猜想，优化循环开始前做一次并缓存，后续每轮注入）；③ synth 报告（latency/II/资源）。AMD 核心经验："不给综合数据，LLM 只能给泛泛建议"——同理，不给设计意图，LLM 给的策略不贴代码实际。
-- **策略选择启发式（v2.3 定，§11 销项）**：第一次迭代取 LLM 输出的第一个策略（LLM 倾向把最有把握的排最前）；每轮用最新 synth 报告重新 propose，不缓存旧策略。
-- **轮数上限 `max_optimize_rounds = 4`（v2.3 定，§11 销项）**：每轮固定花 csim 1 + synth 4 = 5 credits。以 dotProduct（budget=40）为例：correctness ~2 + synth 4，剩 ~34，4 轮 20 credits 留有余量。参考 ReferenceAgent max_rounds=6，取更保守的 4。
-- **停止条件（任一命中）**：候选 latency 无改进 / credit 不够跑 csim+synth / 达到轮数上限。
-- 优化改代码后必重验 csim（+ cosim if structural）——pragma 改动是 AMD 点名的 LLM 高错点。
+- **策略组合 + 评审 AI（v2.4，替代 v2.3 的"取首策略"启发式）**：策略不再单选。提出者在 `propose_strategies` 里给每个策略标注 `combinable_with`（与哪些策略互不干扰）；评审 AI `select_strategies`（同模型换 prompt self-check，§11 既定形式）复核兼容性并选出子集。**双重确认规则：提出者和评审者都认为互不干扰，代码 AI 才把多个策略合并应用到一份候选**（pragma 类优化天然可组合——PIPELINE 内层 + ARRAY_PARTITION 数组 + DATAFLOW 顶层——一次验证试多个策略，credit 效率最高）。
+- **失败回退做组合归因（v2.4）**：组合候选失败（csim 挂/synth 挂/无改进）时，无法知道是哪个策略导致的——回退到子集首策略单独重新生成+重验一次；仍失败才停止优化。每轮最多 2 个候选验证（10 credits）。
+- **轮数上限 `max_optimize_rounds = 4`（v2.3 定）**：每轮最坏花 2×(csim 1 + synth 4) = 10 credits。以 dotProduct（budget=40）为例：correctness ~2 + synth 4，剩 ~34，4 轮留有余量；`can_afford` 检查自然截断。
+- **停止条件（任一命中）**：单策略候选也无改进 / 回退后仍失败 / credit 不够跑 csim+synth / 达到轮数上限。
+- 优化改代码后必重验 csim（+ cosim if structural）——pragma 改动是 AMD 点名的 LLM 高错点；组合候选的 pragma 交互风险更高，review focus 必须点名多策略交互。
 - synth 通过的新报告同时更新缓存的 `synth_summary`，下一轮策略探索基于最新数据。
 
 ### 4.5 结构性题的优化后回验
@@ -431,8 +436,8 @@ flowchart TD
 | AMD 阶段 | 我们的实现 | 所在模块 |
 |---|---|---|
 | **Phase 1: Context Loading**（源码 + 综合报告 + 设备约束） | 修复阶段注入 task.description + header；优化阶段注入设计文档 + 设计摘要 + synth 报告（§4.4） | reach_correctness / optimize |
-| **Phase 2: Strategy Exploration**（提多个策略 + 权衡再选） | optimize 阶段的 `llm.propose_strategies` + 取首策略启发式 | optimize |
-| **Phase 3: Code Generation** | `llm.repair` / `llm.apply_strategy` | reach_correctness / optimize |
+| **Phase 2: Strategy Exploration**（提多个策略 + 权衡再选） | optimize 阶段的 `llm.propose_strategies`（带兼容性标注）+ `llm.select_strategies` 评审 AI 双重确认选子集 | optimize |
+| **Phase 3: Code Generation** | `llm.repair` / `llm.apply_strategies`（组合子集合并应用） | reach_correctness / optimize |
 | **Phase 4: Validation**（综合 + 仿真 + 反馈循环） | csim/synth/cosim 重验 + 存档判定 | 主循环全程 |
 
 ---
@@ -445,8 +450,9 @@ flowchart TD
 - **repair**：给定任务、当前代码、工具反馈、知识库命中 → 返回修复后的候选代码（或失败）。
 - **review**：交叉验证候选（接口不变 / 无新 bug / pragma 冲突）。
 - **extract_design_brief**（v2.3 新增）：给定任务、当前代码 → 返回设计摘要文本（功能 / 循环结构 / 数据流 / 瓶颈猜想）。optimize 循环开始前调一次并缓存（§4.4 Phase 1）。
-- **propose_strategies**：给定任务、当前代码、综合报告、设计摘要 → 返回多个优化策略（含收益/资源/风险权衡）。
-- **apply_strategy**：给定任务、当前代码、选定策略 → 返回应用策略后的候选代码（或失败）。
+- **propose_strategies**：给定任务、当前代码、综合报告、设计摘要 → 返回多个优化策略（含收益/资源/风险权衡 + `combinable_with` 兼容性标注，v2.4）。
+- **select_strategies**（v2.4 新增）：评审 AI（同模型换 prompt self-check）。给定任务、策略列表、综合报告、设计摘要 → 复核兼容性，返回选中策略索引子集（1~N 个）+ 一句话理由。解析失败/空集时回退 [0]（第一个策略）。
+- **apply_strategies**：给定任务、当前代码、选定策略子集 → 返回把子集**合并应用**后的候选代码（或失败）。单策略是 N=1 特例。
 
 **prompt 内容硬要求（v2.3 明确）**：所有改代码类方法（repair / propose_strategies / apply_strategy）的 user prompt 必须注入 ① task.description（官方设计文档/接口契约）② headers（只读签名）——optimize 类方法另加 ③ synth 报告摘要 ④ 设计摘要。缺失 ①② 会导致 LLM 给出脱离接口契约的泛泛建议（AMD Phase 1 教训）。
 
@@ -506,7 +512,7 @@ contest/fpt26-harness/llm4hls/   ← 官方 harness，fork 后原地改
 - [x] 知识库条目 schema 的字段精确定义—— 已定：KBEntry（id/symptom/root_cause/fix/example/signatures），见 retriever.py
 - [x] max_rounds / max_optimize_rounds 的默认值—— v2.3 定：max_rounds=6（参考 ReferenceAgent）、max_synth_rounds=3、max_optimize_rounds=4，依据见 §4.3/§4.4
 - [x] Strategy Exploration 的"选哪个策略"策略—— v2.3 定：固定启发式取第一个，每轮重新 propose（§4.4）
-- [ ] 交叉验证的具体形式（独立 agent vs 同模型换 prompt self-check）及触发时机—— 第一次迭代用同模型换 prompt self-check，已跑通；独立 agent 留待第二次迭代
+- [x] 交叉验证的具体形式（独立 agent vs 同模型换 prompt self-check）及触发时机—— 第一次迭代用同模型换 prompt self-check（代码 review 闸门 + v2.4 策略评审 select_strategies 两处）；异模型独立评审留第二次迭代
 - [ ] token 计数埋点（第一次迭代不优化，但埋点先做好，供第二次迭代分析）—— **第二次迭代**
 - [ ] 功能 pattern 检索的代码结构抽象方法 —— **第二次迭代**
 - [ ] 与官方 ReferenceAgent 的 A/B 对比评测方案
@@ -589,6 +595,7 @@ agent 跑一道题可能持续数分钟到数十分钟（cosim 单次最长 15 �
 
 | 日期 | 变更 | 变更人 |
 |---|---|---|
+| 2026-07-18 | v2.4。§4.4 Phase 2/3 重写（用户三决策）：① 策略从"取首策略"改为**组合子集**——propose 时逐策略标注 `combinable_with`，新增评审 AI `select_strategies`（同模型换 prompt self-check）复核兼容性并选子集，**双重确认（提出者+评审者都认互不干扰）才允许组合**，`apply_strategies` 把子集合并应用为一份候选；② 失败回退做组合归因：组合候选失败/无改进 → 回退子集首策略单试一次 → 仍失败才停（每轮最多 2 候选 10 credits）；③ review focus 加"多策略 pragma 交互"。§7 映射表、§8.1 接口（select_strategies 新增、apply_strategies 多策略签名）、§11 交叉验证形式补注同步。 | Agent 主 |
 | 2026-07-18 | v2.3。按实现差距补齐四处：① §4.3 synth 修复循环细化（每轮先重验 csim 再 synth、max_synth_rounds=3、latency 无效值防御）；② §4.4 optimize 循环细化（Phase 1 Context Loading 三件套：官方设计文档+extract_design_brief 设计摘要+synth 报告；取首策略启发式；max_optimize_rounds=4；停止条件）；③ §4.5 回滚语义明确（快照整体恢复，修"只记日志不真回滚"的实现 bug；回验前提改为"cosim in correctness_stages 且 best 变过"）；④ §8.1 prompt 硬要求（改代码类方法必注 description+headers）+ extract_design_brief 接口。§7 映射表、§9 模块划分（entries.py）、§11 待细化四项销项同步更新。 | Agent 主 |
 | 2026-07-14 | v2.2。三处：① 修 §4.1 总览图存档逻辑（correctness/synth 达标后显式加存档更新节点 Ckpt1/Ckpt2 + synth 失败止损分支）；② 新增 §12 可观测性（三层日志：transcript/结构化JSONL/心跳；12 个日志点；活跃度 STALE 告警；双层超时 + 兜底；与 transcript 关联）；③ 定可观测方案——第一次迭代用结构化日志 + tail -f，不做 WebUI（数据源可复用，第二次迭代升级）。 | Agent 主 |
 | 2026-07-14 | v2.1。按用户反馈将 §4 主循环全部改为 Mermaid 流程图（5 张：总体流程 + correctness 修复循环 + synth + optimize + structural 回验），替换原 ASCII 字符画。控制流含分支与回退，用 flowchart 而非放射状 mindmap。 | Agent 主 |
