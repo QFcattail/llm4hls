@@ -411,6 +411,8 @@ class Agent:
             self.hb.set_stage("llm", self.server.budget.remaining())
             self._design_brief = self.llm.extract_design_brief(
                 self.task, ckpt.code)
+            self.log.event("llm_call", purpose="extract_brief",
+                           chars=len(self._design_brief))
             self.log.event("design_brief", chars=len(self._design_brief))
 
         for round_n in range(1, self.max_optimize_rounds + 1):
@@ -570,6 +572,8 @@ class Agent:
             self.hb.set_stage("llm", self.server.budget.remaining())
             new_code = self.llm.apply_strategies(
                 self.task, code, strategies, self._design_brief)
+            self.log.event("llm_call", purpose="apply_strategies",
+                           strategies=names, retry=retry)
             if new_code is None:
                 return None
 

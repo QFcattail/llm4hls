@@ -177,10 +177,13 @@ class AgentDashboard(App):
         sys.path.insert(0, str(ROOT))
         sys.path.insert(0, str(ROOT / "contest" / "fpt26-harness"))
 
-        from llm4hls import Budget, ToolServer, load_task
+        from llm4hls import Budget, ToolServer, grade, load_task
         from agent.main_loop import Agent
         from agent.llm_client import HLSLLMClient
         from agent.knowledge_base import KnowledgeBase, seed_entries
+        from agent.score_history import (
+            format_history, recent_scores, record_score,
+        )
 
         task = load_task(self.task_path)
         total = self.budget_override if self.budget_override is not None else task.budget
@@ -240,6 +243,29 @@ class AgentDashboard(App):
             final = agent.run()
             self._agent_result = final
             summary = getattr(backend, "usage_summary", None)
+            # Grade with the hidden testbench (uncharged, ~1-2 min) before
+            # declaring done, so the score + recent history land on screen.
+            self._event_queue.put(("event", {"name": "grading"}))
+            score_data: dict = {}
+            try:
+                card = grade(task, final, work_root / "grade")
+                tokens_total = None
+                if hasattr(backend, "total_prompt"):
+                    tokens_total = backend.total_prompt + backend.total_completion
+                scores_path = work_root / "scores.jsonl"
+                record_score(scores_path, score=card.score,
+                             latency=card.candidate_latency,
+                             credits=budget.spent, tokens=tokens_total)
+                score_data = {
+                    "score": card.score,
+                    "latency": card.candidate_latency,
+                    "render": card.render(),
+                    "history": format_history(
+                        recent_scores(scores_path, 5), task.id),
+                }
+            except Exception as ge:
+                score_data = {"error": str(ge)}
+            self._event_queue.put(("event", {"name": "score", **score_data}))
             self._event_queue.put(("done", {
                 "summary": summary() if summary else "",
                 "result": final[:200],
@@ -306,13 +332,14 @@ class AgentDashboard(App):
             self._stage_reviews = 0
             fc.mark_current(phase if phase in ("correctness", "synth", "optimize") else "correctness")
             # Arm the optimize-stage strategy panel (v4); outside optimize
-            # the strategy zone stays cleared.
+            # the strategy zone stays cleared. v5: stage tag in waiting line.
             teb = self.query_one(ToolErrorBar)
             if phase == "optimize":
                 teb.clear_bar()
                 teb.show_strategies([], [], "")
             else:
                 teb.clear_strategies()
+            teb.set_stage_hint(phase)
 
         elif name == "phase_exit":
             phase = data.get("phase", "")
@@ -321,6 +348,36 @@ class AgentDashboard(App):
             fc.update_stage(phase, status)
             if phase == "optimize":
                 self.query_one(ToolErrorBar).clear_strategies()
+
+        elif name == "llm_call":
+            # v5 rule 2: the strategy-zone ready line follows the optimize
+            # sub-phase (these purposes only fire inside optimize).
+            ready_map = {
+                "extract_brief": "optimizing: extracting design brief...",
+                "propose_strategies": "optimizing: proposing strategies...",
+                "select_strategies": "optimizing: selector reviewing...",
+                "apply_strategies": "optimizing: applying picked...",
+            }
+            purpose = data.get("purpose", "")
+            if purpose in ready_map:
+                self.query_one(ToolErrorBar).show_ready(ready_map[purpose])
+
+        elif name == "grading":
+            ap = self.query_one(ActivityPanel)
+            ap.set_activity("idle",
+                            "grading hidden testbench... (~1-2 min)")
+            fc.mark_current("submit")
+
+        elif name == "score":
+            ap = self.query_one(ActivityPanel)
+            if data.get("error"):
+                ap.append_log(f"  grading failed: {data['error']}\n")
+            else:
+                score = data.get("score", 0.0)
+                fc.update_stage("submit", "done", stat=f"SCORE {score:.3f}")
+                ap.append_log("\n" + data.get("render", "") + "\n")
+                ap.append_log(data.get("history", "") + "\n")
+                ap.set_activity("idle", f"graded: SCORE {score:.3f}")
 
         elif name == "tool_result":
             kind_t = data.get("kind", "")
@@ -367,6 +424,9 @@ class AgentDashboard(App):
             if not passed:
                 issues = data.get("issues", [])
                 self._last_review = f"mechanical ❌: {'; '.join(issues)[:80]}"
+                # v5 rule 1: review failures belong in the error bar too,
+                # not only in the status-bar field.
+                self.query_one(ToolErrorBar).show_review_issue(issues)
 
         elif name == "strategy_select":
             # optimize v2.4: selector AI picked a (possibly combined) subset
@@ -446,7 +506,11 @@ class AgentDashboard(App):
         )
 
         if self._done:
-            ap.set_activity("idle", f"DONE - {getattr(self, '_done_summary', '')}")
+            total_s = time.monotonic() - self._start_time
+            ap.set_activity(
+                "idle",
+                f"DONE - {getattr(self, '_done_summary', '')} "
+                f"| total {total_s / 60:.1f} min")
         elif self._error:
             ap.set_activity("idle", f"ERROR: {self._error}")
 

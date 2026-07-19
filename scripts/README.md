@@ -7,7 +7,7 @@ CLI 入口与驱动脚本。非 TUI 模式的命令行 driver。
 | 文件 | 职责 |
 |---|---|
 | `run_agent.py` | CLI driver：组装 agent 并跑端到端，输出转录 + 评分卡 |
-| `test_main_loop.py` | 主循环离线单元测试（TC-AGENT-001~009），无 Vitis/LLM 可跑 |
+| `test_main_loop.py` | 主循环离线单元测试（TC-AGENT-001~011），无 Vitis/LLM 可跑 |
 
 ## run_agent.py
 

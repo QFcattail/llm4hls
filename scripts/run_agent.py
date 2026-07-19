@@ -135,6 +135,19 @@ def main() -> int:
     card = grade(task, final, work_root / "grade")
     print(card.render())
 
+    # Record the score so both CLI and TUI runs share one history (§3.6).
+    from agent.score_history import (
+        format_history, recent_scores, record_score,
+    )
+    scores_path = work_root / "scores.jsonl"
+    tokens_total = None
+    if hasattr(backend, "total_prompt"):
+        tokens_total = backend.total_prompt + backend.total_completion
+    record_score(scores_path, score=card.score,
+                 latency=card.candidate_latency, credits=budget.spent,
+                 tokens=tokens_total)
+    print("\n" + format_history(recent_scores(scores_path, 5), task.id))
+
     out = work_root / f"final_{task.kernel_name}"
     out.write_text(final)
     print(f"\nfinal kernel -> {out}")

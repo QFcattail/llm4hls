@@ -35,6 +35,7 @@ CLI 选项：`--backend {scripted,deepseek,openrouter}`、`--budget N`、`--work
 | `mechanical_checks.py` | **眼** | 硬性检查：签名变没变、include 在不在（不信任 LLM 的地方） |
 | `deepseek_client.py` | **嘴** | DeepSeek V4 Pro API 对接（OpenAI 兼容，推理模型，记 token） |
 | `observability.py` | **日记** | JSONL 结构化日志 + 心跳线程（卡死检测） |
+| `score_history.py` | **成绩单** | 每题 scores.jsonl：record/recent/format，CLI 与 TUI 双入口共享（v0.4.0） |
 | `knowledge_base/` | **字典** | bug→修法知识库，按错误码/关键词检索注入 prompt；`entries.py` 含 7 条种子条目 |
 | `__init__.py` | | 包入口，导出 route/RunPlan/Checkpoint/Level |
 

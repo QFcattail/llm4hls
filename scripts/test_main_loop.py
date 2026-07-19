@@ -552,10 +552,44 @@ def tc_010() -> None:
     print("TC-AGENT-010 PASS  markdown strategies parsed, wrappers filtered")
 
 
+def tc_011() -> None:
+    """TC-AGENT-011: score history record / recent / format (tui-design §3.6)."""
+    import tempfile
+    from agent.score_history import (
+        format_history, recent_scores, record_score,
+    )
+
+    path = Path(tempfile.mkdtemp(prefix="scores_test_")) / "scores.jsonl"
+    assert recent_scores(path) == []
+    assert "(none yet)" in format_history([], "dotProduct_optimize")
+
+    for i, (score, lat) in enumerate([(1.4, None), (2.1, 100), (2.4, 60),
+                                      (3.0, 22), (3.0, 14), (3.0, 45)]):
+        record_score(path, score=score, latency=lat,
+                     credits=10 + i, tokens=1000 * (i + 1))
+
+    all_records = recent_scores(path, 10)
+    assert len(all_records) == 6, f"expected 6 records, got {len(all_records)}"
+    last5 = recent_scores(path, 5)
+    assert len(last5) == 5 and last5[0]["score"] == 2.1, \
+        "recent(5) must drop the oldest record"
+    assert last5[-1]["latency"] == 45
+
+    text = format_history(last5, "dotProduct_optimize")
+    assert "recent scores (dotProduct_optimize):" in text
+    assert "SCORE 2.100" in text and "lat=100" in text
+    assert "credits=11" in text and "tokens=2000" in text
+    # malformed lines are skipped, not fatal
+    with path.open("a") as f:
+        f.write("not-json\n")
+    assert len(recent_scores(path, 6)) == 6
+    print("TC-AGENT-011 PASS  score history: record/recent(5)/format/corrupt-safe")
+
+
 def main() -> int:
     """Run all TC-AGENT cases; return 0 iff every one passes."""
     cases = [tc_001, tc_002, tc_003, tc_004, tc_005, tc_006,
-             tc_007, tc_008, tc_009, tc_010]
+             tc_007, tc_008, tc_009, tc_010, tc_011]
     failed = 0
     for tc in cases:
         try:

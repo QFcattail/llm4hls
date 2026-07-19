@@ -1,8 +1,8 @@
 # TUI 交互式仪表盘设计 (TUI Design)
 
-> 状态：v4（2026-07-18，区域 B 在 optimize 阶段复用为策略面板 + ToolErrorBar 改状态驱动渲染）
+> 状态：v5（2026-07-19，submit 得分区 + 最近 5 次得分历史 + 区域 B 阶段感知规则）
 > 框架：Textual + Rich
-> 数据源：agent/observability.py 的 Logger 事件流 + harness transcript
+> 数据源：agent/observability.py 的 Logger 事件流 + harness transcript + grade() Scorecard
 
 ---
 
@@ -84,7 +84,7 @@
 - correctness：`csim×3 2218tok`（工具调用次数 + LLM token）
 - synth：`synth×1 4cr`（工具调用次数 + credit）
 - optimize：`opt×2 1500tok`
-- submit：`SCORE 1.400`
+- submit：`SCORE 1.400`（v5 起为真实分数，来自 grade()；评分中显示 `grading...`）
 
 **阶段标签**：v3 起全部使用英文 stage 名（`route`/`correctness`/`synth`/`optimize`/`submit`），当前阶段标记为 `↑ CURRENT`。
 
@@ -116,6 +116,14 @@
 - runtime_fail（非编译错）时显示 test case 失败信息
 
 **为什么独立一栏**：gcc 编译错误通常很长（行号 + 错误类型 + 上下文），塞在状态栏一行里显示不了。独立一栏能让 LLM 和用户都清楚看到"上次工具报了什么错"。
+
+#### 区域 B 的阶段感知规则（v5 新增）
+
+用户反馈的困惑："review 报签名不一致时，error tab 只显示等待文案，不知道当前在哪个阶段"。三条规则：
+
+1. **review 失败进工具区**：mechanical_review 不通过（如签名不一致）时，工具区立即显示 `🔍 [review] <第一条 issue>`（黄色标题），和工具报错同等可见——不再只藏在状态栏的 last review 字段里。后续 review 通过或下一个工具结果自然覆盖。
+2. **就绪行跟随子阶段**：optimize 阶段没有策略数据时，就绪行不再固定显示 "proposing strategies..."，而是跟随 `llm_call` 事件的 purpose 更新：`extracting design brief...` → `proposing strategies...` → `selector reviewing...` → `applying picked...`。用户随时知道 LLM 在干什么。
+3. **等待行带阶段标签**：工具区等待文案从 `(waiting for tool call...)` 变为 `(<stage>) waiting for tool call...`（由 `phase_enter` 驱动的 stage hint），非 optimize 阶段也一眼可知当前阶段。
 
 #### optimize 阶段复用为策略面板（v4 新增）
 
@@ -212,6 +220,30 @@ v3 起**所有界面文案为英文**（stage 标签、状态行、错误汇总�
 
 ---
 
+## 3.6 得分与收敛历史（v5 新增）
+
+**问题**：agent 跑完后 TUI 只显示 DONE，不展示得分——用户看不到结果，也看不到多次运行的收敛过程。根源：TUI 只调 `agent.run()`，从不调 `grade()`（评分在 CLI driver 里）。
+
+**设计**：
+
+1. **评分时机**：agent 线程在 `agent.run()` 返回后、发 `done` 事件前，调用 harness `grade()`（hidden testbench + PPA，不占 budget，约 1-2 分钟）。期间区域 C 显示 `grading hidden testbench...`，流程图 submit 阶段 🔄。
+2. **得分展示**：grade 完成发 `score` 事件 → submit 阶段 stat 显示 `SCORE x.xxx`；区域 C 打印完整 Scorecard（functional/synth/cosim、baseline vs candidate latency、acceleration、资源、SCORE）。
+3. **收敛历史**：每次评分向 `runs/<task_id>/scores.jsonl` 追加一行（ts/score/latency/credits/tokens）；区域 C 在 Scorecard 后打印**最近 5 次得分表**（含本次），多次调参/重跑的收敛趋势一目了然。CLI driver（run_agent.py）评分后写同一文件，两个入口历史互通。
+4. **DONE 行**：显示总耗时（`time.monotonic() - _start_time`），修掉"elapsed 0.0s"。
+
+```
+=== Scorecard: dotProduct_optimize (difficulty 3) ===
+  functional (hidden TB): PASS
+  ...
+  SCORE                 : 3.000
+
+recent scores (dotProduct_optimize):
+  2026-07-18 22:41  SCORE 3.000  lat=14  credits=25  tokens=53210
+  2026-07-19 14:18  SCORE 3.000  lat=45  credits=10  tokens=22881
+```
+
+---
+
 ## 4. 数据源映射
 
 TUI 的所有数据来自现有模块，不需要改 agent 逻辑：
@@ -226,7 +258,10 @@ TUI 的所有数据来自现有模块，不需要改 agent 逻辑：
 | 本环节调用次数 | 从 transcript 按 kind 过滤计数 | ✅ 已有 |
 | 上次工具报错 | 最近一条 `tool_result` 的 `phase` + `log_tail` | ✅ 已有 |
 | 上次 review 意见 | 最近一条 `review` 事件的 `issues` | ✅ 已有 |
-| 策略面板（区域 B，optimize） | `strategy_select` 事件的 `all`/`picked`/`reason` + `optimize_fallback` 事件 | 🆕 v4 新增 |
+| 策略面板（区域 B，optimize） | `strategy_select` 事件的 `all`/`picked`/`reason` + `optimize_fallback` 事件 | ✅ v4 已有 |
+| 就绪行子阶段（区域 B） | `llm_call` 事件的 `purpose` 字段 | 🆕 v5 新增 |
+| submit 得分 | agent 线程调 `grade()` 后发 `score` 事件 | 🆕 v5 新增 |
+| 最近 5 次得分 | `runs/<task_id>/scores.jsonl`（CLI/TUI 双入口追加） | 🆕 v5 新增 |
 
 **唯一需要新增的**：DeepSeek API 改为 stream 模式（`stream: true`），逐 token 返回 reasoning_content 和 content。这是区域 B 流式输出的前提。
 
@@ -320,3 +355,4 @@ TUI 是体验优化，不是功能必需。先用 `tail -f` JSONL 日志（已�
 | 2026-07-17 | v2 四区域重设计：工具报错独立一栏（区域 B），thinking+code 合并流式输出，资源面板精简为 2 行。 | Agent 主 |
 | 2026-07-18 | v3 新增 §3.5 主题配色（`fpga-light`：primary `#587559` / accent `#FDD100` / 白底黑字 / CoT 灰色不变）；界面文案全部改英文；代码高亮主题 monokai -> `github-light`。 | Agent 主 |
 | 2026-07-18 | v4 区域 B 在 optimize 阶段复用为策略面板（用户决策：该阶段工具以 pass 为主，报错栏闲置；区域 A stat 槽放不下多策略名）：策略区 ≤2 行 + 工具区 ≤3 行共存，报错不被遮盖；ToolErrorBar 改状态驱动渲染（防 150ms 心跳 show_running 擦掉策略行）。数据源表加 `strategy_select`/`optimize_fallback`。配套 agent-architecture v2.4（策略组合 + 评审 AI）。 | Agent 主 |
+| 2026-07-19 | v5 两处（用户反馈）：① submit 得分区——agent 线程跑完后调 grade()，submit stat 显示 SCORE，区域 C 打印 Scorecard + 最近 5 次得分历史（runs/<task>/scores.jsonl 双入口互通），DONE 行加总耗时；② 区域 B 阶段感知三规则——mechanical review 失败进工具区、就绪行跟 llm_call 子阶段、等待行带阶段标签。 | Agent 主 |

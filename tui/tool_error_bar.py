@@ -62,11 +62,54 @@ class ToolErrorBar(Static):
         self._strategy_picked: list[str] = []
         self._strategy_reason: str = ""
         self._strategy_ready: bool = False
+        self._ready_text: str = ""          # v5: sub-phase aware ready line
+        self._stage_hint: str = ""          # v5: stage tag in waiting line
         # Tool zone: one header line plus extracted error lines.
         self._tool_header: Text = Text("  (waiting for tool call...)", style="dim")
         self._tool_errors: list[str] = []
 
     # -- strategy zone (v4) ----------------------------------------------
+    def set_stage_hint(self, stage: str) -> None:
+        """Set the current stage shown in the waiting line (v5 rule 3).
+
+        Args:
+            stage: Current phase name (e.g. "correctness", "optimize").
+        """
+        self._stage_hint = stage
+        # Refresh the waiting line only when the tool zone is idle/waiting,
+        # so a live error or running status is never clobbered.
+        if not self._tool_errors and "waiting for tool call" in self._tool_header.plain:
+            self._set_tool(self._waiting_line())
+
+    def show_ready(self, text: str) -> None:
+        """Show a custom ready line in the strategy zone (v5 rule 2).
+
+        Sub-phase hints shown before real strategy data arrives, e.g.
+        "extracting design brief..." or "selector reviewing...".
+
+        Args:
+            text: The ready-line text (rendered dim).
+        """
+        self._ready_text = text
+        self._strategy_all = []
+        self._strategy_picked = []
+        self._strategy_ready = True
+        self._rebuild()
+
+    def show_review_issue(self, issues: list[str]) -> None:
+        """Show a mechanical-review failure in the tool zone (v5 rule 1).
+
+        Args:
+            issues: The mechanical issues (e.g. signature mismatch detail).
+        """
+        first = issues[0].split("\n")[0] if issues else "unknown issue"
+        self._set_tool(Text(f"  🔍 [review] {first}", style="bold #B00020"),
+                       [i.replace("\n", " ") for i in issues[:2]])
+
+    def _waiting_line(self) -> Text:
+        """Build the tool-zone waiting line with the stage tag (v5)."""
+        hint = f"({self._stage_hint}) " if self._stage_hint else ""
+        return Text(f"  {hint}waiting for tool call...", style="dim")
     def show_strategies(self, all_names: list[str], picked: list[str],
                         reason: str = "") -> None:
         """Show the optimize-stage strategy panel.
@@ -111,8 +154,8 @@ class ToolErrorBar(Static):
                 f"  🎯 {len(self._strategy_all)} strategies: {catalog}"[:_LINE_CAP],
                 style="#587559")]
         elif self._strategy_ready or self._strategy_picked:
-            lines = [Text("  🎯 optimizing: proposing strategies...",
-                          style="dim")]
+            ready = self._ready_text or "optimizing: proposing strategies..."
+            lines = [Text(f"  🎯 {ready}", style="dim")]
         else:
             return []
         if self._strategy_picked:
@@ -156,7 +199,7 @@ class ToolErrorBar(Static):
 
     def clear_bar(self) -> None:
         """Reset the tool zone to its waiting state (strategy zone kept)."""
-        self._set_tool(Text("  (waiting for tool call...)", style="dim"))
+        self._set_tool(self._waiting_line())
 
     def show_running(self, kind: str, elapsed: float = 0) -> None:
         """Show a running tool call status (before result arrives).
