@@ -438,35 +438,41 @@ class Agent:
 
             # AMD Phase 2b: selector review AI picks a compatible subset
             # (dual confirmation: proposer + selector must both agree the
-            # strategies do not interfere, §4.4).
+            # strategies do not interfere, §4.4; v2.7: feasibility review
+            # first, poisoned plans rejected with reasons).
             self.hb.set_stage("llm", self.server.budget.remaining())
-            indices, sel_reason = self.llm.select_strategies(
-                self.task, ckpt.code, strategies,
-                self._synth_summary or "(no synthesis report available)",
-                self._design_brief)
+            indices, sel_reason, sel_rejected, sel_fallback = (
+                self.llm.select_strategies(
+                    self.task, ckpt.code, strategies,
+                    self._synth_summary or "(no synthesis report available)",
+                    self._design_brief))
             self.log.event("llm_call", purpose="select_strategies",
                            round=round_n)
             subset = [strategies[i] for i in indices]
             self.log.event("strategy_select", round=round_n, indices=indices,
                            picked=[s.name for s in subset],
                            all=[s.name for s in strategies],
-                           reason=sel_reason)
+                           reason=sel_reason,
+                           rejected=sel_rejected,
+                           fallback=sel_fallback)
 
             # AMD Phase 3: apply the subset as ONE candidate, then arbitrate.
-            outcome = self._try_opt_candidate(ckpt, subset, round_n)
+            outcome, fail_fb = self._try_opt_candidate(ckpt, subset, round_n)
             if outcome == "improved":
                 continue
 
             # Combo attribution fallback (§4.4): when a multi-strategy
             # candidate fails (or does not improve), we cannot tell which
             # strategy caused it — retry once with the subset's first
-            # strategy alone. Only a single-strategy failure stops the loop.
+            # strategy alone, WITH the failure feedback so the LLM avoids
+            # repeating the mistake (v2.7: was a blind retry).
             if len(subset) > 1:
                 self.log.event("optimize_fallback", round=round_n,
                                picked=[subset[0].name],
                                reason="combo failed; retrying first "
-                                      "strategy only")
-                outcome = self._try_opt_candidate(ckpt, subset[:1], round_n)
+                                      "strategy only (with failure feedback)")
+                outcome, _ = self._try_opt_candidate(
+                    ckpt, subset[:1], round_n, failure_feedback=fail_fb)
                 if outcome == "improved":
                     continue
 
@@ -478,7 +484,8 @@ class Agent:
                        best_level=ckpt.level, best_latency=ckpt.latency)
 
     def _try_opt_candidate(self, ckpt: Checkpoint,
-                           strategies: list[Strategy], round_n: int) -> str:
+                           strategies: list[Strategy], round_n: int,
+                           failure_feedback: str = "") -> tuple[str, str]:
         """Generate, verify, and arbitrate one optimization candidate.
 
         The full per-candidate pipeline (§4.4): review-gated generation ->
@@ -490,23 +497,30 @@ class Agent:
             ckpt: The checkpoint holding the current best code.
             strategies: The selected Strategy subset to apply together.
             round_n: Current optimize round number (for logging).
+            failure_feedback: Distilled feedback from a previous failed
+                attempt, injected into generation so the LLM avoids
+                repeating the mistake (empty for a first attempt).
 
         Returns:
-            "improved" when the candidate was accepted as strictly faster;
-            "no_improvement" when it verified but was not faster;
-            "failed" when generation or verification failed (discard).
+            An ``(outcome, failure_feedback)`` tuple. ``outcome`` is
+            "improved" (accepted as strictly faster), "no_improvement"
+            (verified but not faster), or "failed" (generation/verification
+            failed). ``failure_feedback`` is the distilled tool feedback of
+            the failed attempt ("" when the candidate improved or none was
+            produced) for the caller's failure-aware fallback.
         """
-        cand = self._apply_with_review(ckpt.code, strategies)
+        cand = self._apply_with_review(ckpt.code, strategies,
+                                       failure_feedback=failure_feedback)
         if cand is None or cand.strip() == ckpt.code.strip():
             self.log.event("optimize_discard", round=round_n,
                            reason="no_candidate")
-            return "failed"
+            return "failed", ""
 
         # Re-verify already-passed stages before arbitrating (§5).
         if not self.server.budget.can_afford("csim"):
             self.log.event("budget_exhausted", where="optimize-csim",
                            best_latency=ckpt.latency)
-            return "failed"
+            return "failed", ""
         self.hb.set_stage("csim", self.server.budget.remaining())
         cr = self.server.csim(cand)
         self.log.event("tool_result", kind="csim", phase=cr.phase,
@@ -517,11 +531,11 @@ class Agent:
         if not cr.ok:
             self.log.event("optimize_discard", round=round_n,
                            reason="csim_broken", phase=cr.phase)
-            return "failed"
+            return "failed", build_feedback(cr).as_prompt_block()
         if not self.server.budget.can_afford("synth"):
             self.log.event("budget_exhausted", where="optimize-synth",
                            best_latency=ckpt.latency)
-            return "failed"
+            return "failed", ""
         self.hb.set_stage("synth", self.server.budget.remaining())
         sr = self.server.synth(cand)
         self.log.event("tool_result", kind="synth", phase=sr.phase,
@@ -531,7 +545,7 @@ class Agent:
         if not sr.ok or sr.report is None:
             self.log.event("optimize_discard", round=round_n,
                            reason="synth_failed", phase=sr.phase)
-            return "failed"
+            return "failed", build_feedback(sr).as_prompt_block()
 
         # Same-level arbitration: accept only a strictly faster design.
         lat = self._valid_latency(sr.report)
@@ -543,14 +557,15 @@ class Agent:
             self.log.event("checkpoint", old=Level.SYNTH, new=Level.SYNTH,
                            old_latency=old_lat, new_latency=lat,
                            reason="optimize_improve")
-            return "improved"
+            return "improved", ""
         self.log.event("optimize_discard", round=round_n,
                        reason="no_improvement",
                        best_latency=ckpt.latency, cand_latency=lat)
-        return "no_improvement"
+        return "no_improvement", ""
 
     def _apply_with_review(self, code: str,
-                           strategies: list[Strategy]) -> str | None:
+                           strategies: list[Strategy],
+                           failure_feedback: str = "") -> str | None:
         """Generate an optimized candidate, then cross-check before returning.
 
         Mirrors ``_repair_with_review`` but the generator is
@@ -562,6 +577,8 @@ class Agent:
         Args:
             code: The current best kernel source.
             strategies: The Strategy subset selected this round.
+            failure_feedback: Distilled feedback from a previous failed
+                attempt, injected into generation (v2.7, empty by default).
 
         Returns:
             The reviewed candidate kernel source, or None if the LLM produced
@@ -571,7 +588,8 @@ class Agent:
         for retry in range(self.llm.max_review_retries + 1):
             self.hb.set_stage("llm", self.server.budget.remaining())
             new_code = self.llm.apply_strategies(
-                self.task, code, strategies, self._design_brief)
+                self.task, code, strategies, self._design_brief,
+                failure_feedback=failure_feedback)
             self.log.event("llm_call", purpose="apply_strategies",
                            strategies=names, retry=retry)
             if new_code is None:

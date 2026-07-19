@@ -21,6 +21,7 @@ Output parsing reuses the harness _extract_code regex (a fenced ```cpp block).
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 
@@ -85,6 +86,27 @@ class HLSLLMClient:
     def _complete(self, system: str, user: str) -> str:
         """Forward a raw (system, user) completion call to the backend."""
         return self.backend.complete(system, user)
+
+    def _complete_json(self, system: str, user: str) -> str:
+        """Call the backend with JSON structured output when supported.
+
+        DeepSeek natively supports ``response_format: json_object`` (probed
+        2026-07-19); backends without that keyword (ScriptedClient, harness
+        OpenRouterClient) are called plainly and their free-text reply is
+        handled by the caller's legacy fallback parser.
+
+        Args:
+            system: System prompt text.
+            user: User prompt text.
+
+        Returns:
+            The assistant's content string (expected to be JSON).
+        """
+        try:
+            return self.backend.complete(
+                system, user, response_format={"type": "json_object"})
+        except TypeError:
+            return self.backend.complete(system, user)
 
     # -- domain methods ---------------------------------------------------
     def repair(self, task, code: str, feedback_text: str, kb_text: str) -> str | None:
@@ -192,31 +214,30 @@ class HLSLLMClient:
             f"## Task\nPropose 2-4 optimization strategies targeting lower "
             f"latency on the Alveo U55C @ 200 MHz, ordered by confidence "
             f"(best first). Respect the interface contract above.\n"
-            f"Format each strategy EXACTLY as follows (plain text, numbered "
-            f"lines, no markdown headings, no bold, no intro or closing "
-            f"remarks):\n"
-            f"1. name: <short name>\n"
-            f"rationale: <why it works>\n"
-            f"gain: <expected latency gain>\n"
-            f"risk: <what could go wrong>\n"
-            f"combinable_with: <numbers of the OTHER strategies it does not "
-            f"interfere with, or 'standalone'>\n"
-            f"2. name: ...\n"
+            f"Return STRICT JSON only (no prose outside the JSON):\n"
+            f'{{"strategies": [{{"name": "short name", "rationale": "why", '
+            f'"gain": "expected latency gain", "risk": "what could go wrong", '
+            f'"combinable_with": "numbers of OTHER strategies it does not '
+            f'interfere with, or \'standalone\'"}}]}}'
         )
-        out = self._complete(system, user)
+        out = self._complete_json(system, user)
         self.last_propose_raw = out   # kept for parse-failure diagnostics
         return _parse_strategies(out)
 
     def select_strategies(self, task, code: str, strategies: list[Strategy],
                           synth_summary: str, design_brief: str = "",
-                          ) -> tuple[list[int], str]:
-        """Selector review AI (v2.4): pick a compatible subset of strategies.
+                          ) -> tuple[list[int], str, list[dict], bool]:
+        """Selector review AI: feasibility + compatibility review, then pick.
 
-        A second self-check (same model, reviewer prompt) that re-verifies
-        the proposer's compatibility claims and selects 1..N strategies to
-        apply together. A combo is allowed only when BOTH the proposer and
-        this reviewer consider the strategies non-interfering (dual
-        confirmation, architecture §4.4).
+        A second self-check (same model, reviewer prompt). v2.7: each
+        strategy first gets a feasibility verdict (interface unchanged /
+        functionality unbroken / synthesizable / resources fit); poisoned
+        plans are rejected with a reason. The pick is a compatible subset of
+        the SURVIVING strategies (dual confirmation, architecture §4.4).
+
+        On structured-output parse failure the selector is retried once; if
+        that also fails it falls back to the first strategy and the fallback
+        is FLAGGED (never silent) so the operator can see it.
 
         Args:
             task: Harness Task object.
@@ -226,9 +247,11 @@ class HLSLLMClient:
             design_brief: Cached design brief (empty string when unavailable).
 
         Returns:
-            A (indices, reason) tuple: 0-based indexes into ``strategies``
-            (never empty; falls back to [0] on parse failure), and the
-            reviewer's one-line rationale.
+            A 4-tuple ``(indices, reason, rejected, fell_back)``: 0-based
+            indexes into ``strategies`` (never empty), the one-line pick
+            rationale, the list of rejected strategy dicts
+            (``{"id", "name", "why"}``), and True when the answer came from
+            the parse-failure fallback rather than a real selection.
         """
         system = _SELECT_SYSTEM
         catalog = "\n".join(
@@ -243,20 +266,31 @@ class HLSLLMClient:
             f"## Design brief\n{design_brief or '(none)'}\n\n"
             f"## Current synthesis\n{synth_summary}\n\n"
             f"## Proposed strategies\n{catalog}\n\n"
-            f"## Your task\nPick the strategy or compatible combination most "
-            f"likely to lower latency. A combination is allowed only when the "
-            f"strategies do not interfere (check pragma interaction rules: no "
-            f"PIPELINE+DATAFLOW at the same level, no conflicting unroll/"
-            f"partition on one array, no dead streams). Reply EXACTLY in this "
-            f"format:\nPICK: <numbers, comma-separated>\nREASON: <one line>"
+            f"## Your task\nTwo steps. FIRST, feasibility review: for each "
+            f"strategy, judge whether the PLAN ITSELF is sound — it must keep "
+            f"the top-level signature/interface unchanged, keep functionality "
+            f"correct, be synthesizable, and fit the device. Reject poisoned "
+            f"plans with a reason. SECOND, pick the strategy or compatible "
+            f"combination (from the SOUND ones) most likely to lower latency. "
+            f"A combination is allowed only when the strategies do not "
+            f"interfere (pragma rules: no PIPELINE+DATAFLOW at the same "
+            f"level, no conflicting partitions, no dead streams).\n"
+            f"Return STRICT JSON only:\n"
+            f'{{"review": [{{"id": 1, "ok": true}}, '
+            f'{{"id": 2, "ok": false, "why": "reason"}}], '
+            f'"pick": [1], "reason": "one line"}}'
         )
-        out = self._complete(system, user)
-        indices = _parse_pick(out, len(strategies))
-        reason = _parse_reason(out)
-        return indices, reason
+        for attempt in range(2):   # one retry on parse failure, then fallback
+            out = self._complete_json(system, user)
+            parsed = _parse_select_json(out, strategies)
+            if parsed is not None:
+                return parsed
+        # Fallback: first strategy, explicitly flagged (never silent).
+        return ([0], "", [], True)
 
     def apply_strategies(self, task, code: str, strategies: list[Strategy],
-                         design_brief: str = "") -> str | None:
+                         design_brief: str = "",
+                         failure_feedback: str = "") -> str | None:
         """AMD Phase 3: generate code applying a (compatible) strategy subset.
 
         The subset was dually confirmed non-interfering by the proposer and
@@ -268,6 +302,9 @@ class HLSLLMClient:
             strategies: The selected Strategy subset to apply together.
             design_brief: Cached design brief from extract_design_brief
                 (empty string when unavailable).
+            failure_feedback: Optional distilled feedback from the failed
+                previous attempt (error codes + log tail, v2.7). Injected so
+                the LLM avoids repeating the mistake.
 
         Returns:
             The optimized kernel source extracted from the LLM response, or
@@ -285,12 +322,17 @@ class HLSLLMClient:
             if len(strategies) > 1 else
             "Apply this single strategy."
         )
+        feedback_block = (
+            f"\n\n## Previous attempt FAILED — avoid these mistakes\n"
+            f"{failure_feedback}\n" if failure_feedback else ""
+        )
         user = (
             f"## Kernel specification\n{task.description}\n\n"
             f"## Fixed header(s) (read-only)\n```cpp\n{_headers(task)}\n```\n\n"
             f"## Design brief\n{design_brief or '(none)'}\n\n"
             f"## Kernel\n```cpp\n{code}\n```\n\n"
-            f"## Apply these strategies\n{plan}\n\n{combo_note}\n"
+            f"## Apply these strategies\n{plan}\n\n{combo_note}"
+            f"{feedback_block}\n"
             f"Output ONLY the full optimized kernel in one ```cpp block. "
             f"Keep the top-level signature and the interface contract "
             f"unchanged. Do not modify other function calls."
@@ -343,25 +385,110 @@ def _headers(task) -> str:
 
 
 def _parse_strategies(text: str) -> list[Strategy]:
-    """Best-effort parse of a free-form strategy list into Strategy objects.
+    """Parse a strategy list, JSON first with a legacy free-text fallback.
 
-    Tolerates the two shapes real LLMs emit (verified against DeepSeek V4
-    Pro e2e output):
-      1. "1.\\nname: x\\ngain: y\\nrisk: z"          (label: value lines)
-      2. "### Strategy 1: Name\\n\\nRationale\\n...\\nExpected latency gain\\n~x"
-         (markdown headings + bold labels on their own line, no colons)
+    Primary path: the JSON schema requested via structured output
+    (``{"strategies": [...]}``). Fallback: the free-text regex parser for
+    backends without JSON mode (ScriptedClient, older prompts).
+    """
+    strategies = _parse_strategies_json(text)
+    if strategies:
+        return strategies
+    return _parse_strategies_text(text)
 
-    `**bold**` markers are stripped up front; non-strategy blocks
-    (diagnosis/recommendation/intro sections) are dropped by requiring a
-    gain or risk field and by the name filter.
+
+def _parse_strategies_json(text: str) -> list[Strategy]:
+    """Parse the structured-output JSON strategy list (empty list on miss)."""
+    try:
+        data = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    items = data.get("strategies") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        return []
+    strategies: list[Strategy] = []
+    for it in items:
+        if not isinstance(it, dict) or not it.get("name"):
+            continue
+        strategies.append(Strategy(
+            name=str(it["name"])[:80],
+            rationale=str(it.get("rationale", ""))[:200],
+            expected_gain=str(it.get("gain", "?")),
+            risk=str(it.get("risk", "?")),
+            combinable_with=str(it.get("combinable_with", "")),
+        ))
+    return strategies
+
+
+def _parse_select_json(text: str, strategies: list[Strategy],
+                       ) -> tuple[list[int], str, list[dict], bool] | None:
+    """Parse the selector's JSON reply into (indices, reason, rejected, False).
+
+    Args:
+        text: The selector AI's raw reply (expected strict JSON; the legacy
+            "PICK: ... / REASON: ..." text format is accepted as fallback).
+        strategies: The proposed strategies (for id validation and naming
+            the rejected entries).
+
+    Returns:
+        A 4-tuple ``(indices, reason, rejected, False)`` on success — the
+        trailing False marks "NOT a fallback" (the caller's fallback path
+        returns True). Returns None when the reply is neither usable JSON
+        nor legacy text format.
+    """
+    try:
+        data = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        data = None
+    if not isinstance(data, dict):
+        # Legacy "PICK: 1,2 / REASON: x" text path (no review list there).
+        if _PICK_RE.search(text):
+            return (_parse_pick(text, len(strategies)),
+                    _parse_reason(text), [], False)
+        return None
+    rejected: list[dict] = []
+    review = data.get("review")
+    if isinstance(review, list):
+        for item in review:
+            if not isinstance(item, dict):
+                continue
+            if item.get("ok") is False:
+                sid = item.get("id")
+                name = (strategies[sid - 1].name
+                        if isinstance(sid, int) and 1 <= sid <= len(strategies)
+                        else f"#{sid}")
+                rejected.append({"id": sid, "name": name,
+                                 "why": str(item.get("why", ""))})
+    rejected_ids = {r["id"] for r in rejected if isinstance(r["id"], int)}
+    picks: list[int] = []
+    raw_pick = data.get("pick")
+    if isinstance(raw_pick, list):
+        for tok in raw_pick:
+            if isinstance(tok, (int, float)):
+                idx = int(tok) - 1
+                if 0 <= idx < len(strategies) and idx not in picks:
+                    picks.append(idx)
+    if not picks:
+        return None
+    # A pick that names only rejected strategies is unusable.
+    if all((i + 1) in rejected_ids for i in picks):
+        return None
+    return (picks, str(data.get("reason", ""))[:200], rejected, False)
+
+
+def _parse_strategies_text(text: str) -> list[Strategy]:
+    """Legacy free-text strategy parser (fallback when JSON mode is absent).
+
+    Tolerates the shapes real LLMs emit (verified against DeepSeek samples):
+    "1." alone, "#### 2. Name", "### Strategy 1: Name", "Strategy 1: Name",
+    "- Strategy 1: Name", "1 — Name" (em/en dash; a plain hyphen is NOT
+    accepted so lines like "128-bit accumulator" cannot cause false splits).
+    Non-strategy blocks (diagnosis/recommendation/intro) are dropped by
+    requiring a gain or risk field and by the name filter.
     """
     cleaned = text.replace("**", "")
     strategies: list[Strategy] = []
-    # Split BEFORE each numbered heading line. Tolerated shapes (verified
-    # against real DeepSeek samples): "1." alone, "#### 2. Name",
-    # "### Strategy 1: Name", "Strategy 1: Name", "- Strategy 1: Name",
-    # "1 — Name" (em/en dash; a plain hyphen is NOT accepted so lines like
-    # "128-bit accumulator" cannot cause false splits), bullets "- 1. Name".
+    # Split BEFORE each numbered heading line.
     blocks = re.split(
         r"\n(?=\s*(?:#{1,4}\s+|[-•*]\s+)?(?:strategy\s+)?\d+\s*[:.)—–])",
         cleaned, flags=re.IGNORECASE)

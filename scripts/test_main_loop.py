@@ -161,13 +161,22 @@ class CannedBackend:
                  apply_codes: list[str] | None = None,
                  review: str = "PASS", brief: str = "sequential accumulation",
                  select_pick: str = "1",
-                 select_reason: str = "confirmed compatible") -> None:
+                 select_reason: str = "confirmed compatible",
+                 select_replies: list[str] | None = None,
+                 propose_reply: str | None = None) -> None:
         self.repair_codes = repair_codes or []
         self.apply_codes = apply_codes or []
         self.review = review
         self.brief = brief
         self.select_pick = select_pick
         self.select_reason = select_reason
+        # Optional full-control reply queue for the selector (overrides
+        # select_pick/select_reason when non-empty; cycles on the last).
+        self.select_replies = select_replies or []
+        # Optional full-control propose reply (defaults to _STRATEGY_TEXT).
+        self.propose_reply = propose_reply
+        self.select_calls = 0
+        self.last_apply_prompt = ""
         self._ri = 0
         self._ai = 0
 
@@ -190,13 +199,17 @@ class CannedBackend:
         """
         if "Summarize this design" in user:
             return self.brief
-        if "Pick the strategy or compatible combination" in user:
+        if "## Your task\nTwo steps. FIRST, feasibility review" in user:
+            self.select_calls += 1
+            if self.select_replies:
+                return self._cycle(self.select_replies, self.select_calls - 1)
             return f"PICK: {self.select_pick}\nREASON: {self.select_reason}"
         if "Propose 2-4 optimization strategies" in user:
-            return _STRATEGY_TEXT
+            return self.propose_reply or _STRATEGY_TEXT
         if "Reply PASS or FAIL" in user:
             return self.review
         if "## Apply these strategies" in user:
+            self.last_apply_prompt = user
             code = self._cycle(self.apply_codes, self._ai)
             self._ai += 1
             return f"```cpp\n{code}```" if code is not None else ""
@@ -607,10 +620,139 @@ def tc_011() -> None:
     print("TC-AGENT-011 PASS  score history: record/recent(5)/format/corrupt-safe")
 
 
+_PROPOSE_JSON = (
+    '{"strategies": ['
+    '{"name": "pipeline loop", "rationale": "II=1", "gain": "big", '
+    '"risk": "none", "combinable_with": "2,3"},'
+    '{"name": "signature change hack", "rationale": "add an argument", '
+    '"gain": "?", "risk": "breaks contract", "combinable_with": "standalone"},'
+    '{"name": "array partition", "rationale": "parallel reads", "gain": "mid",'
+    ' "risk": "LUTs", "combinable_with": "1"}]}'
+)
+
+_SELECT_JSON = (
+    '{"review": [{"id": 1, "ok": true}, '
+    '{"id": 2, "ok": false, "why": "changes top-level signature"}, '
+    '{"id": 3, "ok": true}], '
+    '"pick": [1, 3], "reason": "1 and 3 are compatible and sound"}'
+)
+
+
+def tc_012() -> None:
+    """TC-AGENT-012: JSON propose/select parsing + rejected surfaced (v2.7)."""
+    from agent.llm_client import _parse_select_json, _parse_strategies
+
+    strategies = _parse_strategies(_PROPOSE_JSON)
+    assert [s.name for s in strategies] == [
+        "pipeline loop", "signature change hack", "array partition"]
+    assert strategies[0].combinable_with == "2,3"
+
+    indices, reason, rejected, fell_back = _parse_select_json(
+        _SELECT_JSON, strategies)
+    assert indices == [0, 2], indices
+    assert not fell_back
+    assert "compatible and sound" in reason
+    assert rejected == [{"id": 2, "name": "signature change hack",
+                         "why": "changes top-level signature"}]
+
+    # pick naming ONLY rejected strategies is unusable -> None
+    bad = _parse_select_json(
+        '{"review": [{"id": 1, "ok": false, "why": "x"}], "pick": [1]}',
+        strategies[:1])
+    assert bad is None
+    # garbage -> None (caller retries, then flagged fallback)
+    assert _parse_select_json("not json at all", strategies) is None
+    # legacy PICK/REASON text still accepted (no review list there)
+    leg = _parse_select_json("PICK: 1,3\nREASON: legacy ok", strategies)
+    assert leg == ([0, 2], "legacy ok", [], False)
+    print("TC-AGENT-012 PASS  JSON select: pick+rejected parsed; fallbacks sane")
+
+
+def tc_013() -> None:
+    """TC-AGENT-013: fallback apply receives the failure feedback (v2.7)."""
+    task = FakeTask(type="optimize")
+    server = FakeToolServer(total=40)
+
+    def synth_handler(code: str) -> ToolResult:
+        # combo candidate: synth fails with a pragma-scope error;
+        # fallback candidate: passes at 70.
+        if "FAST70" in code:
+            return _synth_result(True, code, 70)
+        if "BREAK_SYNTH" in code:
+            return _synth_result(
+                False, code,
+                log="ERROR: [HLS 207-6969] '#pragma HLS' is only allowed "
+                    "in function scope\n")
+        return _synth_result(True, code, 100)
+
+    server.synth_handler = synth_handler
+    events: list = []
+    backend = CannedBackend(
+        repair_codes=[BASE_CODE],
+        apply_codes=[BASE_CODE + "// BREAK_SYNTH\n", FAST70_CODE],
+        select_replies=[
+            '{"review": [{"id": 1, "ok": true}, {"id": 2, "ok": true}],'
+            ' "pick": [1, 2], "reason": "compatible"}'],
+    )
+    agent = _make_agent(task, server, backend, events, max_optimize_rounds=1)
+    final = agent.run()
+
+    assert final == FAST70_CODE, "fallback candidate should be archived"
+    assert "Previous attempt FAILED" in backend.last_apply_prompt, \
+        "fallback apply must receive the failure feedback"
+    assert "HLS 207-6969" in backend.last_apply_prompt, \
+        "the feedback must carry the real synth error code"
+    fallbacks = [f for e, f in events if e == "optimize_fallback"]
+    assert len(fallbacks) == 1
+    print("TC-AGENT-013 PASS  fallback apply got failure feedback (HLS 207-6969)")
+
+
+def tc_014() -> None:
+    """TC-AGENT-014: selector retry-once then flagged fallback (v2.7)."""
+    # case A: first reply garbage, retry yields valid JSON -> real pick
+    task = FakeTask(type="optimize")
+    server = FakeToolServer(total=40)
+    server.synth_handler = lambda code: _synth_result(
+        True, code, 60 if "FAST60" in code else 100)
+    events: list = []
+    backend = CannedBackend(
+        repair_codes=[BASE_CODE],
+        apply_codes=[FAST60_CODE],
+        select_replies=["garbage, no json here",
+                        '{"pick": [1], "reason": "retry worked"}'],
+    )
+    agent = _make_agent(task, server, backend, events, max_optimize_rounds=1)
+    final = agent.run()
+    assert final == FAST60_CODE
+    assert backend.select_calls == 2, "one retry must be issued"
+    selects = [f for e, f in events if e == "strategy_select"]
+    assert selects and selects[0]["fallback"] is False and \
+        selects[0]["indices"] == [0]
+
+    # case B: both replies garbage -> flagged fallback to first strategy
+    task2 = FakeTask(type="optimize")
+    server2 = FakeToolServer(total=40)
+    events2: list = []
+    backend2 = CannedBackend(
+        repair_codes=[BASE_CODE],
+        apply_codes=[FAST60_CODE],
+        select_replies=["garbage one", "garbage two"],
+    )
+    agent2 = _make_agent(task2, server2, backend2, events2,
+                         max_optimize_rounds=1)
+    agent2.run()
+    selects2 = [f for e, f in events2 if e == "strategy_select"]
+    assert selects2 and selects2[0]["fallback"] is True, \
+        f"fallback must be flagged, got {selects2}"
+    assert selects2[0]["indices"] == [0]
+    print("TC-AGENT-014 PASS  selector: retry works; fallback flagged, not silent")
+
+
 def main() -> int:
     """Run all TC-AGENT cases; return 0 iff every one passes."""
     cases = [tc_001, tc_002, tc_003, tc_004, tc_005, tc_006,
-             tc_007, tc_008, tc_009, tc_010, tc_011]
+             tc_007, tc_008, tc_009, tc_010, tc_011, tc_012,
+             tc_013, tc_014]
     failed = 0
     for tc in cases:
         try:

@@ -441,10 +441,18 @@ class AgentDashboard(App):
                 self.query_one(ToolErrorBar).show_review_issue(issues)
 
         elif name == "strategy_select":
-            # optimize v2.4: selector AI picked a (possibly combined) subset
+            # optimize v2.4+: selector AI picked a (possibly combined) subset
+            # v2.7: rejected strategies and parse-fallback are also shown
             teb = self.query_one(ToolErrorBar)
+            reason = data.get("reason", "")
+            if data.get("fallback"):
+                reason = "⚠ selector output unparsed — fell back to first strategy"
+            rejected = data.get("rejected") or []
+            if rejected:
+                reason = (reason + "  │  ✗ rejected: " + "; ".join(
+                    str(r.get("name")) for r in rejected))[:120]
             teb.show_strategies(data.get("all", []), data.get("picked", []),
-                                data.get("reason", ""))
+                                reason)
 
         elif name == "optimize_fallback":
             # combo failed -> retrying the first strategy alone

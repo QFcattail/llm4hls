@@ -15,9 +15,9 @@ LLM 客户端——harness LLMClient Protocol 的领域封装。实现 agent-arc
 | `HLSLLMClient.repair(task, code, feedback_text, kb_text) -> str\|None` | method | 求修正内核，返回提取的代码或 None |
 | `HLSLLMClient.review(task, code, focus) -> (bool, str)` | method | 交叉检查候选，回复以 "PASS" 开头则通过 |
 | `HLSLLMClient.extract_design_brief(task, code) -> str` | method | AMD Phase 1：从当前内核提炼设计摘要（功能/循环结构/数据流/瓶颈猜想），optimize 循环前调一次缓存 |
-| `HLSLLMClient.propose_strategies(task, code, synth_summary, design_brief="") -> list[Strategy]` | method | AMD Phase 2a：注入设计文档+摘要+synth 报告，提 2-4 条策略（按置信度排序，每条标 `combinable_with`） |
-| `HLSLLMClient.select_strategies(task, code, strategies, synth_summary, design_brief="") -> (list[int], str)` | method | Phase 2b 评审 AI（同模型换 prompt）：复核兼容性，返回选中索引子集+一句话理由；解析失败/空集回退 `[0]` |
-| `HLSLLMClient.apply_strategies(task, code, strategies, design_brief="") -> str\|None` | method | AMD Phase 3：把双重确认兼容的策略子集**合并应用**为一份候选（单策略=N=1 特例） |
+| `HLSLLMClient.propose_strategies(task, code, synth_summary, design_brief="") -> list[Strategy]` | method | AMD Phase 2a：注入设计文档+摘要+synth 报告；**v0.5.0 起 JSON 结构化输出**（`_complete_json` 走 `response_format: json_object`，正则仅作非 JSON 后端兜底） |
+| `HLSLLMClient.select_strategies(task, code, strategies, synth_summary, design_brief="") -> (list[int], str, list[dict], bool)` | method | Phase 2b 评审 AI（JSON 模式）：**可行性+兼容性双审查**——带毒策略进 rejected（含 why），再选子集；解析失败重试一次，仍失败回退 `[0]` 且 fallback=True（不静默） |
+| `HLSLLMClient.apply_strategies(task, code, strategies, design_brief="", failure_feedback="") -> str\|None` | method | AMD Phase 3：子集**合并应用**；带 failure_feedback 时注入上次失败反馈（避开错误） |
 | `_parse_strategies(text) -> list[Strategy]` | function | 宽松解析自由格式策略列表（含 combinable_with 行） |
 | `_parse_pick(text, n) -> list[int]` | function | 解析评审 AI 的 `PICK:` 行为合法 0 基索引（失败回退 `[0]`） |
 | `_parse_reason(text) -> str` | function | 解析 `REASON:` 一行（截断 200 字符） |
@@ -55,9 +55,9 @@ LLM client — domain wrappers over the harness LLMClient Protocol. Implements a
 | `HLSLLMClient.repair(task, code, feedback_text, kb_text) -> str\|None` | method | Asks for a corrected kernel; returns extracted code or None |
 | `HLSLLMClient.review(task, code, focus) -> (bool, str)` | method | Cross-checks a candidate; passes when the reply starts with "PASS" |
 | `HLSLLMClient.extract_design_brief(task, code) -> str` | method | AMD Phase 1: distills the current kernel's design (functionality / loop structure / dataflow / bottleneck hypotheses); called once before the optimize loop and cached |
-| `HLSLLMClient.propose_strategies(task, code, synth_summary, design_brief="") -> list[Strategy]` | method | AMD Phase 2a: injects design document + brief + synth report; proposes 2-4 strategies (confidence-ordered, each annotated `combinable_with`) |
-| `HLSLLMClient.select_strategies(task, code, strategies, synth_summary, design_brief="") -> (list[int], str)` | method | Phase 2b selector review AI (same model, reviewer prompt): re-checks compatibility, returns the chosen index subset + one-line reason; falls back to `[0]` on parse failure/empty |
-| `HLSLLMClient.apply_strategies(task, code, strategies, design_brief="") -> str\|None` | method | AMD Phase 3: merges a dually-confirmed compatible subset into ONE candidate (single strategy = N=1 case) |
+| `HLSLLMClient.propose_strategies(task, code, synth_summary, design_brief="") -> list[Strategy]` | method | AMD Phase 2a: injects design document + brief + synth report; **JSON structured output since v0.5.0** (`_complete_json` uses `response_format: json_object`; regex is only the non-JSON-backend fallback) |
+| `HLSLLMClient.select_strategies(task, code, strategies, synth_summary, design_brief="") -> (list[int], str, list[dict], bool)` | method | Phase 2b selector review AI (JSON mode): **feasibility + compatibility review** — poisoned plans go to `rejected` (with why), then a subset is picked; one retry on parse failure, then `[0]` with fallback=True (never silent) |
+| `HLSLLMClient.apply_strategies(task, code, strategies, design_brief="", failure_feedback="") -> str\|None` | method | AMD Phase 3: merges the subset into ONE candidate; injects the previous failure feedback when given (avoid repeating the mistake) |
 | `_parse_strategies(text) -> list[Strategy]` | function | Best-effort parse of a free-form strategy list (incl. combinable_with lines) |
 | `_parse_pick(text, n) -> list[int]` | function | Parses the selector's `PICK:` line into valid 0-based indexes (falls back to `[0]`) |
 | `_parse_reason(text) -> str` | function | Parses the one-line `REASON:` field (capped at 200 chars) |

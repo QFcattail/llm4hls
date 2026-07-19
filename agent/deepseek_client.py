@@ -84,12 +84,16 @@ class DeepSeekClient:
         self.total_reasoning = 0
         self.calls = 0
 
-    def complete(self, system: str, user: str) -> str:
+    def complete(self, system: str, user: str,
+                 response_format: dict | None = None) -> str:
         """Send a chat completion request and return the assistant content.
 
         Args:
             system: System prompt text.
             user: User prompt text.
+            response_format: Optional structured-output spec, e.g.
+                ``{"type": "json_object"}`` to force valid JSON output
+                (DeepSeek native structured output, probed 2026-07-19).
 
         Returns:
             The assistant's content string.
@@ -119,6 +123,8 @@ class DeepSeekClient:
         # send it - let the model use its full context window unconstrained.
         if self.max_tokens is not None:
             payload_dict["max_tokens"] = self.max_tokens
+        if response_format is not None:
+            payload_dict["response_format"] = response_format
 
         payload = json.dumps(payload_dict).encode("utf-8")
         req = urllib.request.Request(
