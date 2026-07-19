@@ -194,6 +194,7 @@ stage: tools 1, reviews 0  │  total LLM: 2 calls  │  last review: PASS
 - "stage"指当前阶段内的统计
 - 三段用 `│` 分隔
 - 无错误/无 review 时的占位符为 `(none)`（v3 起从中文占位符改掉）
+- **阶段切换时 last review / last error 重置为 `(none)`**（v5 补充）：上一阶段的 review 结果不能挂到下一阶段，否则会被误读为当前失败
 
 ---
 

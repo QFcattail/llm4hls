@@ -330,6 +330,10 @@ class AgentDashboard(App):
             self._current_stage = phase
             self._stage_tool_calls = 0
             self._stage_reviews = 0
+            # Reset per-stage feedback fields so a previous stage's review/
+            # error never lingers and reads like a current failure.
+            self._last_review = "(none)"
+            self._last_error = "(none)"
             fc.mark_current(phase if phase in ("correctness", "synth", "optimize") else "correctness")
             # Arm the optimize-stage strategy panel (v4); outside optimize
             # the strategy zone stays cleared. v5: stage tag in waiting line.
