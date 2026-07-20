@@ -6,7 +6,7 @@
 >
 > 每进入一个阶段先细化原子任务，原子任务一定要细，不要一个任务需要一周的量。
 
-最后更新时间 (Last Updated)：2026-07-20（**v0.6.0 真机验证完成 + 交稿路线划定**：residual SCORE 3.433（cosim 链路三次全通、优化 2 轮收敛有界）。交稿差距已盘点：功能完成 ~70%，剩提交物（Docker/报告/视频）、泛化验证（DoD 5-10 题缺口）、token 优化、KB 扩充。新增 §5 交稿三周路线图。今天 7/20，截止 8/7，剩 18 天。）
+最后更新时间 (Last Updated)：2026-07-20（**Docker ready 前任务全部闭合**：3 道泛化新题真机验证（DoD 6 题达标）、KB 22 条 + PPA 速查、v0.7.0 token 分级开关 A/B 验收（−31~50% 不掉分）。剩提交物三件套：P4-05 Docker / P4-06 报告 / P4-07 视频（asciinema 方案）。今天 7/20，截止 8/7，剩 18 天。）
 
 ---
 
@@ -176,7 +176,7 @@
 |---|---|---|---|---|
 | P4-01 | 实现 optimize 阶段：注入综合报告 + Strategy Exploration + 存档择优 | Agent 主 | 🟢 | v0.2.0 完成：设计文档+设计摘要提取（extract_design_brief）+取首策略+重验+同级择优+真回滚；离线 6 用例过，真机待验。对应 agent-architecture.md §4.4 |
 | P4-02 | pragma 变换优化 PPA（pipeline/unroll/partition/dataflow） | Agent 主 | 🟢 | **真机实证**：dotProduct 73.36× 加速、SCORE 3.000 满分（策略组合：PIPELINE+UNROLL+ARRAY_PARTITION+加法树重构） |
-| P4-03 | 第二次迭代：token 优化（第一次迭代暂不考虑） | Agent 主 | 🟡 | v0.7.0 分级开关落地：`--token-mode full(默认，逐字节同旧行为)/balanced/aggressive`，review/select 关 thinking（reasoning 占 completion 89% 是大头）；llm_call 事件补 per-call token 埋点；TC-016。真机 A/B 进行中 |
+| P4-03 | 第二次迭代：token 优化（第一次迭代暂不考虑） | Agent 主 | 🟢 | **v0.7.0 分级开关 + 真机 A/B 验收**：`--token-mode full(默认，逐字节同旧行为)/balanced/aggressive`；A/B 三题 tokens −31.3%/−8.4%/−50.4% 且 SCORE 全不降（vecadd/dotProduct 满分保持，matmul 反升 2.270→2.691）；per-call 埋点归因 select 每次省 ~4-5k |
 | P4-04 | 第二次迭代：功能 pattern 检索（agent-architecture.md §6.4） | Agent 主 | ⚪ | 难度较高，先靠错误签名匹配；决策：Docker 后看时间 |
 | P4-05 | Docker 镜像打包 | Agent 主 | ⚪ | 复用官方 vitis.dockerfile |
 | P4-06 | 技术报告撰写 | 双方 | ⚪ | 含模型对比实验 |
@@ -203,7 +203,7 @@
 | 🔴 提交硬要求 | P4-06 技术报告 | 含模型对比实验（赛题要求三选一/多模型对比 + 鼓励评测其他开源模型） |
 | 🔴 提交硬要求 | P4-07 演示视频 ≤5min | 目标平台实跑 + 讲解；与 P3-07 里程碑录屏合并 |
 | 🔴 提交硬要求 | 提交物打包 | 源码 + testbench + 补充材料(.zip) + 视频 |
-| 🟡 得分项 | P4-03 token 优化 | **token 是终评指标**；当前 27k~68k/题，reasoning 占 70%+，目标压 30-50%。v0.7.0 开关已落地，A/B 验证中 |
+| ✅ 已闭合 | ~~P4-03 token 优化~~ | **2026-07-20 完成（v0.7.0）**：分级开关默认 full 不限制；A/B 三题 −31.3%/−8.4%/−50.4% 且 SCORE 全不降 |
 | 🟡 得分项 | P4-04 功能 pattern 检索 | 第二次迭代；压优化方差（residual 各 run latency 6~68 波动）。决策：Docker 后看时间 |
 | ✅ 已闭合 | ~~造 2-3 道新题泛化验证~~ | **2026-07-20 完成**：vecadd/fir/matmul 入库，6 题达标（详见现状盘点） |
 | ✅ 域主 | ~~P2-12/13、P3-08/09~~ | **2026-07-20 完成**：KB 22 条、cosim 类 6 条、PPA 速查入库；P3-10 真机命中观察中 |
@@ -234,6 +234,8 @@
 ## 4. 变更记录 (Change Log)
 
 | 日期 | 变更 | 变更人 |
+|---|---|---|
+| 2026-07-20 | **Docker ready 前任务全推进（v0.7.0）**。① 造 3 道泛化新题 vecadd/fir/matmul（官方格式 + hidden TB，本机 g++ 预检 + 真机 scripted 3/3 + DeepSeek 端到端 1.000/2.000/2.270，**DoD 5-10 题缺口闭合至 6 题**，correctness 6/6 全绿）。② KB 7→22 条（P2-12 真机日志 4 条 / P2-13 论文 pattern 6 条 / P3-08 cosim 类 5 条）+ P3-09 PPA 速查（ppa-levers.md）+ kb_search hit_ids 埋点。③ **P4-03 转 🟢**：token 分级开关 `--token-mode`（默认 full 逐字节同旧行为，用户拍板成品不限制）+ per-call token 埋点（§12.2 落地）；真机 A/B 三题 −31.3%/−8.4%/−50.4% 且 SCORE 全不降。④ P3-07 录屏脚本（asciinema 方案适配设备约束）。⑤ 双语 .doc.md ×8 同步 + runs/README v0.7.0 字段。P3-10 真机 KB 命中未自然触发（正确性/综合阶段零失败，已如实记录）。详见 dev-log 2026-07-20-03。 | Agent 主 |
 |---|---|---|
 | 2026-07-20 | **交稿路线划定 + 日志阅读指南**。① 盘点交稿差距：功能完成 ~70%，剩提交物（Docker/报告/视频）、DoD 5-10 题泛化缺口（最大风险）、token 优化（终评指标）、KB 扩充；新增 §5 交稿三周路线图（收尾验证→指标打包→交稿缓冲）。② P3-03 转 🟢、P3 里程碑行转"收尾中"（计划卫生）。③ runs/README.md 新增「日志阅读指南」（用户首次读日志：三种日志分工/事件速查/真实片段注释/实用命令/30 秒判好坏）。详见 dev-log 2026-07-20-02。 | Agent 主 |
 | 2026-07-20 | **v0.6.0（验证完整性 + 轨迹可视）**。按用户三点疑问：① §4.4 图统一 LLM# 标注（消除'apply 环节被删'困惑）；② 最终 cosim 体检扩展到所有题型（synth 估计≠实测：residual 68 vs 97；best 变过且预算够则跑，失败回滚快照；非 structural 预算不够跳过记事件）；③ TUI 显示 run 内 latency 优化轨迹（38→37→22→14）。TC-AGENT-015 新增，15/15 全过。详见 dev-log 2026-07-20-01。 | Agent 主 |
