@@ -46,16 +46,16 @@ runs/
 
 平时说"看日志"，90% 指第二种：事件日志 JSONL。下面讲的都是它。
 
-### 二、JSONL 怎么读：事件类型速查（v0.6.0）
+### 二、JSONL 怎么读：事件类型速查（v0.7.0）
 
 每行一个 JSON：`{"ts": 时间戳, "task": 题目id, "event": 事件名, ...}`。按一次完整运行的事件顺序：
 
 | 顺序 | 事件 | 看什么 |
 |---|---|---|
-| 1 | `route` | 路由判定：task_type、correctness 关卡、initial_level、budget |
+| 1 | `route` | 路由判定：task_type、correctness 关卡、initial_level、budget、**token_mode**（v0.7.0：full/balanced/aggressive） |
 | 2 | `pre_csim_review` → `mechanical_review`/`review` → `pre_csim_fix_applied` 或 `pre_csim_no_change` | 免费静态体检：LLM 有没有在花 credit 前就发现问题 |
 | 3 | `tool_result` (csim) | 第一次 csim：`ok` 过没过；没过看 `phase`（compile_error/runtime_fail）和 `log`（报错原文） |
-| 4 | （失败时）`kb_search` → `mechanical_review` → `review` → 回到 3 | 修复循环：KB 有没有命中（`hits>0`）、双闸门过没过 |
+| 4 | （失败时）`kb_search` → `mechanical_review` → `review` → 回到 3 | 修复循环：KB 有没有命中（`hits>0`，v0.7.0 起带 `hit_ids` 看具体哪条）、双闸门过没过 |
 | 5 | `checkpoint` (reason=correctness_gate) | **存档 Lv1**：correctness 达标，correct 分到手 |
 | 6 | `phase_exit` (correctness, result=ok) | 阶段 1 结束 |
 | 7 | `tool_result` (synth) + `checkpoint` (reason=synth_ok) | **存档 Lv2**：synth 分到手 + baseline latency |
@@ -67,6 +67,8 @@ runs/
 | 13 | `optimize_discard` / `optimize_fallback` / `optimize_stop` | 候选丢弃原因 / 组合失败回退 / 收敛停止原因 |
 | 14 | `cosim_recheck` | 最终 RTL 体检（best 变过且预算够才出现） |
 | 15 | `submit` | 终态：`final_level`、`final_latency`、`credit_spent` |
+
+**v0.7.0 起 `llm_call` 事件带 token 字段**（DeepSeek 后端）：`model` / `prompt_tokens` / `completion_tokens` / `reasoning_tokens`——可做 per-call-site 的 token 归因分析（P4-03）。
 
 其他可能出现：`budget_exhausted`（预算尽）、`rollback`（快照回滚，reason 看原因）、`repair_failed`（LLM 没产出可解析代码）、`env_error`（vitis-run 没找到）、`heartbeat`（10s 一条活性心跳，分析时可过滤掉）。
 
@@ -120,6 +122,10 @@ grep strategy_select runs/dotProduct_optimize/dotProduct_optimize.jsonl | \
 # 看这次运行报了哪些错（含工具报错原文）
 grep tool_result runs/dotProduct_optimize/dotProduct_optimize.jsonl | \
   jq -r 'select(.ok==false) | "\(.kind) \(.phase): \(.log[:200])"'
+
+# per-call-site token 归因（v0.7.0 起，DeepSeek 后端）
+grep llm_call runs/<task>/<task>.jsonl | \
+  jq -r '[.purpose, .prompt_tokens, .completion_tokens, .reasoning_tokens] | @tsv'
 ```
 
 ### 五、30 秒判断一次运行好不好
@@ -136,9 +142,9 @@ grep tool_result runs/dotProduct_optimize/dotProduct_optimize.jsonl | \
 |---|---|
 | `route` | 路由结果（task_type -> 关卡路径） |
 | `tool_result` | 工具调用结果（kind=csim/synth/cosim, phase, credit_spent） |
-| `kb_search` | 知识库检索（query, hits） |
+| `kb_search` | 知识库检索（query, hits, **hit_ids** v0.7.0 起） |
 | `review` / `mechanical_review` | LLM 复审 / 机械硬门 |
-| `llm_call` | LLM 调用（purpose=extract_brief/propose_strategies/select_strategies/apply_strategies） |
+| `llm_call` | LLM 调用（purpose=extract_brief/propose_strategies/select_strategies/apply_strategies；v0.7.0 起带 model/prompt_tokens/completion_tokens/reasoning_tokens） |
 | `strategy_select` | 评审 AI 选择（indices/picked/rejected/fallback） |
 | `checkpoint` | 存档变更（level, latency） |
 | `submit` | 最终提交 |
@@ -148,3 +154,5 @@ grep tool_result runs/dotProduct_optimize/dotProduct_optimize.jsonl | \
 - `runs/projection_bugfix/`：projection 题端到端真修复（SCORE 1.400）
 - `runs/dotProduct_optimize/`：optimize 循环满分（SCORE 3.000，73.36×）
 - `runs/residual_stream_deadlock/`：structural 题（最高 SCORE 4.000，lat=6）
+- `runs/vecadd_optimize/`：新题（2026-07-20）DeepSeek 满分（SCORE 1.000，lat=20，68k tokens）
+- `runs/fir_optimize/`、`runs/matmul_optimize/`：新题（2026-07-20）scripted 验证满分（2.000/3.000）

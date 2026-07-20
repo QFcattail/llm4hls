@@ -139,8 +139,8 @@
 
 | 任务ID | 任务 | 状态 | 完成标志 |
 |---|---|---|---|
-| P2-12 | 按 schema 整理知识库条目（先覆盖编译错+csim 功能 bug+cosim 死锁） | ⚪ | ≥10 条，每条含 error_code/symptom/root_cause/fix/example。**数据源：harness 3 道题的真实日志 + AMD 案例** |
-| P2-13 | 读 AutoChip / RTLFixer / HLS Repair 三篇，提炼修法模式 | ⚪ | ≥5 条修法模式补充进知识库 |
+| P2-12 | 按 schema 整理知识库条目（先覆盖编译错+csim 功能 bug+cosim 死锁） | 🟢 | **22 条入库**（7 种子 + 15 新增）：真机日志来源 [HLS 207-6969] pragma 文件作用域、DATA_PACK 打类型名、浮点重排容差、边界条件 |
+| P2-13 | 读 AutoChip / RTLFixer / HLS Repair 三篇，提炼修法模式 | 🟢 | **6 条 pattern 条目**（pattern-* 前缀）：检索先行、正确性/优化分离、语法优先、错误消息配对、期望值差异反馈、有界反馈循环 |
 
 ---
 
@@ -158,15 +158,15 @@
 | P3-04 | ~~加预算计数与止损~~ | ✅ | **官方 Budget + BudgetExceeded 已实现。已废弃。** |
 | P3-05 | 扩 main_loop 的 structural 路径：csim+cosim 双验证 + 优化后回验 | 🟢 | **residual 真机跑通（SCORE 3.098）**：pre-csim review 一次修掉死锁（cosim 首跑即过），§4.5 回滚路径就绪（best 未变跳过回验） |
 | P3-06 | 端到端测试：3 道公开题跑完整流程 + 评分 | 🟢 | **3/3 真机全过**：projection 1.400 / dotProduct 3.000（满分）/ residual 3.098，correctness 全绿 100%（DoD ≥60% 达标） |
-| P3-07 | 里程碑演示：录一段 agent 自动修 HLS 的日志/录屏 | ⚪ | 可复现脚本 + 演示 |
+| P3-07 | 里程碑演示：录一段 agent 自动修 HLS 的日志/录屏 | 🟡 | 录屏脚本就绪（docs-development/recording-script.md：三镜头 + 解说词要点 + 剪辑建议）；待实际录制 |
 
 #### HLS 域主
 
 | 任务ID | 任务 | 状态 | 完成标志 |
 |---|---|---|---|
-| P3-08 | 扩知识库到 cosim 协议类：dataflow 死锁、AXI-Stream 握手(TLAST/TREADY/TVALID)、ap_ctrl | ⚪ | ≥5 条 cosim 类条目 |
-| P3-09 | 整理 PPA 优化杠杆清单（pipeline/unroll/array_partition/dataflow/bind_op） | ⚪ | 1 份"PPA 优化速查"，供 P4 用 |
-| P3-10 | 配合端到端测试 + 里程碑汇合 | ⚪ | 知识库条目至少被命中并生效 1 次 |
+| P3-08 | 扩知识库到 cosim 协议类：dataflow 死锁、AXI-Stream 握手(TLAST/TREADY/TVALID)、ap_ctrl | 🟢 | **6 条 cosim 类条目**：FIFO 深度、TLAST 缺失、TVALID/TREADY 握手、ap_ctrl 挂起、synth/cosim 延迟不一致（+原有 fifo-burst） |
+| P3-09 | 整理 PPA 优化杠杆清单（pipeline/unroll/array_partition/dataflow/bind_op） | 🟢 | `agent/knowledge-base/ppa-levers.md`：6 杠杆速查 + 6 题真机延迟参考表 + 组合顺序建议 |
+| P3-10 | 配合端到端测试 + 里程碑汇合 | 🟡 | kb_search 事件已补 hit_ids（架构 §12.2）；真机命中观察随新题验证进行 |
 
 ---
 
@@ -176,8 +176,8 @@
 |---|---|---|---|---|
 | P4-01 | 实现 optimize 阶段：注入综合报告 + Strategy Exploration + 存档择优 | Agent 主 | 🟢 | v0.2.0 完成：设计文档+设计摘要提取（extract_design_brief）+取首策略+重验+同级择优+真回滚；离线 6 用例过，真机待验。对应 agent-architecture.md §4.4 |
 | P4-02 | pragma 变换优化 PPA（pipeline/unroll/partition/dataflow） | Agent 主 | 🟢 | **真机实证**：dotProduct 73.36× 加速、SCORE 3.000 满分（策略组合：PIPELINE+UNROLL+ARRAY_PARTITION+加法树重构） |
-| P4-03 | 第二次迭代：token 优化（第一次迭代暂不考虑） | Agent 主 | ⚪ | 第一次迭代跑稳后，分析日志压 token |
-| P4-04 | 第二次迭代：功能 pattern 检索（agent-architecture.md §6.4） | Agent 主 | ⚪ | 难度较高，先靠错误签名匹配 |
+| P4-03 | 第二次迭代：token 优化（第一次迭代暂不考虑） | Agent 主 | 🟡 | v0.7.0 分级开关落地：`--token-mode full(默认，逐字节同旧行为)/balanced/aggressive`，review/select 关 thinking（reasoning 占 completion 89% 是大头）；llm_call 事件补 per-call token 埋点；TC-016。真机 A/B 进行中 |
+| P4-04 | 第二次迭代：功能 pattern 检索（agent-architecture.md §6.4） | Agent 主 | ⚪ | 难度较高，先靠错误签名匹配；决策：Docker 后看时间 |
 | P4-05 | Docker 镜像打包 | Agent 主 | ⚪ | 复用官方 vitis.dockerfile |
 | P4-06 | 技术报告撰写 | 双方 | ⚪ | 含模型对比实验 |
 | P4-07 | 演示视频录制（≤5分钟） | 双方 | ⚪ | 在目标平台运行 + 清晰讲解 |
@@ -190,7 +190,10 @@
 
 - **Agent 功能**：三阶段主循环 + 策略组合/评审 AI（可行性+兼容性双审查）+ JSON 结构化输出 + 失败感知回退 + 最终 RTL 体检 + KB 检索 + 存档快照回滚
 - **真机成绩**：projection 1.400 / dotProduct 3.000 满分 / residual 最高 4.000 满分（3/3 公开题 correctness 全绿 100%）
-- **工程基建**：TUI 仪表盘（策略面板+SCORE+得分历史+latency 轨迹）、15 个离线测试、文档体系、可复现脚本
+- **工程基建**：TUI 仪表盘（策略面板+SCORE+得分历史+latency 轨迹）、16 个离线测试、文档体系、可复现脚本
+- **泛化题集（2026-07-20 新增）**：vecadd/fir/matmul 三道 optimize 新题（官方格式 + hidden TB），真机 scripted 3/3 全过（0.997/2.000/3.000），DeepSeek vecadd 满分 1.000（68k tokens）——DoD 5-10 题缺口闭合至 6 题
+- **知识库（2026-07-20）**：22 条（synth/csim/cosim/论文 pattern 四类）+ kb_search hit_ids 埋点
+- **token 优化（2026-07-20，v0.7.0）**：分级开关 `--token-mode` 落地（full 默认 = 逐字节旧行为），per-call token 埋点
 
 ### 差距清单（除异模型评审外）
 
@@ -200,10 +203,10 @@
 | 🔴 提交硬要求 | P4-06 技术报告 | 含模型对比实验（赛题要求三选一/多模型对比 + 鼓励评测其他开源模型） |
 | 🔴 提交硬要求 | P4-07 演示视频 ≤5min | 目标平台实跑 + 讲解；与 P3-07 里程碑录屏合并 |
 | 🔴 提交硬要求 | 提交物打包 | 源码 + testbench + 补充材料(.zip) + 视频 |
-| 🟡 得分项 | P4-03 token 优化 | **token 是终评指标**；当前 27k~57k/题，reasoning 占 70%+，目标压 30-50% |
-| 🟡 得分项 | P4-04 功能 pattern 检索 | 第二次迭代；压优化方差（residual 各 run latency 6~68 波动） |
-| 🟡 风险项 | **造 2-3 道新题泛化验证** | P3 DoD 要求 5-10 题，当前仅官方 3 道；隐藏测试集存在，泛化未验证 = 最大未知风险 |
-| 🟡 域主 | P2-12/13、P3-08/09/10 | KB ≥10 条（现 7 种子）、cosim 协议条目、PPA 速查、KB 真机命中 1 次 |
+| 🟡 得分项 | P4-03 token 优化 | **token 是终评指标**；当前 27k~68k/题，reasoning 占 70%+，目标压 30-50%。v0.7.0 开关已落地，A/B 验证中 |
+| 🟡 得分项 | P4-04 功能 pattern 检索 | 第二次迭代；压优化方差（residual 各 run latency 6~68 波动）。决策：Docker 后看时间 |
+| ✅ 已闭合 | ~~造 2-3 道新题泛化验证~~ | **2026-07-20 完成**：vecadd/fir/matmul 入库，6 题达标（详见现状盘点） |
+| ✅ 域主 | ~~P2-12/13、P3-08/09~~ | **2026-07-20 完成**：KB 22 条、cosim 类 6 条、PPA 速查入库；P3-10 真机命中观察中 |
 
 ### 三周排布
 
