@@ -22,6 +22,7 @@ FPGA Agent 的一行启动入口：解析命令行参数、自动配置 Vitis �
 1. **避免双 Textual 实例**：选题器刻意用纯 `print`+`input` 而非 Textual，因为同一进程跑两个 Textual App 会导致黑屏。
 2. **Vitis 自动 source**：若 `vitis-run` 不在 PATH，尝试候选路径 `settings64.sh`，源入后设置 `PATH` 与 `LLM4HLS_VITIS_HLS_ROOT`；失败则报错退出（除非 `--force`）。
 3. **两种执行路径**：`--task` 跳过选题器直进 TUI；`--no-tui` 则用 `subprocess.call` 启动 `run_agent.py`。
+4. **--token-mode（v0.7.0）**：`{full,balanced,aggressive}`，默认 full（不限制不优化）；TUI 路径透传 `run_tui(token_mode=...)`，`--no-tui` 路径透传给 run_agent.py。
 
 ---
 
@@ -47,3 +48,4 @@ No `__all__`; runs as a script (`if __name__ == "__main__": raise SystemExit(mai
 1. **Avoid dual Textual instances**: the picker deliberately uses plain `print`+`input` instead of Textual, since running two Textual Apps in one process causes a black screen.
 2. **Auto-source Vitis**: if `vitis-run` is not on PATH, candidate `settings64.sh` paths are tried; on success `PATH` and `LLM4HLS_VITIS_HLS_ROOT` are set, otherwise it errors out (unless `--force`).
 3. **Two execution paths**: `--task` skips the picker and enters TUI directly; `--no-tui` launches `run_agent.py` via `subprocess.call`.
+4. **--token-mode (v0.7.0)**: `{full,balanced,aggressive}`, default full (unrestricted/unoptimized); forwarded as `run_tui(token_mode=...)` on the TUI path and to run_agent.py on the `--no-tui` path.

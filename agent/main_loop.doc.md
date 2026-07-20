@@ -9,7 +9,7 @@
 | 名称 | 类型 | 职责 |
 |---|---|---|
 | `Agent` | class | 核心 agent，替换 llm4hls.ReferenceAgent，驱动 correctness->synth->optimize 流 |
-| `Agent.__init__(task, server, llm, kb=None, max_rounds=6, max_synth_rounds=3, max_optimize_rounds=4, run_dir="runs")` | method | 构造，持有 task/server/llm/kb，创建 Logger 与 Heartbeat；初始化跨阶段状态（`_synth_summary`/`_design_brief`/`_pre_opt_snapshot`） |
+| `Agent.__init__(task, server, llm, kb=None, max_rounds=6, max_synth_rounds=3, max_optimize_rounds=4, run_dir="runs", token_mode="full")` | method | 构造，持有 task/server/llm/kb，创建 Logger 与 Heartbeat；初始化跨阶段状态（`_synth_summary`/`_design_brief`/`_pre_opt_snapshot`）；v0.7.0 起 `token_mode` 透传给 llm 客户端（full 默认=旧行为） |
 | `Agent.run() -> str` | method | 入口：route 任务后执行三阶段，捕获 BudgetExceeded 返回最佳 checkpoint 代码，最终发 submit 事件 |
 | `Agent._run_plan(plan, ckpt) -> str` | method | 顺序执行三阶段，任一阶段失败时提前返回最佳正确代码；optimize 后仅当 `"cosim" in correctness_stages` 才回验 |
 | `Agent._reach_correctness(plan, ckpt) -> bool` | method | 最多 max_rounds 轮修复循环：csim(+cosim)，首轮 pre-csim review，失败时蒸馏反馈+查 KB+review-gated 修复 |
@@ -21,7 +21,8 @@
 | `Agent._apply_with_review(code, strategies) -> str\|None` | method | Phase 3 生成的双闸门变体：生成器为 apply_strategies（组合子集），mechanical 失败时把问题折进首个 strategy 重试 |
 | `Agent._post_opt_cosim_recheck(ckpt)` | method | §4.5：仅当 best 在优化中变过才回验 cosim；失败或 cosim 不可负担时**真回滚**到优化前快照 |
 | `Agent._restore_snapshot(ckpt, snap)` | static method | 快照整体恢复（code/level/latency/cosim_ok） |
-| `Agent._kb_lookup(fb) -> str` | method | 用 fb.signatures 查知识库，返回命中摘要文本（KB 关闭或无命中返回空串） |
+| `Agent._kb_lookup(fb) -> str` | method | 用 fb.signatures 查知识库，返回命中摘要文本（KB 关闭或无命中返回空串）；v0.7.0 起 kb_search 事件带 `hit_ids`（命中条目 id 列表，P3-10 验证前提） |
+| `Agent._llm_usage_fields() -> dict` | method | v0.7.0 新增（P4-03）：读 backend 的 `last_usage`/`model`，给 llm_call 事件附 prompt_tokens/completion_tokens/reasoning_tokens/model 字段（纯观测，不改变行为；无该属性的后端返回空 dict） |
 
 ### 导出
 无 `__all__`；主要导出 `Agent` 类。
@@ -31,7 +32,8 @@
 - 外部依赖：`llm4hls.budget.BudgetExceeded`（harness，导入时即加载）；运行期使用 harness 的 `Task` / `ToolServer`
 
 ### 关键设计点
-- 线性带回溯：correctness 阶段首轮 pre-csim review 可在花 csim 信用前抓 bug；每次编辑候选不提升 level，仅下次输入。
+- 线性带回溯：correctness 阶段首轮 pre-csim review 可在花 csim 信用前抓 bug；每次编辑候选不提升 level，仅下次输入。v0.7.0 起 pre-csim review 的重复 description 摘要仅 full 模式保留（repair 本身已注完整 description，graded 模式砍掉省 token）。
+- token-mode（v0.7.0，P4-03）：`route` 事件记录 token_mode 便于 A/B 追溯；llm_call 事件（extract_brief/propose/select/apply）统一附 per-call token 字段。
 - 双闸门修复：mechanical（确定性，捕获签名/头文件变更）在前，LLM review 在后；mechanical 失败时问题回灌反馈再修（最多 max_review_retries 次额外重试）。
 - synth 修复循环（§4.3）：每轮修复后先重验 csim（1 credit）再 synth（4 credits），csim 崩了的候选不浪费 synth；`max_synth_rounds=3`。
 - optimize 循环（§4.4）：AMD Phase 1 三件套（官方设计文档 description+headers、extract_design_brief 设计摘要缓存、synth 报告）注入每次策略探索；v2.4 策略组合——propose 标兼容性、select 评审 AI 双重确认选子集、apply 合并应用；组合失败回退子集首策略一次（归因），仍失败才停；`max_optimize_rounds=4`（每轮最坏 2×5=10 credits）。
@@ -51,7 +53,7 @@ Implements the agent-architecture.md §4 main loop: linear order (correctness ->
 | Name | Type | Responsibility |
 |---|---|---|
 | `Agent` | class | Core agent replacing llm4hls.ReferenceAgent; drives correctness->synth->optimize |
-| `Agent.__init__(task, server, llm, kb=None, max_rounds=6, max_synth_rounds=3, max_optimize_rounds=4, run_dir="runs")` | method | Construction; holds task/server/llm/kb, creates Logger and Heartbeat, initializes cross-stage state (`_synth_summary` / `_design_brief` / `_pre_opt_snapshot`) |
+| `Agent.__init__(task, server, llm, kb=None, max_rounds=6, max_synth_rounds=3, max_optimize_rounds=4, run_dir="runs", token_mode="full")` | method | Construction; holds task/server/llm/kb, creates Logger and Heartbeat, initializes cross-stage state (`_synth_summary` / `_design_brief` / `_pre_opt_snapshot`); since v0.7.0 `token_mode` is forwarded to the llm client (default "full" = legacy behavior) |
 | `Agent.run() -> str` | method | Entry: routes task, runs three stages, catches BudgetExceeded to return best checkpointed code, emits final submit |
 | `Agent._run_plan(plan, ckpt) -> str` | method | Runs stages in order; returns early with best correct code on stage failure; re-checks cosim after optimize only when `"cosim" in correctness_stages` |
 | `Agent._reach_correctness(plan, ckpt) -> bool` | method | Up to max_rounds repair loop: csim(+cosim), pre-csim review on first attempt, distills feedback + KB + review-gated repair on failure |
@@ -63,7 +65,8 @@ Implements the agent-architecture.md §4 main loop: linear order (correctness ->
 | `Agent._apply_with_review(code, strategies) -> str\|None` | method | Review-gated variant for Phase 3: the generator is apply_strategies (combined subset); mechanical failures are folded into the first strategy for the retry |
 | `Agent._post_opt_cosim_recheck(ckpt)` | method | §4.5: re-verifies cosim only when best changed during optimization; on failure (or unaffordable cosim) **really rolls back** to the pre-optimization snapshot |
 | `Agent._restore_snapshot(ckpt, snap)` | static method | Restores all snapshot fields (code/level/latency/cosim_ok) |
-| `Agent._kb_lookup(fb) -> str` | method | Queries KB with fb.signatures; returns hits summary (empty when KB disabled or no hits) |
+| `Agent._kb_lookup(fb) -> str` | method | Queries KB with fb.signatures; returns hits summary (empty when KB disabled or no hits); since v0.7.0 the kb_search event carries `hit_ids` (ids of matched entries, prerequisite for P3-10 verification) |
+| `Agent._llm_usage_fields() -> dict` | method | New in v0.7.0 (P4-03): reads the backend's `last_usage`/`model` to attach prompt_tokens/completion_tokens/reasoning_tokens/model to llm_call events (pure observability; backends without those attrs yield an empty dict) |
 
 ### Exports
 No `__all__`; primary export is the `Agent` class.
@@ -73,7 +76,8 @@ No `__all__`; primary export is the `Agent` class.
 - External: `llm4hls.budget.BudgetExceeded` (harness, imported at load time); uses harness `Task` / `ToolServer` at runtime
 
 ### Key Design Points
-- Linear with backtracking: the first-round pre-csim review can catch bugs before spending a csim credit; each edited candidate does not advance level, only feeds the next input.
+- Linear with backtracking: the first-round pre-csim review can catch bugs before spending a csim credit; each edited candidate does not advance level, only feeds the next input. Since v0.7.0 the redundant description snippet in the pre-csim review is kept only in full mode (repair already injects the full description; graded modes drop it to save tokens).
+- Token-mode (v0.7.0, P4-03): the `route` event records token_mode for A/B traceability; llm_call events (extract_brief/propose/select/apply) uniformly carry per-call token fields.
 - Two-gate repair: mechanical (deterministic, catches signature/header changes) first, LLM review second; mechanical failures are re-fed into the next repair (up to max_review_retries extra retries).
 - Synth repair loop (§4.3): every repair re-verifies csim (1 credit) before another synth (4 credits), so a correctness-breaking candidate never burns a synth call; `max_synth_rounds=3`.
 - Optimize loop (§4.4): AMD Phase 1's three-piece context (official design document description+headers, the cached extract_design_brief summary, the synth report) is injected into every strategy exploration; v2.4 strategy combos — propose annotates compatibility, the selector review AI dually confirms and picks a subset, apply merges them; a failed combo falls back to the subset's first strategy once (attribution) and only a further failure stops the loop; `max_optimize_rounds=4` (worst case 2×5=10 credits per round).

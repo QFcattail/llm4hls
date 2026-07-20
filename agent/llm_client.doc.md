@@ -10,8 +10,10 @@ LLM 客户端——harness LLMClient Protocol 的领域封装。实现 agent-arc
 |---|---|---|
 | `Strategy` | class (dataclass) | AMD Phase 2 一条候选优化策略：name、rationale、expected_gain、risk、`combinable_with`（v2.4 兼容性标注） |
 | `HLSLLMClient` | class | 包装注入的后端（ScriptedClient/OpenRouterClient/DeepSeekClient），不自行导入后端 |
-| `HLSLLMClient.__init__(backend, max_review_retries=1)` | method | 构造，持有 backend 与额外重试次数 |
-| `HLSLLMClient._complete(system, user) -> str` | method | 转发原始完成调用到 backend |
+| `HLSLLMClient.__init__(backend, max_review_retries=1, token_mode="full")` | method | 构造，持有 backend 与额外重试次数；v0.7.0 起 `token_mode` 选择 token 节省级别（full 默认=逐字节旧行为，未知值抛 ValueError） |
+| `HLSLLMClient._effort(site) -> str\|None` | method | 查 `_EFFORT_POLICY`：当前 token_mode 下该调用点的 reasoning_effort 覆盖（None=用后端默认） |
+| `HLSLLMClient._complete(system, user, effort=None) -> str` | method | 转发原始完成调用到 backend；effort 非空时尝试带 reasoning_effort 调用，后端不支持则 TypeError 回退普通调用 |
+| `HLSLLMClient._complete_json(system, user, effort=None) -> str` | method | JSON 结构化输出调用（DeepSeek `response_format: json_object`），同样支持 effort 覆盖与回退 |
 | `HLSLLMClient.repair(task, code, feedback_text, kb_text) -> str\|None` | method | 求修正内核，返回提取的代码或 None |
 | `HLSLLMClient.review(task, code, focus) -> (bool, str)` | method | 交叉检查候选，回复以 "PASS" 开头则通过 |
 | `HLSLLMClient.extract_design_brief(task, code) -> str` | method | AMD Phase 1：从当前内核提炼设计摘要（功能/循环结构/数据流/瓶颈猜想），optimize 循环前调一次缓存 |
@@ -32,6 +34,7 @@ LLM 客户端——harness LLMClient Protocol 的领域封装。实现 agent-arc
 
 ### 关键设计点
 - 后端注入：HLSLLMClient 不导入任何具体后端，兼容 ScriptedClient（离线）/OpenRouterClient（真实）/DeepSeekClient，是 drop-in 适配。
+- **token-mode 分级开关（v0.7.0，P4-03）**：模块级 `_EFFORT_POLICY` 表——`full`（默认，成品形态）不施加任何覆盖/裁剪，行为与旧版逐字节一致；`balanced` 给 review/select 两个判定类调用点传 `reasoning_effort="off"`（关 thinking，reasoning 占 completion ~89% 是最大头）；`aggressive` 再覆盖 brief/propose，且 select 的 user prompt 去掉静态 `## Kernel specification` 块。无 effort 旋钮的后端（ScriptedClient 等）经 TypeError 回退普通调用，不崩。
 - 代码提取复用 harness `_extract_code`（fenced ```cpp 块），import 失败时回退到模块内 `_CODE_RE`；保证与 harness 约定一致。
 - 提示词模板模块级常量（_REPAIR_SYSTEM/_REVIEW_SYSTEM/_STRATEGY_SYSTEM/_BRIEF_SYSTEM/_SELECT_SYSTEM）便于调优；review 以回复是否以 "PASS" 开头判定。
 - §8.1 硬要求落实：repair/propose_strategies/apply_strategies 的 user prompt 固定含 `## Kernel specification`（description）与 `## Fixed header(s)`；optimize 两方法另含 `## Design brief` 与（propose 侧）`## Current synthesis`——AMD Phase 1 教训：没有上下文，LLM 只给泛泛建议。
@@ -50,8 +53,10 @@ LLM client — domain wrappers over the harness LLMClient Protocol. Implements a
 |---|---|---|
 | `Strategy` | class (dataclass) | One AMD Phase 2 candidate strategy: name, rationale, expected_gain, risk, `combinable_with` (v2.4 compatibility annotation) |
 | `HLSLLMClient` | class | Wraps an injected backend (ScriptedClient/OpenRouterClient/DeepSeekClient); never imports a backend itself |
-| `HLSLLMClient.__init__(backend, max_review_retries=1)` | method | Construction; holds backend and extra retry count |
-| `HLSLLMClient._complete(system, user) -> str` | method | Forwards a raw completion call to the backend |
+| `HLSLLMClient.__init__(backend, max_review_retries=1, token_mode="full")` | method | Construction; holds backend and extra retry count; since v0.7.0 `token_mode` selects the token-saving level (default "full" = byte-identical legacy behavior; unknown values raise ValueError) |
+| `HLSLLMClient._effort(site) -> str\|None` | method | Looks up `_EFFORT_POLICY`: the reasoning_effort override for a call site under the current token_mode (None = backend default) |
+| `HLSLLMClient._complete(system, user, effort=None) -> str` | method | Forwards a raw completion call to the backend; when effort is set, tries passing reasoning_effort and falls back to a plain call on TypeError |
+| `HLSLLMClient._complete_json(system, user, effort=None) -> str` | method | JSON structured-output call (DeepSeek `response_format: json_object`), with the same effort override and fallback |
 | `HLSLLMClient.repair(task, code, feedback_text, kb_text) -> str\|None` | method | Asks for a corrected kernel; returns extracted code or None |
 | `HLSLLMClient.review(task, code, focus) -> (bool, str)` | method | Cross-checks a candidate; passes when the reply starts with "PASS" |
 | `HLSLLMClient.extract_design_brief(task, code) -> str` | method | AMD Phase 1: distills the current kernel's design (functionality / loop structure / dataflow / bottleneck hypotheses); called once before the optimize loop and cached |
@@ -72,6 +77,7 @@ No `__all__`; primary exports are `HLSLLMClient` and `Strategy`.
 
 ### Key Design Points
 - Backend injection: HLSLLMClient imports no concrete backend, making it a drop-in adapter for ScriptedClient (offline) / OpenRouterClient (real) / DeepSeekClient.
+- **Token-mode graded switch (v0.7.0, P4-03)**: the module-level `_EFFORT_POLICY` table — `full` (default, shipped form) applies no overrides or trims and is byte-identical to legacy behavior; `balanced` sends `reasoning_effort="off"` (thinking disabled) for the two verdict-class call sites review/select (reasoning is ~89% of completion tokens, the dominant share); `aggressive` additionally covers brief/propose and drops the static `## Kernel specification` block from the select prompt. Backends without an effort knob (ScriptedClient etc.) fall back to a plain call via TypeError instead of crashing.
 - Code extraction reuses harness `_extract_code` (fenced ```cpp block) with a module-level `_CODE_RE` fallback if the import fails, matching harness conventions exactly.
 - Prompt templates are module-level constants (_REPAIR_SYSTEM/_REVIEW_SYSTEM/_STRATEGY_SYSTEM/_BRIEF_SYSTEM/_SELECT_SYSTEM) for easy tuning; review verdict is decided by whether the reply starts with "PASS".
 - §8.1 hard requirement enforced: repair/propose_strategies/apply_strategies user prompts always contain `## Kernel specification` (description) and `## Fixed header(s)`; the optimize pair additionally carries `## Design brief` and (on the propose side) `## Current synthesis` — AMD Phase 1's lesson: without context the LLM only gives generic advice.

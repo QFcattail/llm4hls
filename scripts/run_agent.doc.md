@@ -25,7 +25,7 @@ CLI 驱动脚本：在给定 credit 预算下用本项目的 Agent 端到端跑�
 3. **`scripted` 后端**：把 `task.reference_code` 包成 ```` ```cpp ``` ```` 单条消息喂给 `ScriptedClient`，用于离线回放。
 
 ### 命令行参数
-`task_dir`（位置参数）、`--backend {scripted,openrouter,deepseek}`（默认 scripted）、`--budget`、`--work`、`--force`
+`task_dir`（位置参数）、`--backend {scripted,openrouter,deepseek}`（默认 scripted）、`--budget`、`--work`、`--force`、`--token-mode {full,balanced,aggressive}`（v0.7.0，默认 full=不限制不优化；graded 模式给判定类调用关 thinking 省 token）
 
 ---
 
@@ -54,4 +54,4 @@ No `__all__`; runs as a script (`if __name__ == "__main__": raise SystemExit(mai
 3. **`scripted` backend**: wraps `task.reference_code` as a single ```` ```cpp ``` ```` message fed to `ScriptedClient` for offline replay.
 
 ### CLI Args
-`task_dir` (positional), `--backend {scripted,openrouter,deepseek}` (default scripted), `--budget`, `--work`, `--force`
+`task_dir` (positional), `--backend {scripted,openrouter,deepseek}` (default scripted), `--budget`, `--work`, `--force`, `--token-mode {full,balanced,aggressive}` (v0.7.0, default full = unrestricted/unoptimized; graded modes disable thinking for verdict-class calls to save tokens)

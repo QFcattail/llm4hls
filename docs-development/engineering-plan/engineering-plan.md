@@ -158,7 +158,7 @@
 | P3-04 | ~~加预算计数与止损~~ | ✅ | **官方 Budget + BudgetExceeded 已实现。已废弃。** |
 | P3-05 | 扩 main_loop 的 structural 路径：csim+cosim 双验证 + 优化后回验 | 🟢 | **residual 真机跑通（SCORE 3.098）**：pre-csim review 一次修掉死锁（cosim 首跑即过），§4.5 回滚路径就绪（best 未变跳过回验） |
 | P3-06 | 端到端测试：3 道公开题跑完整流程 + 评分 | 🟢 | **3/3 真机全过**：projection 1.400 / dotProduct 3.000（满分）/ residual 3.098，correctness 全绿 100%（DoD ≥60% 达标） |
-| P3-07 | 里程碑演示：录一段 agent 自动修 HLS 的日志/录屏 | 🟡 | 录屏脚本就绪（docs-development/recording-script.md：三镜头 + 解说词要点 + 剪辑建议）；待实际录制 |
+| P3-07 | 里程碑演示：录一段 agent 自动修 HLS 的日志/录屏 | 🟡 | 录屏脚本就绪（docs-development/recording-script.md：三镜头 + 解说词要点 + 剪辑建议）；**设备约束已适配**：改 asciinema 服务器端录制 + 后期配音，待实际录制 |
 
 #### HLS 域主
 

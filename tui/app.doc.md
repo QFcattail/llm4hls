@@ -19,11 +19,11 @@ Textual TUI 主入口，组装三个区域 widget（流程图 / 工具错误栏 
 | AgentDashboard._handle_agent_event | method | 处理 route/phase_enter/phase_exit/tool_result/review/mechanical_review/strategy_select/optimize_fallback/checkpoint/submit 等日志事件，更新各 widget |
 | AgentDashboard._handle_stream | method | 处理 LLM 流式 token，注入"上次工具结果"上下文后写入 ActivityPanel |
 | AgentDashboard._refresh_ui | method | 刷新 ActivityPanel 渲染、ToolErrorBar 实时计时、StatusBar 全量状态 |
-| run_tui(task_path, backend, budget) | function | 入口：构造 AgentDashboard 并 `.run()` |
+| run_tui(task_path, backend, budget, token_mode) | function | 入口：构造 AgentDashboard 并 `.run()`；v0.7.0 起 `token_mode`（默认 "full"）透传 Agent |
 
 ### 导出
 - `FPGA_LIGHT_THEME`、`QuitConfirmScreen`、`AgentDashboard`（模块级 class/常量）
-- `run_tui(task_path, backend="deepseek", budget=None)`（公开入口函数）
+- `run_tui(task_path, backend="deepseek", budget=None, token_mode="full")`（公开入口函数）
 
 ### 依赖
 - 内部依赖：`.flow_chart.FlowChart`、`.activity_panel.ActivityPanel`、`.status_bar.StatusBar`、`.tool_error_bar.ToolErrorBar`、`.task_picker.TaskPickerScreen`/`scan_tasks`；运行时动态导入 `llm4hls`（Budget/ToolServer/load_task）、`agent.main_loop.Agent`、`agent.llm_client.HLSLLMClient`、`agent.knowledge_base.KnowledgeBase`、`agent.deepseek_client.DeepSeekClient`、`llm4hls.llm.OpenRouterClient`/`ScriptedClient`
@@ -59,11 +59,11 @@ Main Textual TUI entry point: assembles the four region widgets (flow chart / to
 | AgentDashboard._handle_agent_event | method | Handles log events (route/phase_enter/phase_exit/tool_result/review/mechanical_review/strategy_select/optimize_fallback/checkpoint/submit) and updates widgets |
 | AgentDashboard._handle_stream | method | Handles LLM streaming tokens, injects last tool result context, writes to ActivityPanel |
 | AgentDashboard._refresh_ui | method | Refreshes ActivityPanel render, ToolErrorBar live timer, and full StatusBar state |
-| run_tui(task_path, backend, budget) | function | Entry point: builds AgentDashboard and calls `.run()` |
+| run_tui(task_path, backend, budget, token_mode) | function | Entry point: builds AgentDashboard and calls `.run()`; since v0.7.0 `token_mode` (default "full") is forwarded to the Agent |
 
 ### Exports
 - `FPGA_LIGHT_THEME`, `QuitConfirmScreen`, `AgentDashboard` (module-level classes/constant)
-- `run_tui(task_path, backend="deepseek", budget=None)` (public entry function)
+- `run_tui(task_path, backend="deepseek", budget=None, token_mode="full")` (public entry function)
 
 ### Dependencies
 - Internal: `.flow_chart.FlowChart`, `.activity_panel.ActivityPanel`, `.status_bar.StatusBar`, `.tool_error_bar.ToolErrorBar`, `.task_picker.TaskPickerScreen`/`scan_tasks`; runtime dynamic imports of `llm4hls` (Budget/ToolServer/load_task), `agent.main_loop.Agent`, `agent.llm_client.HLSLLMClient`, `agent.knowledge_base.KnowledgeBase`, `agent.deepseek_client.DeepSeekClient`, `llm4hls.llm.OpenRouterClient`/`ScriptedClient`
