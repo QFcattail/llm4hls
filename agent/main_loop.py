@@ -703,5 +703,6 @@ class Agent:
         if self.kb is None:
             return ""
         hits = self.kb.search(fb.signatures)
-        self.log.event("kb_search", query=fb.signatures, hits=len(hits))
+        self.log.event("kb_search", query=fb.signatures, hits=len(hits),
+                       hit_ids=[h.id for h in hits])
         return "\n\n".join(h.summary() for h in hits) if hits else ""
