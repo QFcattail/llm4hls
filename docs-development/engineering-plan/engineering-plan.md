@@ -191,7 +191,7 @@
 - **Agent 功能**：三阶段主循环 + 策略组合/评审 AI（可行性+兼容性双审查）+ JSON 结构化输出 + 失败感知回退 + 最终 RTL 体检 + KB 检索 + 存档快照回滚
 - **真机成绩**：projection 1.400 / dotProduct 3.000 满分 / residual 最高 4.000 满分（3/3 公开题 correctness 全绿 100%）
 - **工程基建**：TUI 仪表盘（策略面板+SCORE+得分历史+latency 轨迹）、16 个离线测试、文档体系、可复现脚本
-- **泛化题集（2026-07-20 新增）**：vecadd/fir/matmul 三道 optimize 新题（官方格式 + hidden TB），真机 scripted 3/3 全过（0.997/2.000/3.000），DeepSeek vecadd 满分 1.000（68k tokens）——DoD 5-10 题缺口闭合至 6 题
+- **泛化题集（2026-07-20 新增）**：vecadd/fir/matmul 三道 optimize 新题（官方格式 + hidden TB），真机 scripted 3/3 全过（0.997/2.000/3.000），DeepSeek 真机 vecadd 1.000 满分 / fir 2.000 满分 / matmul 2.270（优化候选 synth 超时，归因回退正常）——DoD 5-10 题缺口闭合至 6 题，correctness 6/6 全绿
 - **知识库（2026-07-20）**：22 条（synth/csim/cosim/论文 pattern 四类）+ kb_search hit_ids 埋点
 - **token 优化（2026-07-20，v0.7.0）**：分级开关 `--token-mode` 落地（full 默认 = 逐字节旧行为），per-call token 埋点
 
