@@ -6,7 +6,7 @@
 >
 > 每进入一个阶段先细化原子任务，原子任务一定要细，不要一个任务需要一周的量。
 
-最后更新时间 (Last Updated)：2026-07-19（**v0.5.0**：DeepSeek JSON 结构化输出（propose/select）+ 评审 AI 可行性+兼容性双审查（带毒策略提前否决）+ 失败感知回退。14/14 测试全过，真 API 验证否决带毒策略。此前 **v0.4.0**：TUI 得分区——agent 线程 grade() + submit SCORE + 最近 5 次得分历史（scores.jsonl 双入口互通）+ error tab 阶段感知三规则（review 失败进工具区/就绪行跟子阶段/等待行带阶段标签）。修复 TUI 启动崩溃（_compose 撞名）与策略解析发散。本地+服务器 11/11 测试全过。）
+最后更新时间 (Last Updated)：2026-07-20（**v0.6.0**：最终 cosim 体检扩展到所有题型（best 变过且预算够则跑，失败回滚）+ run 内 latency 优化轨迹显示。15/15 测试全过。此前 07-19 **v0.5.0**：DeepSeek JSON 结构化输出（propose/select）+ 评审 AI 可行性+兼容性双审查（带毒策略提前否决）+ 失败感知回退。14/14 测试全过，真 API 验证否决带毒策略。此前 **v0.4.0**：TUI 得分区——agent 线程 grade() + submit SCORE + 最近 5 次得分历史（scores.jsonl 双入口互通）+ error tab 阶段感知三规则（review 失败进工具区/就绪行跟子阶段/等待行带阶段标签）。修复 TUI 启动崩溃（_compose 撞名）与策略解析发散。本地+服务器 11/11 测试全过。）
 
 ---
 
@@ -188,6 +188,7 @@
 
 | 日期 | 变更 | 变更人 |
 |---|---|---|
+| 2026-07-20 | **v0.6.0（验证完整性 + 轨迹可视）**。按用户三点疑问：① §4.4 图统一 LLM# 标注（消除'apply 环节被删'困惑）；② 最终 cosim 体检扩展到所有题型（synth 估计≠实测：residual 68 vs 97；best 变过且预算够则跑，失败回滚快照；非 structural 预算不够跳过记事件）；③ TUI 显示 run 内 latency 优化轨迹（38→37→22→14）。TC-AGENT-015 新增，15/15 全过。详见 dev-log 2026-07-20-01。 | Agent 主 |
 | 2026-07-19 | **v0.5.0（optimize 决策质量）**。按用户三点反馈：① DeepSeek `response_format: json_object` 结构化输出（propose/select 改 JSON schema，正则降级兜底）；② 评审 AI 扩展为可行性+兼容性双审查——带毒策略（如改接口/破坏功能）进 rejected 并级联否决，真 API 验证拦下"Unroll+Cyclic Partitioning 改接口"类策略；③ 盲回退改失败感知回退——fallback apply 注入失败工具反馈（错误码+日志尾）。select 解析失败重试一次再回退且 `fallback=true` 不再静默。TC-012/013/014 新增，14/14 全过。详见 dev-log 2026-07-19-03。 | Agent 主 |
 | 2026-07-19 | **三类题真机全部验证 + v0.4.1**。residual(structural) 真机首跑 SCORE **3.098**（baseline 135→68 cyc，1.99×）：pre-csim review 一次修掉死锁（cosim 首跑即过，省 20 credits+15min 超时）；优化轮评审 AI 拦下 DATA_PACK 误用（retry 后过）；组合候选 synth 失败（pragma 写在文件作用域）→ 回退首策略单试（v2.4 归因回退真机首验）→ 无改进收敛。P3-05/P3-06 转 🟢（3/3 全过，correctness 全绿 100%）。另修阶段切换 last review/error 残留（v0.4.1）。 | Agent 主 |
 | 2026-07-19 | **v0.4.0（TUI 得分区 + error tab 阶段感知）**。按用户实测反馈：① TUI agent 线程补 grade() 调用——submit stat 显示 SCORE、区域 C 打印 Scorecard + 最近 5 次得分历史（新模块 agent/score_history.py，runs/<task>/scores.jsonl，CLI/TUI 双入口互通）；② error tab 三规则（tui-design v5）——mechanical review 失败进工具区、就绪行跟 llm_call 子阶段（补 extract_brief/apply_strategies 事件）、等待行带阶段标签；③ 修 TUI 启动崩溃（_compose 撞名 Textual 内部方法 → _build_render + 真挂载冒烟）；④ 修策略解析发散（严格 prompt + 宽容解析 + raw_head 诊断）；⑤ DONE 行加总耗时。TC-AGENT-011 新增，11/11 全过。详见 dev-log 2026-07-19-01。 | Agent 主 |

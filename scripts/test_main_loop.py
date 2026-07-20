@@ -748,11 +748,49 @@ def tc_014() -> None:
     print("TC-AGENT-014 PASS  selector: retry works; fallback flagged, not silent")
 
 
+def tc_015() -> None:
+    """TC-AGENT-015: non-structural final RTL recheck rolls back too (v2.7)."""
+    task = FakeTask(type="optimize")   # requires_cosim=False
+    server = FakeToolServer(total=40)
+
+    server.synth_handler = lambda code: _synth_result(
+        True, code, 60 if "FAST60" in code else 100)
+
+    def cosim_handler(code: str) -> ToolResult:
+        # the optimized candidate deadlocks at RTL level even though the
+        # task's correctness gate does not require cosim
+        if "FAST60" in code:
+            return ToolResult(kind="cosim", ok=False, phase="cosim_fail",
+                              return_code=1, log="deadlock in RTL sim\n",
+                              elapsed_s=300.0)
+        return ToolResult(kind="cosim", ok=True, phase="pass", return_code=0,
+                          log="", elapsed_s=300.0)
+
+    server.cosim_handler = cosim_handler
+    events: list = []
+    agent = _make_agent(task, server,
+                        CannedBackend(repair_codes=[BASE_CODE],
+                                      apply_codes=[FAST60_CODE]),
+                        events, max_optimize_rounds=1)
+    final = agent.run()
+
+    assert final == BASE_CODE, \
+        "RTL-failed optimized code must roll back even for non-structural tasks"
+    assert server.cosim_calls == 1, \
+        "exactly one final recheck (no cosim in correctness for this type)"
+    rollbacks = [f for e, f in events if e == "rollback"]
+    assert any(r.get("reason") == "optimization_reintroduced_hazard"
+               for r in rollbacks)
+    submits = [f for e, f in events if e == "submit"]
+    assert submits[0]["final_latency"] == 100
+    print("TC-AGENT-015 PASS  non-structural RTL recheck -> snapshot rollback")
+
+
 def main() -> int:
     """Run all TC-AGENT cases; return 0 iff every one passes."""
     cases = [tc_001, tc_002, tc_003, tc_004, tc_005, tc_006,
              tc_007, tc_008, tc_009, tc_010, tc_011, tc_012,
-             tc_013, tc_014]
+             tc_013, tc_014, tc_015]
     failed = 0
     for tc in cases:
         try:

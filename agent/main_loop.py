@@ -132,11 +132,10 @@ class Agent:
         if best_latency is None and ckpt.level < Level.SYNTH:
             return ckpt.code   # couldn't synth; keep correct version
 
-        # Stage 3: optimize
+        # Stage 3: optimize (+ final RTL sanity re-check, §4.5)
         if plan.needs_optimize and ckpt.level >= Level.SYNTH:
             self._optimize(plan, ckpt)
-            if "cosim" in plan.correctness_stages:
-                self._post_opt_cosim_recheck(ckpt)
+            self._post_opt_cosim_recheck(ckpt)
 
         return ckpt.code
 
@@ -626,11 +625,16 @@ class Agent:
         return new_code   # exhausted retries; return last attempt anyway
 
     def _post_opt_cosim_recheck(self, ckpt: Checkpoint) -> None:
-        """Re-verify cosim after optimization, with real rollback (§4.5).
+        """Final RTL re-check after optimization, with real rollback (§4.5).
 
         Runs only when the best code actually changed during optimization
-        (otherwise the cosim-verified correctness version still stands). On
-        cosim failure — or when cosim is unaffordable — restores the
+        (otherwise the verified correctness version still stands) and cosim
+        is affordable. Since v2.7 this applies to ALL task types, not only
+        structural ones: the synth report is a static estimate, not a
+        measured value (e.g. the residual task estimated 68 vs measured 97
+        cycles), so an optimized kernel deserves an RTL-level sanity check
+        even when the rules do not require it. On cosim failure — or when
+        cosim is unaffordable for a structural task — restores the
         pre-optimization snapshot in full (code/level/latency/cosim_ok).
 
         Args:
@@ -640,9 +644,14 @@ class Agent:
         if snap is None or ckpt.code.strip() == snap.code.strip():
             return   # best unchanged by optimization; nothing to re-verify
         if not self.server.budget.can_afford("cosim"):
-            self.log.event("rollback", reason="cosim_unaffordable",
-                           note="restored pre-optimization verified version")
-            self._restore_snapshot(ckpt, snap)
+            # Structural tasks must not ship RTL-unverified code; for other
+            # tasks the check is best-effort, so just note the skip.
+            if ckpt.cosim_ok is None and self.task_requires_cosim():
+                self.log.event("rollback", reason="cosim_unaffordable",
+                               note="restored pre-optimization verified version")
+                self._restore_snapshot(ckpt, snap)
+            else:
+                self.log.event("cosim_recheck", result="skipped_no_budget")
             return
         self.hb.set_stage("cosim", self.server.budget.remaining())
         r = self.server.cosim(ckpt.code)
@@ -658,6 +667,14 @@ class Agent:
                            reason="optimization_reintroduced_hazard",
                            note="restored pre-optimization verified version")
             self._restore_snapshot(ckpt, snap)
+
+    def task_requires_cosim(self) -> bool:
+        """Return True when this task's correctness gate includes cosim.
+
+        Returns:
+            True for structural tasks (``requires_cosim`` set in task.toml).
+        """
+        return bool(getattr(self.task, "requires_cosim", False))
 
     @staticmethod
     def _restore_snapshot(ckpt: Checkpoint, snap: Checkpoint) -> None:

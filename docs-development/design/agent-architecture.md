@@ -426,21 +426,25 @@ flowchart TD
 
 目标：在 correctness + synth 都过的前提下，降 latency 冲 PPA 分（0.3 权重）。
 
+> 本节图是控制流视角（节点已标 LLM# 编号）；各 LLM 调用的注入/输出/职责标注见 §4.0 图 C。
+
 ```mermaid
 flowchart TD
-    Entry([进入 optimize]) --> Ctx["AMD Phase 1: Context Loading<br/>① 官方设计文档 description+headers<br/>② 设计摘要提取 extract_design_brief<br/>   (LLM 总结当前 kernel: 功能/循环结构/<br/>   数据流/瓶颈猜想, 做一次缓存)<br/>③ synth 报告 (latency/II/资源)<br/>④ 设备约束 (U55C @ 200MHz)"]
+    Entry([进入 optimize]) --> Ctx["AMD Phase 1: Context Loading<br/>① 官方设计文档 description+headers<br/>② 设计摘要提取 extract_design_brief (LLM#3)<br/>   (LLM 总结当前 kernel: 功能/循环结构/<br/>   数据流/瓶颈猜想, 做一次缓存)<br/>③ synth 报告 (latency/II/资源)<br/>④ 设备约束 (U55C @ 200MHz)"]
     Ctx --> Snap["存档快照<br/>(structural 回滚用, §4.5)"]
     Snap --> Lp
 
     Lp([优化循环 每轮]) --> Q1{credit 够跑<br/>csim + synth?}
     Q1 -- 否 --> Exit([退出循环])
 
-    Q1 -- 是 --> AMD["AMD Phase 2a: propose_strategies<br/>注入(设计文档+设计摘要+最新综合报告)<br/>LLM 提 2-4 个策略 + 权衡<br/>每个标注 combinable_with (兼容性)"]
-    AMD --> Sel["Phase 2b: select_strategies 评审 AI<br/>(同模型换 prompt self-check)<br/>复核兼容性 + 选出子集(1~N个) + 理由<br/>★ 双重确认: 提出者+评审者都认<br/>为互不干扰才允许组合"]
-    Sel --> Gen["AMD Phase 3: apply_strategies<br/>选中子集【合并应用】为一份候选<br/>(单策略 = N=1 特例)"]
-    Gen --> Review["交叉验证 review 候选<br/>重点查: 多策略 pragma 交互 /<br/>接口破坏 / AMD 点名短板"]
+    Q1 -- 是 --> AMD["LLM#4 propose_strategies (Phase 2a)<br/>注入(设计文档+设计摘要+最新综合报告)<br/>提 2-4 个策略 + 权衡<br/>每个标注 combinable_with (兼容性)"]
+    AMD --> Sel["LLM#5 select_strategies 评审 AI (Phase 2b)<br/>可行性审查(带毒策略否决) + 复核兼容性<br/>选出子集(1~N个) + 理由<br/>★ 双重确认: 提出者+评审者都认<br/>为互不干扰才允许组合"]
+    Sel --> Gen["LLM#6 apply_strategies (Phase 3)<br/>选中子集【合并应用】为一份候选<br/>(单策略 = N=1 特例)"]
+    Gen --> M2{"签名/include 硬门<br/>mechanical (非LLM)"}
+    M2 -- 驳回 --> Gen
+    M2 -- 过 --> Review["LLM#7 复审 review<br/>重点查: 多策略 pragma 交互 /<br/>接口破坏 / AMD 点名短板"]
     Review --> Q2{review 通过?}
-    Q2 -- 否 --> Gen
+    Q2 -- 否(驳回+理由) --> Gen
 
     Q2 -- 是 --> Recheck["重验 (改代码可能破坏已通过关卡, §5)"]
     Recheck --> RCsim["跑 csim"]
@@ -457,7 +461,7 @@ flowchart TD
     QL -- 否 --> FB1
 
     FB1 --> QF{子集 >1 策略<br/>且未回退过?}
-    QF -- 是 --> FB2["optimize_fallback:<br/>只用子集首策略重新生成+重验"]
+    QF -- 是 --> FB2["optimize_fallback:<br/>只用子集首策略重新生成+重验<br/>(v2.7: 注入失败反馈)"]
     FB2 --> Gen
     QF -- 否 --> Stop(["停止优化"])
 ```
@@ -494,7 +498,9 @@ flowchart TD
     Rollback2 --> SubmitRollback(["交该版本"]) --> Done
 ```
 
-**回滚语义（v2.3 明确，修实现 bug）**：进入 optimize 时对存档（code/level/latency/cosim_ok）做**快照**。回滚 = 把存档整体恢复快照，不是只记一条日志——曾出现过 cosim 回验失败却只写 rollback 事件、最终提交仍带死锁的实现 bug。触发回验的两个前提（对应 Q1）：① 本题 correctness 含 cosim 关卡（`"cosim" in correctness_stages`，比判 task_type 字符串更语义化）；② best 相对快照变过（没变说明优化无产出，无需再花 20 credits）。credit 不够回验时同样回滚到快照（交已验证版本，不赌）。
+**回滚语义（v2.3 明确，修实现 bug）**：进入 optimize 时对存档（code/level/latency/cosim_ok）做**快照**。回滚 = 把存档整体恢复快照，不是只记一条日志——曾出现过 cosim 回验失败却只写 rollback 事件、最终提交仍带死锁的实现 bug。触发回验的两个前提（对应 Q1）：① best 相对快照变过（没变说明优化无产出，无需再花 20 credits）；② credit 够跑 cosim（structural 题不够也必须回滚快照，不赌）。
+
+**适用范围扩展到所有题型（v2.7）**：回验不再仅限 structural 题。synth 报告是静态估计值不是实测值（residual 题实测发现 synth 估计 68 周期 vs cosim 实测 97），optimize 题虽然 correctness 关卡不含 cosim（评分也不查），但优化后的 kernel 从未在 RTL 级跑过是验证空白——尤其 LLM 的激进 pragma 组合可能引入 csim/synth 看不见的 RTL 隐患。因此：**任何题型，只要 best 在优化中变过且 credit 够，都跑最终 cosim 体检；失败一律回滚快照**。非 structural 题 credit 不够时跳过（best-effort，仅记事件），structural 题不够则必须回滚（不赌）。
 
 ---
 

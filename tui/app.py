@@ -157,6 +157,8 @@ class AgentDashboard(App):
         self._backend_ref = None  # hold ref for usage stats
         self._tool_running: str = ""  # current running tool kind ("csim"/"synth"/...)
         self._tool_start_time: float = 0  # when the tool started
+        # Within-run optimization trajectory: [baseline, ...improvements].
+        self._latency_traj: list[int] = []
 
     def compose(self) -> ComposeResult:
         """Build the four-region dashboard layout (A chart/B bar/C activity/D status)."""
@@ -388,6 +390,9 @@ class AgentDashboard(App):
                 score = data.get("score", 0.0)
                 fc.update_stage("submit", "done", stat=f"SCORE {score:.3f}")
                 ap.append_log("\n" + data.get("render", "") + "\n")
+                if self._latency_traj:
+                    traj = " → ".join(str(x) for x in self._latency_traj)
+                    ap.append_log(f"optimize trajectory (latency): {traj}\n")
                 ap.append_log(data.get("history", "") + "\n")
                 ap.set_activity("idle", f"graded: SCORE {score:.3f}")
 
@@ -461,12 +466,21 @@ class AgentDashboard(App):
                               "fallback: " + data.get("reason", ""))
 
         elif name == "checkpoint":
-            old = data.get("old", 0)
-            new = data.get("new", 0)
-            latency = data.get("latency")
-            stat = f"Lv{old}->Lv{new}"
-            if latency is not None:
-                stat += f" lat={latency}"
+            # Collect the within-run latency trajectory (baseline from the
+            # first synth_ok, then each accepted optimize improvement).
+            reason = data.get("reason", "")
+            if reason == "synth_ok":
+                lat = data.get("latency")
+                if lat is not None and not self._latency_traj:
+                    self._latency_traj = [lat]
+            elif reason == "optimize_improve":
+                new_lat = data.get("new_latency")
+                if new_lat is not None:
+                    if not self._latency_traj:
+                        old_lat = data.get("old_latency")
+                        if old_lat is not None:
+                            self._latency_traj.append(old_lat)
+                    self._latency_traj.append(new_lat)
 
         elif name == "submit":
             fc.update_stage("submit", "done")
