@@ -1,0 +1,14 @@
+task_id = "matmul_optimize"
+task_type = "optimize"
+difficulty = 3
+top = "matmul"
+kernel_file = "matmul.cpp"
+header_files = ["matmul.h"]
+public_tb = "matmul_tb.cpp"
+hidden_tb = "matmul_tb.cpp"
+budget = 60
+initial_condition = "Functionally correct but unoptimized baseline: a triple-nested 32x32 matrix multiply with no HLS pragmas."
+
+[target]
+part = "xcu55c-fsvh2892-2L-e"
+clock_ns = 5.0

@@ -1,0 +1,14 @@
+task_id = "fir_optimize"
+task_type = "optimize"
+difficulty = 2
+top = "fir"
+kernel_file = "fir.cpp"
+header_files = ["fir.h"]
+public_tb = "fir_tb.cpp"
+hidden_tb = "fir_tb.cpp"
+budget = 40
+initial_condition = "Functionally correct but unoptimized baseline: a nested-loop block FIR filter (32 taps, zero history) with no HLS pragmas."
+
+[target]
+part = "xcu55c-fsvh2892-2L-e"
+clock_ns = 5.0

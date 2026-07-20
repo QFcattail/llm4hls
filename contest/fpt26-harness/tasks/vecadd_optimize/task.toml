@@ -1,0 +1,14 @@
+task_id = "vecadd_optimize"
+task_type = "optimize"
+difficulty = 1
+top = "vecadd"
+kernel_file = "vecadd.cpp"
+header_files = ["vecadd.h"]
+public_tb = "vecadd_tb.cpp"
+hidden_tb = "vecadd_tb.cpp"
+budget = 20
+initial_condition = "Functionally correct but unoptimized baseline: a plain sequential element-wise loop with no HLS pragmas."
+
+[target]
+part = "xcu55c-fsvh2892-2L-e"
+clock_ns = 5.0
