@@ -41,7 +41,7 @@
 | P0 | 项目基础设施搭建 | 第 0 周 | 🟢 已完成 | 仓库、目录结构、文档中心、分工与计划基线 |
 | P1 | 认知 + 环境 | 第 1 周 | 🟢 实质完成（Agent 主侧） | 读背景资料、解压 harness、跑通离线链路、架构定稿。HLS 域主侧（数电基础+Vitis 环境）进行中 |
 | P2 | 搭骨架 + 最小正确性闭环 | 第 2 周 | 🟢 **里程碑达成** | agent 骨架搭好，projection 题端到端真修复跑通（DeepSeek + 真 Vitis），SCORE 1.400。剩 dotProduct/residual 验证 + 知识库填充 |
-| P3 | 接真 Vitis + cosim + 里程碑 | 第 3-4 周 | ⚪ 未开始 | 云服务器跑真 csim/synth/cosim，扩 structural 路径，端到端跑 milestone |
+| P3 | 接真 Vitis + cosim + 里程碑 | 第 3-4 周 | 🟡 收尾中 | 真机 3 题全过（P3-03/05/06 🟢，correctness 全绿 100%）；剩 P3-07 录屏 + KB 扩充（域主）+ DoD 5-10 题缺口 |
 | P4 | PPA 优化冲分 + 提交物 | 第 5 周起 | 🟡 提前启动 | optimize 循环已实现（P4-01 🟢，v0.2.0）；真机冲分 + token 优化（第二次迭代）+ Docker/报告/视频待做 |
 
 状态图例：⚪ 未开始 🟡 进行中 🟢 已完成 🔴 阻塞
@@ -154,7 +154,7 @@
 |---|---|---|---|
 | P3-01 | ~~把 mock 替换为真评估接口~~ | ✅ | **官方 ToolServer 自始即是真接口，无需替换。已废弃。** |
 | P3-02 | ~~本地接 Vitis HLS 命令行~~ | ✅ | **官方 vitis.py 已封装（vitis-run --mode hls）。已废弃。** |
-| P3-03 | 在云服务器（SSH）上跑通真 csim/synth/cosim | ⚪ | harness run_poc.py 在服务器上对 3 道题跑出真结果（非 compile_error 占位） |
+| P3-03 | 在云服务器（SSH）上跑通真 csim/synth/cosim | 🟢 | 真机 3 题全过（v0.1.1 起多次运行）：csim/synth/cosim 均真跑非占位；cosim 实测延迟已观测（residual 97/32） |
 | P3-04 | ~~加预算计数与止损~~ | ✅ | **官方 Budget + BudgetExceeded 已实现。已废弃。** |
 | P3-05 | 扩 main_loop 的 structural 路径：csim+cosim 双验证 + 优化后回验 | 🟢 | **residual 真机跑通（SCORE 3.098）**：pre-csim review 一次修掉死锁（cosim 首跑即过），§4.5 回滚路径就绪（best 未变跳过回验） |
 | P3-06 | 端到端测试：3 道公开题跑完整流程 + 评分 | 🟢 | **3/3 真机全过**：projection 1.400 / dotProduct 3.000（满分）/ residual 3.098，correctness 全绿 100%（DoD ≥60% 达标） |
