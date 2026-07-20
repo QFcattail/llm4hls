@@ -786,11 +786,98 @@ def tc_015() -> None:
     print("TC-AGENT-015 PASS  non-structural RTL recheck -> snapshot rollback")
 
 
+class _KwBackend:
+    """Kwargs-recording backend for token-mode policy assertions."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict, str]] = []  # (site, kwargs, user)
+
+    def complete(self, system: str, user: str, **kwargs) -> str:
+        if "Reply PASS or FAIL" in user:
+            self.calls.append(("review", kwargs, user))
+            return "PASS"
+        if "Two steps. FIRST, feasibility review" in user:
+            self.calls.append(("select", kwargs, user))
+            return '{"pick": [1], "reason": "ok"}'
+        if "Propose 2-4 optimization strategies" in user:
+            self.calls.append(("propose", kwargs, user))
+            return ('{"strategies": [{"name": "s1", "rationale": "r", '
+                    '"gain": "g", "risk": "k"}]}')
+        if "Summarize this design" in user:
+            self.calls.append(("brief", kwargs, user))
+            return "a brief"
+        self.calls.append(("other", kwargs, user))
+        return ""
+
+
+def tc_016() -> None:
+    """Token-mode policy: full sends no overrides (legacy behavior), graded
+    modes send reasoning_effort to capable backends, the aggressive select
+    prompt drops the spec block, and no-knob backends fall back cleanly."""
+    task = FakeTask()
+
+    # full: byte-identical legacy behavior — no reasoning_effort anywhere.
+    be = _KwBackend()
+    llm = HLSLLMClient(be, token_mode="full")
+    llm.review(task, "code", "focus")
+    strats = llm.propose_strategies(task, "code", "synth", "brief")
+    llm.select_strategies(task, "code", strats, "synth", "brief")
+    llm.extract_design_brief(task, "code")
+    for site, kwargs, _ in be.calls:
+        assert "reasoning_effort" not in kwargs, \
+            f"full mode must not override effort ({site})"
+
+    # balanced: review + select get "off"; propose/brief stay default.
+    be = _KwBackend()
+    llm = HLSLLMClient(be, token_mode="balanced")
+    llm.review(task, "code", "focus")
+    strats = llm.propose_strategies(task, "code", "synth", "brief")
+    llm.select_strategies(task, "code", strats, "synth", "brief")
+    llm.extract_design_brief(task, "code")
+    by_site = {s: k for s, k, _ in be.calls}
+    assert by_site["review"].get("reasoning_effort") == "off"
+    assert by_site["select"].get("reasoning_effort") == "off"
+    assert "reasoning_effort" not in by_site["propose"]
+    assert "reasoning_effort" not in by_site["brief"]
+    # select still carries the spec block in balanced mode
+    sel_user = next(u for s, _, u in be.calls if s == "select")
+    assert "## Kernel specification" in sel_user
+
+    # aggressive: brief + propose also off; select drops the spec block.
+    be = _KwBackend()
+    llm = HLSLLMClient(be, token_mode="aggressive")
+    llm.review(task, "code", "focus")
+    strats = llm.propose_strategies(task, "code", "synth", "brief")
+    llm.select_strategies(task, "code", strats, "synth", "brief")
+    llm.extract_design_brief(task, "code")
+    by_site = {s: k for s, k, _ in be.calls}
+    for site in ("review", "select", "propose", "brief"):
+        assert by_site[site].get("reasoning_effort") == "off", site
+    sel_user = next(u for s, _, u in be.calls if s == "select")
+    assert "## Kernel specification" not in sel_user
+
+    # No-knob backend (CannedBackend.complete takes no kwargs): the graded
+    # modes must degrade to a plain call instead of crashing.
+    llm = HLSLLMClient(CannedBackend(review="PASS"), token_mode="balanced")
+    passed, _ = llm.review(task, "code", "focus")
+    assert passed, "TypeError fallback broken for no-knob backend"
+
+    # Unknown mode is rejected.
+    try:
+        HLSLLMClient(be, token_mode="ludicrous")
+        raise AssertionError("unknown token_mode accepted")
+    except ValueError:
+        pass
+
+    print("TC-AGENT-016 PASS  token-mode policy: full=legacy, graded=off, "
+          "fallback sane")
+
+
 def main() -> int:
     """Run all TC-AGENT cases; return 0 iff every one passes."""
     cases = [tc_001, tc_002, tc_003, tc_004, tc_005, tc_006,
              tc_007, tc_008, tc_009, tc_010, tc_011, tc_012,
-             tc_013, tc_014, tc_015]
+             tc_013, tc_014, tc_015, tc_016]
     failed = 0
     for tc in cases:
         try:

@@ -80,6 +80,12 @@ def main() -> int:
     ap.add_argument("--work", default=None)
     ap.add_argument("--force", action="store_true",
                     help="run even if Vitis is not detected (csim will fail)")
+    ap.add_argument("--token-mode", choices=["full", "balanced", "aggressive"],
+                    default="full",
+                    help="token-saving level (P4-03). 'full' (default) = no "
+                         "restrictions, identical to pre-P4-03 behavior; "
+                         "'balanced'/'aggressive' disable LLM thinking for "
+                         "cheap call sites and trim redundant prompt blocks.")
     args = ap.parse_args()
 
     # Guard: refuse to run without Vitis, because every csim/synth/cosim will
@@ -124,7 +130,8 @@ def main() -> int:
     print(f"=== Task {task.id} [{task.type}, difficulty {task.difficulty}] ===")
     print(f"    budget: {total} credits | backend: {args.backend}")
 
-    agent = Agent(task, server, llm, kb=kb, run_dir=work_root)
+    agent = Agent(task, server, llm, kb=kb, run_dir=work_root,
+                  token_mode=args.token_mode)
     final = agent.run()
 
     # report LLM usage if the backend tracks it

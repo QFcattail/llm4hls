@@ -75,19 +75,41 @@ class HLSLLMClient:
             mechanical or LLM review rejects a candidate.
     """
 
-    def __init__(self, backend, max_review_retries: int = 1) -> None:
+    def __init__(self, backend, max_review_retries: int = 1,
+                 token_mode: str = "full") -> None:
         self.backend = backend
         self.max_review_retries = max_review_retries
+        # Token-mode switch (P4-03). "full" (default) is byte-identical to the
+        # pre-P4-03 behavior: no effort overrides, no prompt trims. The graded
+        # modes trade LLM reasoning budget for token savings; see _EFFORT_POLICY.
+        if token_mode not in _EFFORT_POLICY:
+            raise ValueError(f"unknown token_mode: {token_mode}")
+        self.token_mode = token_mode
         # Raw text of the latest propose_strategies reply, kept so the main
         # loop can log it when parsing looks suspicious (count <= 1).
         self.last_propose_raw: str = ""
 
+    def _effort(self, site: str) -> str | None:
+        """Return the reasoning-effort override for a call site, or None.
+
+        None means "use the backend default" (= the pre-P4-03 behavior).
+        """
+        return _EFFORT_POLICY[self.token_mode].get(site)
+
     # -- low-level --------------------------------------------------------
-    def _complete(self, system: str, user: str) -> str:
+    def _complete(self, system: str, user: str,
+                  effort: str | None = None) -> str:
         """Forward a raw (system, user) completion call to the backend."""
+        if effort is not None:
+            try:
+                return self.backend.complete(
+                    system, user, reasoning_effort=effort)
+            except TypeError:
+                pass   # backend has no effort knob (ScriptedClient etc.)
         return self.backend.complete(system, user)
 
-    def _complete_json(self, system: str, user: str) -> str:
+    def _complete_json(self, system: str, user: str,
+                       effort: str | None = None) -> str:
         """Call the backend with JSON structured output when supported.
 
         DeepSeek natively supports ``response_format: json_object`` (probed
@@ -98,14 +120,24 @@ class HLSLLMClient:
         Args:
             system: System prompt text.
             user: User prompt text.
+            effort: Optional reasoning-effort override (see _effort).
 
         Returns:
             The assistant's content string (expected to be JSON).
         """
+        kwargs: dict = {"response_format": {"type": "json_object"}}
+        if effort is not None:
+            kwargs["reasoning_effort"] = effort
         try:
-            return self.backend.complete(
-                system, user, response_format={"type": "json_object"})
+            return self.backend.complete(system, user, **kwargs)
         except TypeError:
+            if effort is not None:
+                try:
+                    return self.backend.complete(
+                        system, user,
+                        response_format={"type": "json_object"})
+                except TypeError:
+                    pass
             return self.backend.complete(system, user)
 
     # -- domain methods ---------------------------------------------------
@@ -157,7 +189,7 @@ class HLSLLMClient:
             f"## Review focus\n{focus}\n\n"
             f"Reply PASS or FAIL. If FAIL, list concrete issues."
         )
-        out = self._complete(system, user)
+        out = self._complete(system, user, effort=self._effort("review"))
         passed = out.strip().upper().startswith("PASS")
         return passed, out
 
@@ -187,7 +219,8 @@ class HLSLLMClient:
             f"bottleneck most likely is and which HLS lever (PIPELINE, UNROLL, "
             f"ARRAY_PARTITION, DATAFLOW) addresses it. Do NOT output code."
         )
-        return self._complete(system, user).strip()
+        return self._complete(system, user,
+                              effort=self._effort("brief")).strip()
 
     def propose_strategies(self, task, code: str, synth_summary: str,
                            design_brief: str = "") -> list[Strategy]:
@@ -220,7 +253,7 @@ class HLSLLMClient:
             f'"combinable_with": "numbers of OTHER strategies it does not '
             f'interfere with, or \'standalone\'"}}]}}'
         )
-        out = self._complete_json(system, user)
+        out = self._complete_json(system, user, effort=self._effort("propose"))
         self.last_propose_raw = out   # kept for parse-failure diagnostics
         return _parse_strategies(out)
 
@@ -261,8 +294,13 @@ class HLSLLMClient:
             f"   proposer claims combinable_with: {s.combinable_with or '?'}"
             for i, s in enumerate(strategies)
         )
+        # aggressive mode: the selector re-derives nothing from the full spec —
+        # the design brief + synth summary carry the needed context, so the
+        # (static) specification block is dropped to save prompt tokens.
+        spec_block = ("" if self.token_mode == "aggressive"
+                      else f"## Kernel specification\n{task.description}\n\n")
         user = (
-            f"## Kernel specification\n{task.description}\n\n"
+            f"{spec_block}"
             f"## Design brief\n{design_brief or '(none)'}\n\n"
             f"## Current synthesis\n{synth_summary}\n\n"
             f"## Proposed strategies\n{catalog}\n\n"
@@ -281,7 +319,8 @@ class HLSLLMClient:
             f'"pick": [1], "reason": "one line"}}'
         )
         for attempt in range(2):   # one retry on parse failure, then fallback
-            out = self._complete_json(system, user)
+            out = self._complete_json(system, user,
+                                      effort=self._effort("select"))
             parsed = _parse_select_json(out, strategies)
             if parsed is not None:
                 return parsed
@@ -338,6 +377,21 @@ class HLSLLMClient:
             f"unchanged. Do not modify other function calls."
         )
         return _harness_extract(self._complete(system, user))
+
+
+# -- token-mode policy (P4-03) ---------------------------------------------
+# Graded token-saving switch. "full" (the shipped default) applies NO effort
+# overrides and NO prompt trims — behavior is identical to pre-P4-03 runs.
+# "off" disables the reasoning model's thinking for that call site, which is
+# where the token mass lives (~89% of completion tokens are reasoning).
+_EFFORT_POLICY: dict[str, dict[str, str]] = {
+    "full": {},
+    # Cheap verdict-class calls: PASS/FAIL review and the strategy selector.
+    "balanced": {"review": "off", "select": "off"},
+    # Additionally the design-brief extraction and strategy proposer.
+    "aggressive": {"review": "off", "select": "off",
+                   "brief": "off", "propose": "off"},
+}
 
 
 # -- prompt templates (kept module-level so they're easy to tune) ----------

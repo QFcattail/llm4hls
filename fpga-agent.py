@@ -125,6 +125,9 @@ def main() -> int:
                     help="plain CLI mode (no TUI dashboard)")
     ap.add_argument("--force", action="store_true",
                     help="run without Vitis (csim will fail, framework test only)")
+    ap.add_argument("--token-mode", choices=["full", "balanced", "aggressive"],
+                    default="full",
+                    help="token-saving level (default: full = unrestricted)")
     args = ap.parse_args()
 
     # Auto-source Vitis if vitis-run is not on PATH but settings64.sh exists.
@@ -170,6 +173,7 @@ def main() -> int:
             print("Error: --task required in --no-tui mode", file=sys.stderr)
             return 1
         cmd.extend(["--backend", args.backend])
+        cmd.extend(["--token-mode", args.token_mode])
         if args.budget is not None:
             cmd.extend(["--budget", str(args.budget)])
         if args.force:
@@ -180,7 +184,8 @@ def main() -> int:
     if args.task:
         # Skip picker, go straight to dashboard
         from tui.app import run_tui
-        run_tui(args.task, backend=args.backend, budget=args.budget)
+        run_tui(args.task, backend=args.backend, budget=args.budget,
+                token_mode=args.token_mode)
         return 0
     else:
         # Interactive task picker (plain terminal, NOT Textual)
@@ -189,7 +194,8 @@ def main() -> int:
             print("No task selected.")
             return 0
         from tui.app import run_tui
-        run_tui(task_path, backend=args.backend, budget=args.budget)
+        run_tui(task_path, backend=args.backend, budget=args.budget,
+                token_mode=args.token_mode)
         return 0
 
 

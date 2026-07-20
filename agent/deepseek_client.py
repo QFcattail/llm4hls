@@ -83,9 +83,12 @@ class DeepSeekClient:
         self.total_completion = 0
         self.total_reasoning = 0
         self.calls = 0
+        # per-call usage of the most recent call (for llm_call event logging)
+        self.last_usage: dict = {}
 
     def complete(self, system: str, user: str,
-                 response_format: dict | None = None) -> str:
+                 response_format: dict | None = None,
+                 reasoning_effort: str | None = None) -> str:
         """Send a chat completion request and return the assistant content.
 
         Args:
@@ -94,6 +97,10 @@ class DeepSeekClient:
             response_format: Optional structured-output spec, e.g.
                 ``{"type": "json_object"}`` to force valid JSON output
                 (DeepSeek native structured output, probed 2026-07-19).
+            reasoning_effort: Optional per-call override of the instance
+                default. "high"/"max" keep thinking enabled at that level;
+                "off" disables thinking entirely (thinking.type="disabled")
+                for cheap verdict-class calls. None = instance default.
 
         Returns:
             The assistant's content string.
@@ -104,6 +111,10 @@ class DeepSeekClient:
         """
         # Increment call count at the START so TUI can show "LLM call #N in progress"
         self.calls += 1
+        effort = reasoning_effort if reasoning_effort is not None \
+            else self.reasoning_effort
+        thinking = ({"type": "disabled"} if effort == "off"
+                    else {"type": "enabled", "reasoning_effort": effort})
         payload_dict: dict = {
             "model": self.model,
             "messages": [
@@ -112,11 +123,9 @@ class DeepSeekClient:
             ],
             "temperature": self.temperature,
             # thinking: control reasoning model behavior.
-            # reasoning_effort "high" is default; "max" for complex agent tasks.
-            "thinking": {
-                "type": "enabled",
-                "reasoning_effort": self.reasoning_effort,
-            },
+            # reasoning_effort "high" is default; "max" for complex agent tasks;
+            # "off" (per-call) disables thinking for cheap verdict calls.
+            "thinking": thinking,
             "stream": self.stream,
         }
         # max_tokens: only send if explicitly set. If None (default), don't
@@ -189,6 +198,9 @@ class DeepSeekClient:
         else:
             # estimate: count chars / 4 as rough token count
             self.total_completion += len(full_content) // 4
+            self.last_usage = {"prompt": 0,
+                               "completion": len(full_content) // 4,
+                               "reasoning": 0}
         return full_content
 
     def _parse_response(self, body: dict) -> str:
@@ -205,6 +217,11 @@ class DeepSeekClient:
         self.total_completion += u.get("completion_tokens", 0)
         cd = u.get("completion_tokens_details", {}) or {}
         self.total_reasoning += cd.get("reasoning_tokens", 0)
+        self.last_usage = {
+            "prompt": u.get("prompt_tokens", 0),
+            "completion": u.get("completion_tokens", 0),
+            "reasoning": cd.get("reasoning_tokens", 0),
+        }
 
     def usage_summary(self) -> str:
         """Return a one-line summary of accumulated token usage across calls."""

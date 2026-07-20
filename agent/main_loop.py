@@ -60,6 +60,7 @@ class Agent:
         max_synth_rounds: int = 3,
         max_optimize_rounds: int = 4,
         run_dir: Path | str = "runs",
+        token_mode: str = "full",
     ) -> None:
         self.task = task
         self.server = server
@@ -70,6 +71,10 @@ class Agent:
         self.max_optimize_rounds = max_optimize_rounds
         self.log = Logger(task.id, run_dir)
         self.hb = Heartbeat(self.log)
+        # Token-mode switch (P4-03): "full" (default) keeps the pre-P4-03
+        # behavior everywhere; graded modes save tokens (see llm_client).
+        self.token_mode = token_mode
+        self.llm.token_mode = token_mode
         # Cross-stage state: filled by _do_synth / _optimize as they run.
         self._synth_summary: str | None = None   # latest passing synth report
         self._design_brief: str | None = None    # AMD Phase 1 brief (cached)
@@ -91,7 +96,8 @@ class Agent:
         self.log.event("route", task_type=plan.task_type,
                        correctness_stages=plan.correctness_stages,
                        initial_level=plan.initial_level,
-                       budget=self.server.budget.total)
+                       budget=self.server.budget.total,
+                       token_mode=self.token_mode)
         self.hb.start()
         try:
             return self._run_plan(plan, ckpt)
@@ -168,12 +174,18 @@ class Agent:
             # later attempts it reviews the previous repair before re-running.
             if attempt == 1:
                 self.log.event("pre_csim_review", attempt=attempt)
+                # Token note (P4-03): repair() already injects the FULL
+                # description, so the snippet here is redundant. It is kept in
+                # "full" mode (byte-identical legacy prompts) and dropped in
+                # the graded token-saving modes.
+                desc_snippet = (f"Description: {self.task.description[:500]}"
+                                if self.token_mode == "full" else "")
                 reviewed = self._repair_with_review(
                     ckpt.code,
                     feedback_text=f"Initial code for task {self.task.id}. "
                                   f"Review and fix any bugs before first csim. "
                                   f"Task type: {plan.task_type}. "
-                                  f"Description: {self.task.description[:500]}",
+                                  f"{desc_snippet}",
                     kb_text=self._kb_lookup(build_feedback()),
                 )
                 if reviewed is not None and reviewed.strip() != ckpt.code.strip():
@@ -411,7 +423,8 @@ class Agent:
             self._design_brief = self.llm.extract_design_brief(
                 self.task, ckpt.code)
             self.log.event("llm_call", purpose="extract_brief",
-                           chars=len(self._design_brief))
+                           chars=len(self._design_brief),
+                           **self._llm_usage_fields())
             self.log.event("design_brief", chars=len(self._design_brief))
 
         for round_n in range(1, self.max_optimize_rounds + 1):
@@ -430,7 +443,8 @@ class Agent:
             self.log.event("llm_call", purpose="propose_strategies",
                            round=round_n, count=len(strategies),
                            raw_head=(self.llm.last_propose_raw[:800]
-                                     if len(strategies) <= 1 else ""))
+                                     if len(strategies) <= 1 else ""),
+                           **self._llm_usage_fields())
             if not strategies:
                 self.log.event("optimize_stop", reason="no_strategy")
                 break
@@ -446,7 +460,7 @@ class Agent:
                     self._synth_summary or "(no synthesis report available)",
                     self._design_brief))
             self.log.event("llm_call", purpose="select_strategies",
-                           round=round_n)
+                           round=round_n, **self._llm_usage_fields())
             subset = [strategies[i] for i in indices]
             self.log.event("strategy_select", round=round_n, indices=indices,
                            picked=[s.name for s in subset],
@@ -590,7 +604,8 @@ class Agent:
                 self.task, code, strategies, self._design_brief,
                 failure_feedback=failure_feedback)
             self.log.event("llm_call", purpose="apply_strategies",
-                           strategies=names, retry=retry)
+                           strategies=names, retry=retry,
+                           **self._llm_usage_fields())
             if new_code is None:
                 return None
 
@@ -688,6 +703,26 @@ class Agent:
         ckpt.level = snap.level
         ckpt.latency = snap.latency
         ckpt.cosim_ok = snap.cosim_ok
+
+    # -- LLM usage instrumentation (P4-03) ---------------------------------
+    def _llm_usage_fields(self) -> dict:
+        """Return per-call token-usage fields for an llm_call event.
+
+        Reads the backend's last-call usage snapshot (DeepSeekClient exposes
+        ``last_usage``/``model``; other backends yield an empty dict). Pure
+        observability — never changes behavior (architecture §12.2).
+        """
+        backend = getattr(self.llm, "backend", None)
+        u = getattr(backend, "last_usage", None) or {}
+        fields: dict = {}
+        if u:
+            fields.update(prompt_tokens=u.get("prompt"),
+                          completion_tokens=u.get("completion"),
+                          reasoning_tokens=u.get("reasoning"))
+        model = getattr(backend, "model", None)
+        if model:
+            fields["model"] = model
+        return fields
 
     # -- knowledge base ---------------------------------------------------
     def _kb_lookup(self, fb) -> str:

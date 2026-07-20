@@ -131,6 +131,7 @@ class AgentDashboard(App):
         task_path: str,
         backend: str = "deepseek",
         budget: int | None = None,
+        token_mode: str = "full",
     ) -> None:
         super().__init__()
         # Header renders app.title; Header(name=...) is only the DOM node
@@ -141,6 +142,7 @@ class AgentDashboard(App):
         self.task_path = task_path
         self.backend = backend
         self.budget_override = budget
+        self.token_mode = token_mode
         self._event_queue: queue.Queue = queue.Queue()
         self._agent_thread: threading.Thread | None = None
         self._agent_result: str | None = None
@@ -219,7 +221,8 @@ class AgentDashboard(App):
         llm = HLSLLMClient(backend)
         kb = KnowledgeBase(seed_entries())
 
-        agent = Agent(task, server, llm, kb=kb, run_dir=work_root)
+        agent = Agent(task, server, llm, kb=kb, run_dir=work_root,
+                      token_mode=self.token_mode)
         original_event = agent.log.event
 
         def queued_event(event: str, **fields) -> None:
@@ -549,13 +552,16 @@ class AgentDashboard(App):
             ap.set_activity("idle", f"ERROR: {self._error}")
 
 
-def run_tui(task_path: str, backend: str = "deepseek", budget: int | None = None) -> None:
+def run_tui(task_path: str, backend: str = "deepseek", budget: int | None = None,
+            token_mode: str = "full") -> None:
     """Entry point: start the TUI dashboard for a given task.
 
     Args:
         task_path: Path to the task directory.
         backend: LLM backend ("deepseek", "scripted", "openrouter").
         budget: Override credit budget (None = use task default).
+        token_mode: Token-saving level (default "full" = unrestricted).
     """
-    app = AgentDashboard(task_path=task_path, backend=backend, budget=budget)
+    app = AgentDashboard(task_path=task_path, backend=backend, budget=budget,
+                         token_mode=token_mode)
     app.run()
