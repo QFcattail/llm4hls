@@ -188,7 +188,7 @@ A: 检查：(1) csim 过了没？(2) hidden testbench 过了没？correctness �
 
 ### Q: 怎么加知识库条目？
 
-A: 在 `agent/knowledge_base/retriever.py` 的 KnowledgeBase 里 add KBEntry。格式见 `KBEntry` dataclass。或者创建 YAML 数据文件批量加载（待实现）。
+A: 编辑 `agent/knowledge_base/entries.json`（JSON 语料，22 条，字段：id/symptom/root_cause/fix/example/signatures）。保存即生效——`seed_entries()` 启动时从该文件加载。signatures 用小写错误码/关键词短串（检索是大小写不敏感子串匹配）。
 
 ---
 

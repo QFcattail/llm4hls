@@ -618,7 +618,8 @@ agent/
   knowledge_base/    RAG 知识库（§6）
     __init__.py
     retriever.py     检索器（关键词/错误码匹配）+ KBEntry schema
-    entries.py       种子条目数据（seed_entries()，v2.3；后续可扩为 entries/ YAML）
+    entries.py       语料加载器（seed_entries() 兼容入口，v0.7.1 起）
+    entries.json     条目语料（22 条，JSON 单源；纯 stdlib 不引 PyYAML）
 
 contest/fpt26-harness/llm4hls/   ← 官方 harness，fork 后原地改
   agent.py           ← 替换为我们的 main_loop（或保留参考版做对比）
