@@ -88,6 +88,10 @@ class HLSLLMClient:
         # Raw text of the latest propose_strategies reply, kept so the main
         # loop can log it when parsing looks suspicious (count <= 1).
         self.last_propose_raw: str = ""
+        # Optional verbatim prompt recorder (v0.7.2): a callable
+        # (purpose, system, user, response) -> None, wired by the main loop
+        # to the run's <task>_prompts.jsonl. None disables recording.
+        self.prompt_recorder = None
 
     def _effort(self, site: str) -> str | None:
         """Return the reasoning-effort override for a call site, or None.
@@ -98,18 +102,40 @@ class HLSLLMClient:
 
     # -- low-level --------------------------------------------------------
     def _complete(self, system: str, user: str,
-                  effort: str | None = None) -> str:
-        """Forward a raw (system, user) completion call to the backend."""
+                  effort: str | None = None,
+                  purpose: str = "generic") -> str:
+        """Forward a raw completion call; record it verbatim when wired.
+
+        Args:
+            system: System prompt text.
+            user: User prompt text.
+            effort: Optional reasoning-effort override (see _effort).
+            purpose: The domain call type, used by the prompt recorder.
+
+        Returns:
+            The assistant's content string.
+        """
         if effort is not None:
             try:
-                return self.backend.complete(
+                resp = self.backend.complete(
                     system, user, reasoning_effort=effort)
+                self._record(purpose, system, user, resp)
+                return resp
             except TypeError:
                 pass   # backend has no effort knob (ScriptedClient etc.)
-        return self.backend.complete(system, user)
+        resp = self.backend.complete(system, user)
+        self._record(purpose, system, user, resp)
+        return resp
+
+    def _record(self, purpose: str, system: str, user: str,
+                response: str) -> None:
+        """Fire the prompt recorder when one is wired (no-op otherwise)."""
+        if self.prompt_recorder is not None:
+            self.prompt_recorder(purpose, system, user, response)
 
     def _complete_json(self, system: str, user: str,
-                       effort: str | None = None) -> str:
+                       effort: str | None = None,
+                       purpose: str = "generic") -> str:
         """Call the backend with JSON structured output when supported.
 
         DeepSeek natively supports ``response_format: json_object`` (probed
@@ -129,16 +155,19 @@ class HLSLLMClient:
         if effort is not None:
             kwargs["reasoning_effort"] = effort
         try:
-            return self.backend.complete(system, user, **kwargs)
+            resp = self.backend.complete(system, user, **kwargs)
         except TypeError:
             if effort is not None:
                 try:
-                    return self.backend.complete(
+                    resp = self.backend.complete(
                         system, user,
                         response_format={"type": "json_object"})
                 except TypeError:
-                    pass
-            return self.backend.complete(system, user)
+                    resp = self.backend.complete(system, user)
+            else:
+                resp = self.backend.complete(system, user)
+        self._record(purpose, system, user, resp)
+        return resp
 
     # -- domain methods ---------------------------------------------------
     def repair(self, task, code: str, feedback_text: str, kb_text: str) -> str | None:
@@ -165,7 +194,7 @@ class HLSLLMClient:
             f"Do not change the top-level signature, header, or testbench. "
             f"Output ONLY the full kernel in one ```cpp block."
         )
-        return _harness_extract(self._complete(system, user))
+        return _harness_extract(self._complete(system, user, purpose="repair"))
 
     def review(self, task, code: str, focus: str) -> tuple[bool, str]:
         """Cross-check a candidate before spending a tool call on it.
@@ -189,7 +218,8 @@ class HLSLLMClient:
             f"## Review focus\n{focus}\n\n"
             f"Reply PASS or FAIL. If FAIL, list concrete issues."
         )
-        out = self._complete(system, user, effort=self._effort("review"))
+        out = self._complete(system, user, effort=self._effort("review"),
+                             purpose="review")
         passed = out.strip().upper().startswith("PASS")
         return passed, out
 
@@ -220,7 +250,8 @@ class HLSLLMClient:
             f"ARRAY_PARTITION, DATAFLOW) addresses it. Do NOT output code."
         )
         return self._complete(system, user,
-                              effort=self._effort("brief")).strip()
+                              effort=self._effort("brief"),
+                              purpose="extract_brief").strip()
 
     def propose_strategies(self, task, code: str, synth_summary: str,
                            design_brief: str = "") -> list[Strategy]:
@@ -253,7 +284,8 @@ class HLSLLMClient:
             f'"combinable_with": "numbers of OTHER strategies it does not '
             f'interfere with, or \'standalone\'"}}]}}'
         )
-        out = self._complete_json(system, user, effort=self._effort("propose"))
+        out = self._complete_json(system, user, effort=self._effort("propose"),
+                                   purpose="propose_strategies")
         self.last_propose_raw = out   # kept for parse-failure diagnostics
         return _parse_strategies(out)
 
@@ -320,7 +352,8 @@ class HLSLLMClient:
         )
         for attempt in range(2):   # one retry on parse failure, then fallback
             out = self._complete_json(system, user,
-                                      effort=self._effort("select"))
+                                      effort=self._effort("select"),
+                                      purpose="select_strategies")
             parsed = _parse_select_json(out, strategies)
             if parsed is not None:
                 return parsed
@@ -376,7 +409,8 @@ class HLSLLMClient:
             f"Keep the top-level signature and the interface contract "
             f"unchanged. Do not modify other function calls."
         )
-        return _harness_extract(self._complete(system, user))
+        return _harness_extract(self._complete(system, user,
+                                               purpose="apply_strategies"))
 
 
 # -- token-mode policy (P4-03) ---------------------------------------------

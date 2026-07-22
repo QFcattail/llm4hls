@@ -11,6 +11,7 @@ runs/
 └── <task_id>/                  如 projection_bugfix
     ├── final_<kernel>.cpp      agent 最终输出的 kernel 代码
     ├── <task_id>.jsonl         事件日志（JSONL，每行一个事件：route/tool_result/kb_search/checkpoint 等）
+    ├── <task_id>_prompts.jsonl  LLM 提示词全记录（v0.7.2：每次调用的 purpose/system/user/response 原文）
     ├── scores.jsonl            得分历史（每次评分追加一行：ts/score/latency/credits/tokens）
     ├── agent/                  agent 工作区
     │   ├── csim_1/             第 1 次 csim 的工作目录（kernel.cpp/.h/_tb.cpp/run_hls.tcl）
@@ -126,6 +127,25 @@ grep tool_result runs/dotProduct_optimize/dotProduct_optimize.jsonl | \
 # per-call-site token 归因（v0.7.0 起，DeepSeek 后端）
 grep llm_call runs/<task>/<task>.jsonl | \
   jq -r '[.purpose, .prompt_tokens, .completion_tokens, .reasoning_tokens] | @tsv'
+
+# ── 看 LLM 实际拿到了什么提示词（v0.7.2 起，prompts.jsonl）──
+
+# 列出这次运行每次调用的目的和时间
+jq -r '[.ts, .purpose] | @tsv' runs/<task>/<task>_prompts.jsonl
+
+# 看某次调用的完整 user prompt（比如评审 AI 那次怎么问的）
+jq -r 'select(.purpose=="select_strategies") | .user' \
+  runs/<task>/<task>_prompts.jsonl | less -S
+
+# 看某次调用的 system prompt（角色设定）
+jq -r 'select(.purpose=="select_strategies") | .system' \
+  runs/<task>/<task>_prompts.jsonl | head -3
+
+# 看某次调用的完整回复（含被否决策略的理由）
+jq -r 'select(.purpose=="select_strategies") | .response' \
+  runs/<task>/<task>_prompts.jsonl | jq .
+
+# 对照事件日志：prompts.jsonl 与 <task>.jsonl 用 ts（时间戳）关联
 ```
 
 ### 五、30 秒判断一次运行好不好

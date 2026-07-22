@@ -33,6 +33,10 @@ class Logger:
         self.path = self.run_dir / f"{task_id}.jsonl"
         # truncate per run
         self.path.write_text("")
+        # Full prompt history lives beside the event log (v0.6.1): the
+        # event log stays terse, this file holds every LLM call verbatim.
+        self.prompt_path = self.run_dir / f"{task_id}_prompts.jsonl"
+        self.prompt_path.write_text("")
         self._last_activity = time.monotonic()
         self._lock = threading.Lock()
 
@@ -53,6 +57,27 @@ class Logger:
         line = json.dumps(record, ensure_ascii=False, default=str)
         self.path.open("a").write(line + "\n")
         print(f"[log] {event} {fields}", file=sys.stderr, flush=True)
+
+    def prompt(self, purpose: str, system: str, user: str, response: str) -> None:
+        """Record one LLM call verbatim (purpose + system + user + response).
+
+        Written to ``<task_id>_prompts.jsonl`` next to the event log; the
+        two files join on timestamps. No truncation — prompt debugging
+        needs the exact bytes.
+
+        Args:
+            purpose: The domain call type (repair/review/extract_brief/
+                propose_strategies/select_strategies/apply_strategies).
+            system: The system prompt sent.
+            user: The user prompt sent.
+            response: The assistant's raw reply.
+        """
+        self._touch()
+        record = {"ts": time.time(), "task": self.task_id,
+                  "purpose": purpose, "system": system,
+                  "user": user, "response": response}
+        line = json.dumps(record, ensure_ascii=False, default=str)
+        self.prompt_path.open("a").write(line + "\n")
 
     def age_s(self) -> float:
         """Return seconds since the last recorded activity."""

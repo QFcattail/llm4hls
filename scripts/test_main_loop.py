@@ -873,11 +873,55 @@ def tc_016() -> None:
           "fallback sane")
 
 
+def tc_017() -> None:
+    """TC-AGENT-017: verbatim prompt history lands in <task>_prompts.jsonl."""
+    import json
+    import tempfile
+    from agent.observability import Logger
+
+    # 1) Logger.prompt writes purpose + system + user + response verbatim.
+    run_dir = Path(tempfile.mkdtemp(prefix="prompt_log_test_"))
+    log = Logger("fake_task", run_dir)
+    log.prompt("repair", "SYS", "USER-TEXT", "RESP-TEXT")
+    lines = (run_dir / "fake_task_prompts.jsonl").read_text().splitlines()
+    assert len(lines) == 1
+    rec = json.loads(lines[0])
+    assert rec["purpose"] == "repair" and rec["system"] == "SYS"
+    assert rec["user"] == "USER-TEXT" and rec["response"] == "RESP-TEXT"
+
+    # 2) A full agent run wires the recorder: every LLM call is captured
+    #    with the right purpose tags, and the JSONL stays valid.
+    task = FakeTask(type="optimize")
+    server = FakeToolServer(total=40)
+    events: list = []
+    run_dir2 = Path(tempfile.mkdtemp(prefix="agent_test_"))
+    agent = Agent(task, server, HLSLLMClient(CannedBackend(
+        repair_codes=[BASE_CODE], apply_codes=[FAST60_CODE])),
+        kb=KnowledgeBase(seed_entries()), run_dir=run_dir2,
+        max_optimize_rounds=1)
+    agent.run()
+
+    prompt_file = run_dir2 / "fake_task_prompts.jsonl"
+    records = [json.loads(l) for l in prompt_file.read_text().splitlines()]
+    purposes = [r["purpose"] for r in records]
+    assert "repair" in purposes, purposes
+    assert "extract_brief" in purposes, purposes
+    assert "propose_strategies" in purposes, purposes
+    assert "select_strategies" in purposes, purposes
+    assert "apply_strategies" in purposes, purposes
+    # every record carries the full triplet, including the kernel spec
+    assert all(r["system"] and r["user"] and r["response"] for r in records)
+    assert any("Kernel specification" in r["user"] for r in records)
+    sel = [r for r in records if r["purpose"] == "select_strategies"][0]
+    assert "feasibility review" in sel["user"]
+    print("TC-AGENT-017 PASS  prompts.jsonl: all 5 purposes captured verbatim")
+
+
 def main() -> int:
     """Run all TC-AGENT cases; return 0 iff every one passes."""
     cases = [tc_001, tc_002, tc_003, tc_004, tc_005, tc_006,
              tc_007, tc_008, tc_009, tc_010, tc_011, tc_012,
-             tc_013, tc_014, tc_015, tc_016]
+             tc_013, tc_014, tc_015, tc_016, tc_017]
     failed = 0
     for tc in cases:
         try:

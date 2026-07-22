@@ -79,6 +79,9 @@ class Agent:
         self._synth_summary: str | None = None   # latest passing synth report
         self._design_brief: str | None = None    # AMD Phase 1 brief (cached)
         self._pre_opt_snapshot: Checkpoint | None = None  # §4.5 rollback point
+        # Verbatim prompt history (v0.7.2): every LLM call lands in
+        # <task>_prompts.jsonl next to the event log.
+        self.llm.prompt_recorder = self.log.prompt
 
     # -- entry point ------------------------------------------------------
     def run(self) -> str:
