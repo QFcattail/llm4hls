@@ -6,7 +6,7 @@
 >
 > 每进入一个阶段先细化原子任务，原子任务一定要细，不要一个任务需要一周的量。
 
-最后更新时间 (Last Updated)：2026-07-20（**Docker ready 前任务全部闭合**：3 道泛化新题真机验证（DoD 6 题达标）、KB 22 条 + PPA 速查、v0.7.0 token 分级开关 A/B 验收（−31~50% 不掉分）。剩提交物三件套：P4-05 Docker / P4-06 报告 / P4-07 视频（asciinema 方案）。今天 7/20，截止 8/7，剩 18 天。）
+最后更新时间 (Last Updated)：2026-07-22（**v0.7.4 Docker 打包实测通过（P4-05 转 🟢）**：QFS-STATION 上 build 镜像成功，容器内跑通 projection_bugfix（SCORE 1.400）+ dotProduct_optimize（SCORE 3.000 满分），csim/synth 真跑非 mock，SCORE 与宿主机一致。关键发现：Vitis settings64.sh 硬编码兄弟目录绝对路径，必须挂载整个 Xilinx 树到容器内相同路径。剩 P4-06 报告 + P4-07 视频剪辑。今天 7/22，截止 8/7，剩 16 天。）
 
 ---
 
@@ -178,9 +178,20 @@
 | P4-02 | pragma 变换优化 PPA（pipeline/unroll/partition/dataflow） | Agent 主 | 🟢 | **真机实证**：dotProduct 73.36× 加速、SCORE 3.000 满分（策略组合：PIPELINE+UNROLL+ARRAY_PARTITION+加法树重构） |
 | P4-03 | 第二次迭代：token 优化（第一次迭代暂不考虑） | Agent 主 | 🟢 | **v0.7.0 分级开关 + 真机 A/B 验收**：`--token-mode full(默认，逐字节同旧行为)/balanced/aggressive`；A/B 三题 tokens −31.3%/−8.4%/−50.4% 且 SCORE 全不降（vecadd/dotProduct 满分保持，matmul 反升 2.270→2.691）；per-call 埋点归因 select 每次省 ~4-5k |
 | P4-04 | 第二次迭代：功能 pattern 检索（agent-architecture.md §6.4） | Agent 主 | ⚪ | 难度较高，先靠错误签名匹配；决策：Docker 后看时间 |
-| P4-05 | Docker 镜像打包 | Agent 主 | ⚪ | 复用官方 vitis.dockerfile |
+| P4-05 | Docker 镜像打包 | Agent 主 | 🟢 | v0.7.4 完成：Dockerfile + .dockerignore + docker-run.sh + QFS-STATION 实测通过（projection 1.400 / dotProduct 3.000 满分，csim/synth 真跑）。Vitis 挂载整个 Xilinx 树（settings64.sh 硬编码兄弟路径） |
 | P4-06 | 技术报告撰写 | 双方 | ⚪ | 含模型对比实验 |
-| P4-07 | 演示视频录制（≤5分钟） | 双方 | ⚪ | 在目标平台运行 + 清晰讲解 |
+| P4-07 | 演示视频录制（≤5分钟） | 双方 | 🟡 | 录制完成，待剪辑（asciinema 方案）；录屏发现 2 个 TUI 显示问题，记入下方待办区 |
+
+---
+
+## TUI 已知待办（录屏发现，非阻塞）
+
+> 2026-07-22 录制演示视频时发现两个 TUI 显示体验问题，不影响功能正确性，记此待办，优先级低于 Docker/报告/视频交稿，留待交稿后修。
+
+| 编号 | 现象 | 根因（初判） | 涉及代码 | 优先级 |
+|---|---|---|---|---|
+| TUI-01 | 优化阶段不显示最近一次 latency，用户看不到实时改进 | latency 轨迹仅在 `score` 事件（最终评分）时渲染到 ActivityPanel（`app.py:396-398`）；`checkpoint` 事件虽累积 `_latency_traj`（`app.py:471-486`）但优化进行中无实时展示 | `tui/app.py`（可考虑在 `checkpoint` 事件分支追加一行 ActivityPanel 日志，或在 status_bar 加 latency 字段） | 低 |
+| TUI-02 | review 第一次 reject 后修复成功，但 reject 状态一直挂着直到下一次 review 判定才刷新，延续到编译跑完进入下一阶段 | `review` 事件按 verdict 更新 `_last_review`（`app.py:435-440`），但 reject 后的修复重试循环（`_repair_with_review`/`_apply_with_review` 内 retry）期间不发新 review 事件，导致红字持续；需确认是否真的 review 了（看日志 event 而非仅看 TUI） | `tui/app.py` + `agent/main_loop.py`（可考虑修复重试开始时置 `_last_review="(retrying...)"` 占位） | 低 |
 
 ---
 
@@ -199,7 +210,7 @@
 
 | 类别 | 任务 | 说明 |
 |---|---|---|
-| 🔴 提交硬要求 | P4-05 Docker 打包 | 提交形式即 Docker 环境；复用官方 vitis.dockerfile，镜像内复现验证 |
+| ✅ 已闭合 | ~~P4-05 Docker 打包~~ | **2026-07-22 完成（v0.7.4）**：QFS-STATION build + 镜像内复现验证通过（projection 1.400 / dotProduct 3.000 满分） |
 | 🔴 提交硬要求 | P4-06 技术报告 | 含模型对比实验（赛题要求三选一/多模型对比 + 鼓励评测其他开源模型） |
 | 🔴 提交硬要求 | P4-07 演示视频 ≤5min | 目标平台实跑 + 讲解；与 P3-07 里程碑录屏合并 |
 | 🔴 提交硬要求 | 提交物打包 | 源码 + testbench + 补充材料(.zip) + 视频 |
@@ -234,6 +245,8 @@
 ## 4. 变更记录 (Change Log)
 
 | 日期 | 变更 | 变更人 |
+|---|---|---|
+| 2026-07-22 | **v0.7.4：Docker 打包实测通过（P4-05 转 🟢）**。① 研读赛题规则确认：Dockerfile 是 recommended 非强制，Vitis 自备不需打进镜像（92G+license 绑定），官方 run-vitis.sh 即"挂载宿主机 Vitis"模型。② 新增 `Dockerfile`（Ubuntu 22.04 + 官方 vitis.dockerfile 依赖层 + Python 3.12 venv + textual/rich + agent 源码，Vitis 运行时挂载）、`.dockerignore`、`docker-run.sh`（封装挂载 + API key + 输出目录，CLI/TUI 双模式）。③ **QFS-STATION 实测**：docker build 成功（配镜像加速 + pip 清华源 + venv 解决 3.12 distutils 移除）；容器内跑通 projection_bugfix（csim 9.5s + synth 23.1s，SCORE 1.400）+ dotProduct_optimize（csim 10s + synth 25.6s + optimize 路径，SCORE 3.000 满分），csim/synth 真跑非 mock，SCORE 与宿主机一致。④ **关键发现**：Vitis settings64.sh 硬编码兄弟目录绝对路径（DocNav/Vivado/Model_Composer），必须挂载整个 Xilinx 树到容器内相同路径（非 /opt/xilinx 重映射）。⑤ 修 `_auto_source_vitis` 候选路径补小写 `/opt/xilinx/...`。⑥ getting-started.md 加 §7。⑦ 录屏发现 2 个 TUI 待办（TUI-01/02），记入代办区非阻塞。19/19 测试过。 | Agent 主 |
 |---|---|---|
 | 2026-07-20 | **v0.7.1：KB 语料 JSON 化（清技术债）**。用户打包前指出 KB 内嵌 Python 不合理——执行架构 §9 既定迁移：22 条语料落 `entries.json` 单源（程序化导出零转录错误；JSON 而非 YAML 因纯 stdlib 约束）；entries.py 变薄加载器，调用方零改动；16/16 测试过；entries.doc.md/架构 §9/getting-started FAQ 同步。 | Agent 主 |
 |---|---|---|

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Offline unit tests for agent/main_loop.py (TC-AGENT-001 .. TC-AGENT-009).
+"""Offline unit tests for agent/main_loop.py (TC-AGENT-001 .. TC-AGENT-019).
 
 No Vitis and no LLM API needed: FakeToolServer replays rule-based
 ToolResults against a real harness Budget, and a prompt-sniffing canned
-backend drives HLSLLMClient. The tests pin the v2.3/v2.4 stage semantics
-(agent-architecture.md §4.3-§4.5):
+backend drives HLSLLMClient. The tests pin the v2.3/v2.4/v2.8 stage
+semantics (agent-architecture.md §4.3-§4.5):
 
   TC-AGENT-001  synth failure -> repair loop -> csim re-verify -> synth pass,
                 with a KB hit on the synth error signature
   TC-AGENT-002  optimize accepts a faster candidate, then stops on no
                 improvement (same-level latency arbitration)
-  TC-AGENT-003  optimize discards a candidate that breaks csim; best untouched
+  TC-AGENT-003  optimize csim failure -> repair loop (v2.8) -> exhausted,
+                best untouched
   TC-AGENT-004  structural: post-optimization cosim failure rolls the
                 checkpoint back to the pre-optimization snapshot (§4.5)
   TC-AGENT-005  seed KB retrieval: error codes / keywords hit the right entries
@@ -22,6 +23,9 @@ backend drives HLSLLMClient. The tests pin the v2.3/v2.4 stage semantics
                 alone accepted (combo attribution)
   TC-AGENT-009  v2.4 TUI: ToolErrorBar strategy panel coexists with tool
                 errors; the 150ms show_running heartbeat cannot wipe it
+  TC-AGENT-018  v2.8: latency unreachable (lat=0) -> optimize skipped,
+                no token spent
+  TC-AGENT-019  v2.8: optimize csim failure -> repair (feedback+KB) -> success
 
 Usage:
     python3 scripts/test_main_loop.py
@@ -314,28 +318,35 @@ def tc_002() -> None:
 def tc_003() -> None:
     """TC-AGENT-003: optimize discards a csim-breaking candidate; best kept.
 
-    v2.4 semantics: a single-strategy subset has no fallback, so one failed
-    verification stops the loop (fail-fast) instead of continuing rounds.
+    v2.8 semantics: a single-strategy candidate that breaks csim now enters
+    a repair loop (feedback + KB injection) before being discarded. With the
+    backend always returning the broken code, repairs exhaust and the best
+    stays the baseline.
     """
     task = FakeTask(type="optimize")
-    server = FakeToolServer(total=40)
+    server = FakeToolServer(total=80)
     events: list = []
     agent = _make_agent(task, server,
                         CannedBackend(repair_codes=[BASE_CODE],
                                       apply_codes=[BREAK_CODE]),
-                        events, max_optimize_rounds=2)
+                        events, max_optimize_rounds=2, max_opt_repair=2)
     final = agent.run()
 
     assert final == BASE_CODE, "best must stay the baseline after discards"
+    repairs = [f for e, f in events if e == "optimize_repair"]
+    assert len(repairs) == 2, \
+        f"expected 2 repair attempts (max_opt_repair=2), got {len(repairs)}"
+    assert all(r.get("reason") == "csim_broken" for r in repairs), \
+        f"repairs must be csim_broken: {repairs}"
     discards = [f for e, f in events
                 if e == "optimize_discard" and f.get("reason") == "csim_broken"]
-    assert len(discards) == 1, f"expected 1 csim_broken discard, got {discards}"
+    assert len(discards) == 1, f"expected 1 final csim_broken discard, got {discards}"
     stops = [f for e, f in events if e == "optimize_stop"]
     assert stops and stops[0].get("reason") == "failed", \
-        f"single-strategy failure must stop the loop: {stops}"
+        f"repair exhaustion must stop the loop: {stops}"
     submits = [f for e, f in events if e == "submit"]
     assert submits[0]["final_latency"] == 100
-    print("TC-AGENT-003 PASS  csim-breaking candidate discarded, best untouched")
+    print("TC-AGENT-003 PASS  csim-breaking candidate repaired x2 then discarded, best untouched")
 
 
 def tc_004() -> None:
@@ -917,11 +928,86 @@ def tc_017() -> None:
     print("TC-AGENT-017 PASS  prompts.jsonl: all 5 purposes captured verbatim")
 
 
+def tc_018() -> None:
+    """TC-AGENT-018: latency unreachable -> optimize skipped.
+
+    When the synth report yields latency 0 (combinational logic / the known
+    parse anomaly), `_valid_latency` returns None. The PPA slice is not
+    scorable (scoring.py treats 0 as falsy), so `_run_plan` must skip the
+    optimize phase entirely instead of burning token/credit for zero gain.
+    """
+    task = FakeTask(type="repair")
+    server = FakeToolServer(total=40)
+
+    def synth_handler(code: str) -> ToolResult:
+        """Per-test scripted response for this tool kind."""
+        return _synth_result(True, code, 0)   # zero-latency -> None after filter
+
+    server.synth_handler = synth_handler
+    events: list = []
+    agent = _make_agent(task, server,
+                        CannedBackend(repair_codes=[FIXED_CODE]),
+                        events, max_optimize_rounds=4)
+    final = agent.run()
+
+    skips = [f for e, f in events if e == "optimize_skip"]
+    assert skips and skips[0]["reason"] == "latency_unreachable", \
+        f"expected optimize_skip latency_unreachable, got {skips}"
+    # optimize must NOT have been entered: no phase_enter / propose_strategies
+    enters = [f for e, f in events if e == "phase_enter"
+              and f.get("phase") == "optimize"]
+    assert not enters, f"optimize must not be entered, got {enters}"
+    proposes = [f for e, f in events if e == "llm_call"
+                and f.get("purpose") == "propose_strategies"]
+    assert not proposes, "propose_strategies must not run when skipped"
+    submits = [f for e, f in events if e == "submit"]
+    assert submits[0]["final_latency"] is None, \
+        f"latency None must propagate to submit, got {submits[0]}"
+    print("TC-AGENT-018 PASS  latency=0 -> optimize skipped (latency_unreachable)")
+
+
+def tc_019() -> None:
+    """TC-AGENT-019: optimize csim failure -> repair -> success.
+
+    The first apply_strategies returns code that breaks csim (BREAK_CODE);
+    the repair loop injects the csim feedback + KB hits and retries. The
+    second apply returns FAST60_CODE, which passes csim+synth at latency 60
+    and is archived. Symmetric with the correctness/synth repair loops.
+    """
+    task = FakeTask(type="optimize")
+    server = FakeToolServer(total=80)
+
+    def synth_handler(code: str) -> ToolResult:
+        """Per-test scripted response for this tool kind."""
+        return _synth_result(True, code, 60 if "FAST60" in code else 100)
+
+    server.synth_handler = synth_handler
+    events: list = []
+    agent = _make_agent(task, server,
+                        CannedBackend(repair_codes=[BASE_CODE],
+                                      apply_codes=[BREAK_CODE, FAST60_CODE]),
+                        events, max_optimize_rounds=1, max_opt_repair=2)
+    final = agent.run()
+
+    assert final == FAST60_CODE, \
+        f"repair must recover FAST60, got {final!r}"
+    repairs = [f for e, f in events if e == "optimize_repair"]
+    assert len(repairs) == 1 and repairs[0]["reason"] == "csim_broken", \
+        f"expected 1 csim_broken repair, got {repairs}"
+    improves = [f for e, f in events
+                if e == "checkpoint" and f.get("reason") == "optimize_improve"]
+    assert improves and improves[0]["new_latency"] == 60, \
+        f"expected optimize_improve to 60, got {improves}"
+    submits = [f for e, f in events if e == "submit"]
+    assert submits[0]["final_latency"] == 60
+    print("TC-AGENT-019 PASS  csim-broken -> repair w/ feedback+KB -> FAST60 accepted")
+
+
 def main() -> int:
     """Run all TC-AGENT cases; return 0 iff every one passes."""
     cases = [tc_001, tc_002, tc_003, tc_004, tc_005, tc_006,
              tc_007, tc_008, tc_009, tc_010, tc_011, tc_012,
-             tc_013, tc_014, tc_015, tc_016, tc_017]
+             tc_013, tc_014, tc_015, tc_016, tc_017, tc_018, tc_019]
     failed = 0
     for tc in cases:
         try:

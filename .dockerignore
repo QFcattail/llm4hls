@@ -1,0 +1,65 @@
+# ---- VCS / editor ----
+.git/
+.gitignore
+.zcode/
+
+# ---- Secrets (never bake into image) ----
+.env
+.env.*
+**/.env
+**/api_keys.*
+**/secrets.*
+**/*.pem
+**/*.key
+
+# ---- Python caches ----
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.cache/
+.cache_*/
+
+# ---- Run artifacts (large, regenerable) ----
+runs/*
+!runs/README.md
+tmp/
+
+# ---- Vitis build artifacts (huge, never needed in image) ----
+**/csim/
+**/hls_*.prj/
+*.hw/
+**/impl/
+*.ip_user_files/
+*.jou
+**/sim/
+**/solution*/
+**/syn/
+*.vcd
+*.wdb
+*.xvcd
+.Xil/
+*.as
+
+# ---- Docs that don't affect runtime ----
+docs-development/dev-log/
+docs-development/reviews/
+docs-development/test-plan/
+docs-overview/
+
+# ---- Reference / unrelated contest material ----
+contest/fpl26_reference/
+contest/*.docx
+contest/*.pdf
+
+# ---- Docker meta (avoid recursive context) ----
+Dockerfile
+.dockerignore
+docker-run.sh
+
+# ---- OS noise ----
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

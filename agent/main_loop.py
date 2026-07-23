@@ -46,6 +46,8 @@ class Agent:
         max_rounds: Maximum repair attempts in the correctness stage.
         max_synth_rounds: Maximum repair attempts after a synth failure (§4.3).
         max_optimize_rounds: Maximum PPA optimization rounds (§4.4).
+        max_opt_repair: Maximum repair retries per optimize candidate when
+            csim/synth verification fails (§4.4, symmetric with §4.2/§4.3).
         log: Structured event logger for this run.
         hb: Background heartbeat for stall detection.
     """
@@ -59,6 +61,7 @@ class Agent:
         max_rounds: int = 6,
         max_synth_rounds: int = 3,
         max_optimize_rounds: int = 4,
+        max_opt_repair: int = 3,
         run_dir: Path | str = "runs",
         token_mode: str = "full",
     ) -> None:
@@ -69,6 +72,7 @@ class Agent:
         self.max_rounds = max_rounds
         self.max_synth_rounds = max_synth_rounds
         self.max_optimize_rounds = max_optimize_rounds
+        self.max_opt_repair = max_opt_repair
         self.log = Logger(task.id, run_dir)
         self.hb = Heartbeat(self.log)
         # Token-mode switch (P4-03): "full" (default) keeps the pre-P4-03
@@ -142,9 +146,22 @@ class Agent:
             return ckpt.code   # couldn't synth; keep correct version
 
         # Stage 3: optimize (+ final RTL sanity re-check, §4.5)
+        # Skip when the synth latency is unreachable: a 0/missing latency
+        # (combinational logic, II=1/latency=0, or the known parse anomaly)
+        # means scoring.py's `if cand_lat and base_lat:` (0 is falsy in
+        # Python) yields acceleration=None and ppa_norm=0 -- the 0.3 PPA
+        # slice is not scorable, so optimizing only burns token/credit for
+        # zero score gain. `_valid_latency` already filters lat<=0 to None.
         if plan.needs_optimize and ckpt.level >= Level.SYNTH:
-            self._optimize(plan, ckpt)
-            self._post_opt_cosim_recheck(ckpt)
+            if best_latency is None:
+                self.log.event("optimize_skip",
+                               reason="latency_unreachable",
+                               best_latency=ckpt.latency,
+                               note="synth latency is 0/missing; PPA slice "
+                                    "not scorable, skipping optimization")
+            else:
+                self._optimize(plan, ckpt)
+                self._post_opt_cosim_recheck(ckpt)
 
         return ckpt.code
 
@@ -404,10 +421,12 @@ class Agent:
         exploration with compatibility annotations -> Phase 2b selector
         review AI (dually-confirmed compatible subset) -> Phase 3 combined
         code generation with review gates -> csim/synth re-verification ->
-        same-level latency arbitration (§2 rule 2). A failed multi-strategy
-        candidate falls back to the subset's first strategy alone (combo
-        attribution). Stops on single-strategy failure / no improvement /
-        unaffordable tools / the round cap.
+        same-level latency arbitration (§2 rule 2). A candidate that fails
+        verification now enters a repair loop (feedback + KB injection,
+        symmetric with §4.2/§4.3) before being discarded. A failed
+        multi-strategy candidate falls back to the subset's first strategy
+        alone (combo attribution). Stops on repair exhaustion / no
+        improvement / unaffordable tools / the round cap.
 
         Args:
             plan: The RunPlan (used for context; optimization applies to all).
@@ -509,75 +528,126 @@ class Agent:
         (§2 rule 2). On acceptance the checkpoint and the cached synth
         summary are updated.
 
+        Unlike earlier fail-fast semantics, a single-strategy candidate that
+        fails csim or synth verification now enters a **repair loop**
+        symmetric with §4.2/§4.3: the distilled tool feedback (error codes
+        + log tail) and KB hits are injected into the next
+        ``apply_strategies`` call so the LLM can fix the compile/runtime
+        error and retry, up to ``max_opt_repair`` times. The loop stops
+        early when credit can no longer afford one csim + one synth.
+
+        A **multi-strategy** (combo) candidate that fails does NOT repair
+        here -- it returns "failed" immediately so the caller's
+        combo-attribution fallback (§4.4) can isolate the cause by retrying
+        the first strategy alone (which, being single-strategy, then gets
+        its own repair loop if it still fails).
+
         Args:
             ckpt: The checkpoint holding the current best code.
             strategies: The selected Strategy subset to apply together.
             round_n: Current optimize round number (for logging).
             failure_feedback: Distilled feedback from a previous failed
-                attempt, injected into generation so the LLM avoids
-                repeating the mistake (empty for a first attempt).
+                attempt (e.g. the combo-attribution fallback), injected into
+                the first generation attempt.
 
         Returns:
             An ``(outcome, failure_feedback)`` tuple. ``outcome`` is
             "improved" (accepted as strictly faster), "no_improvement"
-            (verified but not faster), or "failed" (generation/verification
-            failed). ``failure_feedback`` is the distilled tool feedback of
-            the failed attempt ("" when the candidate improved or none was
-            produced) for the caller's failure-aware fallback.
+            (verified but not faster), or "failed" (generation failed or
+            repairs exhausted without a verifiable candidate).
+            ``failure_feedback`` is the accumulated distilled tool feedback
+            ("" when the candidate improved or none was produced) for the
+            caller's failure-aware combo fallback.
         """
-        cand = self._apply_with_review(ckpt.code, strategies,
-                                       failure_feedback=failure_feedback)
-        if cand is None or cand.strip() == ckpt.code.strip():
-            self.log.event("optimize_discard", round=round_n,
-                           reason="no_candidate")
-            return "failed", ""
+        # Repair only single-strategy candidates. A combo failure returns
+        # "failed" immediately so the caller can do combo attribution
+        # (isolate the cause by retrying the first strategy alone).
+        can_repair = len(strategies) <= 1
+        fb = failure_feedback   # accumulated failure feedback, drives repair
+        for repair_n in range(self.max_opt_repair + 1):
+            # Credit gate: need at least 1 csim + 1 synth to verify a
+            # candidate. Stop (not discard) when neither is affordable.
+            if not (self.server.budget.can_afford("csim")
+                    and self.server.budget.can_afford("synth")):
+                self.log.event("optimize_discard", round=round_n,
+                               reason="budget_exhausted")
+                return "failed", fb
 
-        # Re-verify already-passed stages before arbitrating (§5).
-        if not self.server.budget.can_afford("csim"):
-            self.log.event("budget_exhausted", where="optimize-csim",
-                           best_latency=ckpt.latency)
-            return "failed", ""
-        self.hb.set_stage("csim", self.server.budget.remaining())
-        cr = self.server.csim(cand)
-        self.log.event("tool_result", kind="csim", phase=cr.phase,
-                       ok=cr.ok, rc=cr.return_code,
-                       elapsed_s=round(cr.elapsed_s, 1),
-                       credit_spent=self.server.budget.spent,
-                       log=cr.log if not cr.ok else "")
-        if not cr.ok:
-            self.log.event("optimize_discard", round=round_n,
-                           reason="csim_broken", phase=cr.phase)
-            return "failed", build_feedback(cr).as_prompt_block()
-        if not self.server.budget.can_afford("synth"):
-            self.log.event("budget_exhausted", where="optimize-synth",
-                           best_latency=ckpt.latency)
-            return "failed", ""
-        self.hb.set_stage("synth", self.server.budget.remaining())
-        sr = self.server.synth(cand)
-        self.log.event("tool_result", kind="synth", phase=sr.phase,
-                       ok=sr.ok, elapsed_s=round(sr.elapsed_s, 1),
-                       credit_spent=self.server.budget.spent,
-                       log=sr.log if not sr.ok else "")
-        if not sr.ok or sr.report is None:
-            self.log.event("optimize_discard", round=round_n,
-                           reason="synth_failed", phase=sr.phase)
-            return "failed", build_feedback(sr).as_prompt_block()
+            # Generate the candidate (with accumulated failure feedback on
+            # repair retries so the LLM avoids repeating the mistake).
+            cand = self._apply_with_review(ckpt.code, strategies,
+                                           failure_feedback=fb)
+            if cand is None or cand.strip() == ckpt.code.strip():
+                self.log.event("optimize_discard", round=round_n,
+                               reason="no_candidate")
+                return "failed", fb
 
-        # Same-level arbitration: accept only a strictly faster design.
-        lat = self._valid_latency(sr.report)
-        if ckpt.should_accept(Level.SYNTH, lat):
-            old_lat = ckpt.latency
-            # The new code has not been cosim-verified (§4.5 re-checks).
-            ckpt.accept(cand, Level.SYNTH, lat, cosim_ok=None)
-            self._synth_summary = sr.report.summary()
-            self.log.event("checkpoint", old=Level.SYNTH, new=Level.SYNTH,
-                           old_latency=old_lat, new_latency=lat,
-                           reason="optimize_improve")
-            return "improved", ""
+            # Re-verify csim (§5: an edit can break already-passed stages).
+            self.hb.set_stage("csim", self.server.budget.remaining())
+            cr = self.server.csim(cand)
+            self.log.event("tool_result", kind="csim", phase=cr.phase,
+                           ok=cr.ok, rc=cr.return_code,
+                           elapsed_s=round(cr.elapsed_s, 1),
+                           credit_spent=self.server.budget.spent,
+                           log=cr.log if not cr.ok else "")
+            if not cr.ok:
+                if can_repair and repair_n < self.max_opt_repair:
+                    self.log.event("optimize_repair", round=round_n,
+                                   repair=repair_n, reason="csim_broken",
+                                   phase=cr.phase)
+                    fb = (build_feedback(cr).as_prompt_block()
+                          + self._kb_lookup(build_feedback(cr)))
+                    continue   # retry generation with feedback + KB hits
+                self.log.event("optimize_discard", round=round_n,
+                               reason="csim_broken", phase=cr.phase,
+                               repairs=repair_n)
+                return "failed", build_feedback(cr).as_prompt_block()
+
+            # Re-verify synth.
+            if not self.server.budget.can_afford("synth"):
+                self.log.event("optimize_discard", round=round_n,
+                               reason="budget_exhausted")
+                return "failed", fb
+            self.hb.set_stage("synth", self.server.budget.remaining())
+            sr = self.server.synth(cand)
+            self.log.event("tool_result", kind="synth", phase=sr.phase,
+                           ok=sr.ok, elapsed_s=round(sr.elapsed_s, 1),
+                           credit_spent=self.server.budget.spent,
+                           log=sr.log if not sr.ok else "")
+            if not sr.ok or sr.report is None:
+                if can_repair and repair_n < self.max_opt_repair:
+                    self.log.event("optimize_repair", round=round_n,
+                                   repair=repair_n, reason="synth_failed",
+                                   phase=sr.phase)
+                    fb = (build_feedback(sr).as_prompt_block()
+                          + self._kb_lookup(build_feedback(sr)))
+                    continue   # retry generation with feedback + KB hits
+                self.log.event("optimize_discard", round=round_n,
+                               reason="synth_failed", phase=sr.phase,
+                               repairs=repair_n)
+                return "failed", build_feedback(sr).as_prompt_block()
+
+            # Both passed -> same-level arbitration (§2 rule 2): accept
+            # only a strictly faster design.
+            lat = self._valid_latency(sr.report)
+            if ckpt.should_accept(Level.SYNTH, lat):
+                old_lat = ckpt.latency
+                # The new code has not been cosim-verified (§4.5 re-checks).
+                ckpt.accept(cand, Level.SYNTH, lat, cosim_ok=None)
+                self._synth_summary = sr.report.summary()
+                self.log.event("checkpoint", old=Level.SYNTH, new=Level.SYNTH,
+                               old_latency=old_lat, new_latency=lat,
+                               reason="optimize_improve")
+                return "improved", ""
+            self.log.event("optimize_discard", round=round_n,
+                           reason="no_improvement",
+                           best_latency=ckpt.latency, cand_latency=lat)
+            return "no_improvement", ""
+
+        # Repairs exhausted without a verifiable candidate.
         self.log.event("optimize_discard", round=round_n,
-                       reason="no_improvement",
-                       best_latency=ckpt.latency, cand_latency=lat)
-        return "no_improvement", ""
+                       reason="repair_exhausted", repairs=self.max_opt_repair)
+        return "failed", fb
 
     def _apply_with_review(self, code: str,
                            strategies: list[Strategy],

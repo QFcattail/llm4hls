@@ -49,7 +49,12 @@ def _auto_source_vitis() -> bool:
     if _check_vitis_available():
         return True
     candidates = [
+        # Host install (QFS-STATION server) - matches run.sh / agent docs.
         "/home/admin/Xilinx/2025.2/Vitis/settings64.sh",
+        # Docker mount target - matches harness config.py default
+        # (LLM4HLS_VITIS_HLS_ROOT=/opt/xilinx/2025.2/Vitis, lowercase).
+        "/opt/xilinx/2025.2/Vitis/settings64.sh",
+        # Alternative capitalization seen on some hosts.
         "/opt/Xilinx/2025.2/Vitis/settings64.sh",
     ]
     for settings in candidates:

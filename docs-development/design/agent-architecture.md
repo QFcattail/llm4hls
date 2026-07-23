@@ -1,6 +1,6 @@
 # Agent 架构设计 (Agent Architecture)
 
-> 状态：草案 v2.7（2026-07-19）
+> 状态：草案 v2.8（2026-07-22）
 > 阶段：P2 启动前的架构定稿
 > 依据：官方 harness（contest/fpt26-harness/）+ AMD LLM4HLS SHA-256 案例文章 + 本仓库 dev-log 2026-07-11-03
 >
@@ -172,6 +172,8 @@ Lv4: Lv3 + latency 比 baseline 好   → PPA 分（+0.3×diff）
 | **generate** | csim 修复循环 →（cosim 若需）→ synth → optimize | 从头写，大概率 csim 先挂 |
 
 **路径差异只在"correctness 需要过哪几关"：** repair/optimize 只 csim，structural 要 csim+cosim。其余（synth → optimize）所有类型一致。
+
+> **optimize 进入的二次门槛（v2.8）**：路由器仍对所有题型设 `needs_optimize=True`（路由阶段无 latency 信息），但主循环在 synth 完成后会检查 baseline latency 是否可达。若 synth 报告的 latency 为 0 或缺失（纯组合逻辑 II=1/latency=0，或解析异常），`_valid_latency` 返回 None，主循环发 `optimize_skip reason=latency_unreachable` 并跳过 optimize--因为 scoring.py 的 `if cand_lat and base_lat:` 把 0 当 falsy，acceleration 永远 None，PPA 的 0.3 权重对这类题不可达，跑 optimize 只浪费 token/credit。典型案例：projection_bugfix（纯组合逻辑，实测 `Worst-caseLatency=0`）。
 
 ### 3.4 路由器输出
 
@@ -449,10 +451,13 @@ flowchart TD
     Q2 -- 是 --> Recheck["重验 (改代码可能破坏已通过关卡, §5)"]
     Recheck --> RCsim["跑 csim"]
     RCsim --> QC{csim 过?}
-    QC -- 否 --> FB1["组合失败归因回退 (v2.4)"]
+    QC -- 否 --> QR{单策略且<br/>repair 未耗尽?}
+    QR -- 是 --> Rep["optimize_repair (v2.8)<br/>注入: 失败反馈(错误码+日志尾)+KB命中<br/>重新 apply_strategies + 重验"]
+    Rep --> RCsim
+    QR -- 否 --> FB1["组合失败归因回退 (v2.4)"]
     QC -- 是 --> RSynth["跑 synth"]
     RSynth --> QS{synth 过?}
-    QS -- 否 --> FB1
+    QS -- 否 --> QR
 
     QS -- 是 --> Cmp["存档判定 (§2 规则 2)<br/>同关卡比 latency"]
     Cmp --> QL{候选 latency <<br/>best latency?}
@@ -474,7 +479,8 @@ flowchart TD
 - **失败回退改为失败感知（v2.7）**：v2.4 的回退是"盲回退"（组合失败直接试子集首策略）。v2.7 起回退时把失败工具的反馈（错误码 + 日志尾）注入 apply prompt——LLM 知道上次栽在哪（如"pragma 写在文件作用域"），修正后重试，而不是闭眼重赌。
 - **失败回退做组合归因（v2.4）**：组合候选失败（csim 挂/synth 挂/无改进）时，无法知道是哪个策略导致的——回退到子集首策略单独重新生成+重验一次；仍失败才停止优化。每轮最多 2 个候选验证（10 credits）。
 - **轮数上限 `max_optimize_rounds = 4`（v2.3 定）**：每轮最坏花 2×(csim 1 + synth 4) = 10 credits。以 dotProduct（budget=40）为例：correctness ~2 + synth 4，剩 ~34，4 轮留有余量；`can_afford` 检查自然截断。
-- **停止条件（任一命中）**：单策略候选也无改进 / 回退后仍失败 / credit 不够跑 csim+synth / 达到轮数上限。
+- **停止条件（任一命中）**：单策略候选 repair 耗尽仍失败 / 回退后仍失败 / credit 不够跑 csim+synth / 达到轮数上限。
+- **optimize 验证失败修复（v2.8，对称 §4.2/§4.3）**：v2.4-v2.7 的 optimize 是三阶段中唯一没有 repair 循环的——csim/synth 一挂就 discard + stop（单策略）或盲回退（组合）。这在真机暴露了问题：LLM 生成的 ROM 查找表数组初始化多写 66 个元素导致 `compile_error`，agent 直接放弃 optimize 而非修复。v2.8 起，**单策略**候选 csim/synth 失败时进入 repair 循环：`build_feedback` 的错误码 + 日志尾 + KB 命中注入下一轮 `apply_strategies`，LLM 带着失败原因重新生成，最多 `max_opt_repair=3` 次，或 credit 不够一次 csim+synth 时停。**组合候选**失败仍走 combo 归因回退（不 repair，先隔离原因）；回退后的单策略候选若再失败才进自己的 repair 循环——两层互补。
 - 优化改代码后必重验 csim（+ cosim if structural）——pragma 改动是 AMD 点名的 LLM 高错点；组合候选的 pragma 交互风险更高，review focus 必须点名多策略交互。
 - synth 通过的新报告同时更新缓存的 `synth_summary`，下一轮策略探索基于最新数据。
 
@@ -730,6 +736,7 @@ agent 跑一道题可能持续数分钟到数十分钟（cosim 单次最长 15 �
 
 | 日期 | 变更 | 变更人 |
 |---|---|---|
+| 2026-07-22 | v2.8。真机 projection_bugfix 跑分暴露两个问题，据此修两处：① **optimize 进入的二次门槛--latency 可达性**：projection_bugfix 是纯组合逻辑（II=1/latency=0），scoring.py 的 `if cand_lat and base_lat:` 把 0 当 falsy 使 acceleration 恒 None、PPA 0.3 权重不可达。主循环在 synth 完成后检查 baseline latency，若 `_valid_latency` 返回 None 则发 `optimize_skip reason=latency_unreachable` 跳过 optimize（不浪费 token/credit）。判据是 latency 可达性而非 task_type（harness 评分对所有题型统一，repair 题理论上有 PPA 分；needs_optimize 从首版起恒 True，非新引入）。② **optimize 验证失败修复循环（对称 §4.2/§4.3）**：v2.4-v2.7 optimize 是三阶段中唯一无 repair 循环的--csim/synth 一挂即 discard+stop。LLM 生成的 ROM 查找表数组初始化多写 66 个元素致 `compile_error`，agent 直接放弃而非修复。v2.8 起单策略候选 csim/synth 失败时进 repair 循环（`build_feedback` 错误码+日志尾+KB 命中注入 `apply_strategies`，最多 `max_opt_repair=3` 次或 credit 不足时停）；组合候选仍走 combo 归因回退（不 repair，先隔离原因），回退后单策略再失败才进 repair--两层互补。TC-003 更新、新增 TC-018/TC-019。 | Agent 主 |
 | 2026-07-19 | v2.7。按用户三点反馈升级 optimize 决策质量：① **结构化输出**——DeepSeek `response_format: json_object` 真机探针验证，propose/select 改走严格 JSON schema，正则解析降级为非 JSON 后端兜底（消除输出格式发散类故障）；② **评审 AI 扩展为可行性+兼容性双审查**——select_strategies 逐策略判 ok/否决（带毒计划如破坏接口契约者连同理由进 rejected 列表并 TUI 显示），再从幸存策略选兼容子集；③ **盲回退改失败感知回退**——组合失败时把失败工具反馈（错误码+日志尾）注入 fallback apply 的 prompt，LLM 避开上次错误再试。另：select 解析失败改为重试一次再回退，回退在 strategy_select 事件标 `fallback=true`（可见，不再静默）。 | Agent 主 |
 | 2026-07-19 | v2.6。§4.0 按用户反馈重做（标注法 v1→v2）：① 注入来源从"卡内编号注释"改为**虚线箭头真实连接**（数据源/缓存就近放在消费它的阶段图内，不画跨阶段长虚线）；② 全览图从一张大图拆为三张（图 A 三阶段骨架 / 图 B correctness 详解 / 图 C optimize 详解），布局可读性优先；③ 职责行从抽象单词改为一句人话（如 repair="检查明显错误并生成正确代码（无权直接提交，须过双闸门+工具验证）"）；④ review 双闸门完整展开——mechanical 画菱形（非 LLM 硬门），LLM review 画矩形四行卡，出边显式标"驳回+理由→回生成节点 / PASS→下一关"；⑤ "pre-csim 免费审查"正名为 LLM#1 修复生成（首轮=静态体检，附 residual 实例注）。三张图均经 mermaid-cli 渲染验证。 | Agent 主 |
 | 2026-07-18 | v2.4。§4.4 Phase 2/3 重写（用户三决策）：① 策略从"取首策略"改为**组合子集**——propose 时逐策略标注 `combinable_with`，新增评审 AI `select_strategies`（同模型换 prompt self-check）复核兼容性并选子集，**双重确认（提出者+评审者都认互不干扰）才允许组合**，`apply_strategies` 把子集合并应用为一份候选；② 失败回退做组合归因：组合候选失败/无改进 → 回退子集首策略单试一次 → 仍失败才停（每轮最多 2 候选 10 credits）；③ review focus 加"多策略 pragma 交互"。§7 映射表、§8.1 接口（select_strategies 新增、apply_strategies 多策略签名）、§11 交叉验证形式补注同步。 | Agent 主 |

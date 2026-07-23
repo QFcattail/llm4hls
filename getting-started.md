@@ -234,6 +234,70 @@ rsync -az --exclude='.git' --exclude='runs/' --exclude='__pycache__' --exclude='
 
 ---
 
+## 7. Docker 部署（提交评测用）
+
+> 赛题（FPT'26 Track A）要求"提交物能在 Docker 环境中 build 和 run"。本节说明如何构建镜像、在容器内跑 agent。Vitis 2025.2 不打进镜像（~92G，license 绑定），而是从宿主机只读挂载--这正是官方 `run-vitis.sh` 的模型。
+
+### 7.1 前提
+
+- 宿主机已装 Docker，且已装 Vitis 2025.2（默认路径 `/home/admin/Xilinx/2025.2/Vitis`，可用 `VITIS_ROOT` 环境变量覆盖）。
+- DeepSeek API key（`DEEPSEEK_API_KEY` 环境变量，或仓库根 `.env` 文件）--仅 `--backend deepseek` 需要。
+
+### 7.2 构建镜像
+
+```bash
+cd fpga-agent
+docker build -t fpga-agent:0.7.4 .
+```
+
+镜像包含：Ubuntu 22.04 + Vitis 依赖库（镜像官方 `vitis.dockerfile`）+ Python 3.12 + textual/rich（TUI）+ agent 源码 + harness。不含 Vitis 本体（运行时挂载）。
+
+### 7.3 运行（CLI 模式）
+
+```bash
+# 跑一道题（scripted 后端，不花 token，验证链路）
+./docker-run.sh contest/fpt26-harness/tasks/projection_bugfix
+
+# DeepSeek 真修复（花 token）
+./docker-run.sh contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
+```
+
+`docker-run.sh` 自动完成：挂载**整个 Xilinx 目录树**到容器内相同路径（只读，Vitis settings64.sh 硬编码兄弟目录绝对路径，必须保持路径一致）-> 传 `DEEPSEEK_API_KEY` -> 挂载 `runs/` 输出目录 -> 调用 `scripts/run_agent.py`。
+
+> **实测验证（2026-07-22）**：QFS-STATION 上 build 成功，容器内跑通 projection_bugfix（SCORE 1.400）+ dotProduct_optimize（SCORE 3.000 满分），csim/synth 真跑非 mock，SCORE 与宿主机一致。
+
+### 7.4 运行（TUI 模式）
+
+```bash
+./docker-run.sh --tui contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
+```
+
+TUI 需要终端（`-it`），`docker-run.sh --tui` 已处理。
+
+### 7.5 镜像结构
+
+| 路径（容器内） | 说明 |
+|---|---|
+| `/opt/fpga-agent/` | 项目根（agent/ + tui/ + scripts/ + contest/fpt26-harness/） |
+| `/home/admin/Xilinx/` | 宿主机整个 Xilinx 树挂载点（只读，运行时注入；保持宿主机路径因 settings64.sh 硬编码兄弟目录） |
+| `/opt/fpga-agent/runs/` | 运行产物输出（挂载到宿主机，持久化） |
+| `LLM4HLS_VITIS_HLS_ROOT` | 环境变量 = `/home/admin/Xilinx/2025.2/Vitis`（harness config.py 定位 Vitis） |
+
+### 7.6 在 QFS-STATION 服务器上构建
+
+服务器有 Vitis + 466G 数据盘，是实际 build 镜像的地方：
+
+```bash
+ssh QFS-STATION
+cd /home/admin/fpga-agent
+git pull   # 拉取 Dockerfile + docker-run.sh
+docker build -t fpga-agent:0.7.4 .
+# 服务器默认 VITIS_ROOT=/home/admin/Xilinx/2025.2/Vitis，无需额外设置
+./docker-run.sh contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
+```
+
+---
+
 ## 变更记录
 
 | 日期 | 变更 | 变更人 |
