@@ -1,0 +1,149 @@
+{"ts": 1784992727.25645, "task": "residual_stream_deadlock", "event": "route", "task_type": "structural", "correctness_stages": ["csim", "cosim"], "initial_level": 0, "budget": 80, "token_mode": "full"}
+{"ts": 1784992727.256722, "task": "residual_stream_deadlock", "event": "pre_csim_review", "attempt": 1}
+{"ts": 1784992727.2568016, "task": "residual_stream_deadlock", "event": "kb_search", "query": [], "hits": 0, "hit_ids": []}
+{"ts": 1784992737.256828, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 80}
+{"ts": 1784992747.2571368, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 80}
+{"ts": 1784992757.2574484, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 80}
+{"ts": 1784992767.257732, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 80}
+{"ts": 1784992777.2580285, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 80}
+{"ts": 1784992787.25834, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 80}
+{"ts": 1784992794.44594, "task": "residual_stream_deadlock", "event": "mechanical_review", "passed": true, "issues": []}
+{"ts": 1784992797.2586355, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 2.8, "stale": false, "credit_remaining": 80}
+{"ts": 1784992807.2589443, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 80}
+{"ts": 1784992817.2592773, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 80}
+{"ts": 1784992827.2596207, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 80}
+{"ts": 1784992837.2599225, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 80}
+{"ts": 1784992847.260253, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 80}
+{"ts": 1784992850.173773, "task": "residual_stream_deadlock", "event": "review", "verdict": "pass", "retry": 0, "issues": "PASS"}
+{"ts": 1784992850.173841, "task": "residual_stream_deadlock", "event": "pre_csim_fix_applied", "note": "LLM found issues before first csim"}
+{"ts": 1784992857.2605894, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "csim", "age_s": 7.1, "stale": false, "credit_remaining": 80}
+{"ts": 1784992857.6956737, "task": "residual_stream_deadlock", "event": "tool_result", "kind": "csim", "phase": "pass", "ok": true, "rc": 0, "elapsed_s": 7.5, "credit_spent": 1, "log": ""}
+{"ts": 1784992867.2608926, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "cosim", "age_s": 9.6, "stale": false, "credit_remaining": 79}
+{"ts": 1784992877.261238, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 79}
+{"ts": 1784992887.2615457, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 79}
+{"ts": 1784992897.2618296, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 79}
+{"ts": 1784992907.2623878, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 79}
+{"ts": 1784992908.729073, "task": "residual_stream_deadlock", "event": "tool_result", "kind": "cosim", "phase": "pass", "ok": true, "rc": 0, "elapsed_s": 51.0, "credit_spent": 21, "log": ""}
+{"ts": 1784992908.729184, "task": "residual_stream_deadlock", "event": "checkpoint", "old": 0, "new": 1, "reason": "correctness_gate"}
+{"ts": 1784992908.729263, "task": "residual_stream_deadlock", "event": "phase_exit", "phase": "correctness", "result": "ok", "best_level": 1}
+{"ts": 1784992917.2627285, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "synth", "age_s": 8.5, "stale": false, "credit_remaining": 59}
+{"ts": 1784992924.662527, "task": "residual_stream_deadlock", "event": "tool_result", "kind": "synth", "phase": "pass", "ok": true, "elapsed_s": 15.9, "credit_spent": 25, "log": ""}
+{"ts": 1784992924.6626616, "task": "residual_stream_deadlock", "event": "checkpoint", "old": 1, "new": 2, "latency": 68, "reason": "synth_ok"}
+{"ts": 1784992924.6627147, "task": "residual_stream_deadlock", "event": "phase_exit", "phase": "synth", "result": "ok", "latency": 68}
+{"ts": 1784992924.6627605, "task": "residual_stream_deadlock", "event": "phase_enter", "phase": "optimize", "best_level": 2, "best_latency": 68}
+{"ts": 1784992927.2630386, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 2.6, "stale": false, "credit_remaining": 55}
+{"ts": 1784992937.2633731, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784992947.2637157, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784992957.2649376, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784992967.265271, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784992969.0715373, "task": "residual_stream_deadlock", "event": "llm_call", "purpose": "extract_brief", "chars": 1164, "prompt_tokens": 884, "completion_tokens": 2739, "reasoning_tokens": 2458, "model": "qwen3.6-27b"}
+{"ts": 1784992969.0716093, "task": "residual_stream_deadlock", "event": "design_brief", "chars": 1164}
+{"ts": 1784992977.2655988, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 8.2, "stale": false, "credit_remaining": 55}
+{"ts": 1784992987.2658908, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784992997.266211, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993007.2665358, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993017.26683, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993027.2671628, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993037.267491, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993047.2677844, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993057.2681246, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993062.7473383, "task": "residual_stream_deadlock", "event": "llm_call", "purpose": "propose_strategies", "round": 1, "count": 3, "raw_head": "", "prompt_tokens": 1250, "completion_tokens": 5777, "reasoning_tokens": 5220, "model": "qwen3.6-27b"}
+{"ts": 1784993067.2684555, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 4.5, "stale": false, "credit_remaining": 55}
+{"ts": 1784993077.2687404, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993087.2690656, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993097.2694168, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993107.2697144, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993117.2700295, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993127.2704022, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 8.4, "stale": false, "credit_remaining": 55}
+{"ts": 1784993137.2706969, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993147.2710404, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993157.2713754, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993167.2716749, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993177.272005, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993187.2723424, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993187.3752923, "task": "residual_stream_deadlock", "event": "llm_call", "purpose": "select_strategies", "round": 1, "prompt_tokens": 1381, "completion_tokens": 4230, "reasoning_tokens": 4143, "model": "qwen3.6-27b"}
+{"ts": 1784993187.3753693, "task": "residual_stream_deadlock", "event": "strategy_select", "round": 1, "indices": [1, 2], "picked": ["Fuse Stages into Single Pipelined Loop", "Cyclic Array Partitioning for 2-Way Parallelism"], "all": ["Fix Dataflow Hazard via Read Order Swap & Depth Tuning", "Fuse Stages into Single Pipelined Loop", "Cyclic Array Partitioning for 2-Way Parallelism"], "reason": "Fusing eliminates the deadlock-prone dataflow structure entirely, and cyclic partitioning halves the trip count; both pragmas are fully compatible and yield the lowest latency.", "rejected": [], "fallback": false}
+{"ts": 1784993197.2726405, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 9.9, "stale": false, "credit_remaining": 55}
+{"ts": 1784993207.2729683, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993217.273313, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993227.2736146, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993236.7394297, "task": "residual_stream_deadlock", "event": "llm_call", "purpose": "apply_strategies", "strategies": "Fuse Stages into Single Pipelined Loop+Cyclic Array Partitioning for 2-Way Parallelism", "retry": 0, "prompt_tokens": 1417, "completion_tokens": 3329, "reasoning_tokens": 3186, "model": "qwen3.6-27b"}
+{"ts": 1784993236.7396955, "task": "residual_stream_deadlock", "event": "mechanical_review", "passed": true, "issues": []}
+{"ts": 1784993237.2739103, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 0.5, "stale": false, "credit_remaining": 55}
+{"ts": 1784993247.274207, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993257.2745166, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784993264.3984559, "task": "residual_stream_deadlock", "event": "review", "verdict": "pass", "retry": 0, "issues": "PASS"}
+{"ts": 1784993267.2748442, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "csim", "age_s": 2.9, "stale": false, "credit_remaining": 55}
+{"ts": 1784993271.5687869, "task": "residual_stream_deadlock", "event": "tool_result", "kind": "csim", "phase": "pass", "ok": true, "rc": 0, "elapsed_s": 7.2, "credit_spent": 26, "log": ""}
+{"ts": 1784993277.275183, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "synth", "age_s": 5.7, "stale": false, "credit_remaining": 54}
+{"ts": 1784993287.152886, "task": "residual_stream_deadlock", "event": "tool_result", "kind": "synth", "phase": "pass", "ok": true, "elapsed_s": 15.6, "credit_spent": 30, "log": ""}
+{"ts": 1784993287.1530437, "task": "residual_stream_deadlock", "event": "checkpoint", "old": 2, "new": 2, "old_latency": 68, "new_latency": 34, "reason": "optimize_improve"}
+{"ts": 1784993287.275453, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 0.1, "stale": false, "credit_remaining": 50}
+{"ts": 1784993297.27576, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993307.276111, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993317.2764046, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993327.276691, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993337.2770023, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993347.2773032, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993357.2775989, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993362.9930315, "task": "residual_stream_deadlock", "event": "llm_call", "purpose": "propose_strategies", "round": 2, "count": 3, "raw_head": "", "prompt_tokens": 1072, "completion_tokens": 4824, "reasoning_tokens": 4288, "model": "qwen3.6-27b"}
+{"ts": 1784993367.2785878, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 4.3, "stale": false, "credit_remaining": 50}
+{"ts": 1784993377.2788703, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993387.2791605, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993397.2794485, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993406.4656265, "task": "residual_stream_deadlock", "event": "llm_call", "purpose": "select_strategies", "round": 2, "prompt_tokens": 1357, "completion_tokens": 2749, "reasoning_tokens": 2631, "model": "qwen3.6-27b"}
+{"ts": 1784993406.4657059, "task": "residual_stream_deadlock", "event": "strategy_select", "round": 2, "indices": [0, 1], "picked": ["Interleaved Stream Writes & Dataflow Restructuring", "Explicit FIFO Depth Tuning & DATAFLOW Alignment"], "all": ["Interleaved Stream Writes & Dataflow Restructuring", "Explicit FIFO Depth Tuning & DATAFLOW Alignment", "Full Array Partitioning & Loop Unrolling"], "reason": "Interleaving fixes the structural write-order deadlock, while explicit depth=2 optimizes FIFO sizing; both are compatible with DATAFLOW and safely achieve steady-state II=1 latency.", "rejected": [{"id": 3, "name": "Full Array Partitioning & Loop Unrolling", "why": "Loop unrolling eliminates the iterative tasks required for DATAFLOW scheduling, causing pragma conflicts and invalidating the streaming architecture."}], "fallback": false}
+{"ts": 1784993407.2797441, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 0.8, "stale": false, "credit_remaining": 50}
+{"ts": 1784993417.2800627, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993427.2803586, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993437.28066, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993447.2809548, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993457.281264, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993467.281606, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993477.2818987, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993487.2822134, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993497.2825108, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993504.877518, "task": "residual_stream_deadlock", "event": "llm_call", "purpose": "apply_strategies", "strategies": "Interleaved Stream Writes & Dataflow Restructuring+Explicit FIFO Depth Tuning & DATAFLOW Alignment", "retry": 0, "prompt_tokens": 1216, "completion_tokens": 6863, "reasoning_tokens": 6486, "model": "qwen3.6-27b"}
+{"ts": 1784993504.8776805, "task": "residual_stream_deadlock", "event": "mechanical_review", "passed": true, "issues": []}
+{"ts": 1784993507.2828057, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 2.4, "stale": false, "credit_remaining": 50}
+{"ts": 1784993517.283104, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993527.2834024, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993537.2836897, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993547.2839844, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784993552.9122653, "task": "residual_stream_deadlock", "event": "review", "verdict": "pass", "retry": 0, "issues": "PASS"}
+{"ts": 1784993557.2842844, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "csim", "age_s": 4.4, "stale": false, "credit_remaining": 50}
+{"ts": 1784993560.531956, "task": "residual_stream_deadlock", "event": "tool_result", "kind": "csim", "phase": "pass", "ok": true, "rc": 0, "elapsed_s": 7.6, "credit_spent": 31, "log": ""}
+{"ts": 1784993567.2845676, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "synth", "age_s": 6.8, "stale": false, "credit_remaining": 49}
+{"ts": 1784993577.2848496, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "synth", "age_s": 10.0, "stale": false, "credit_remaining": 49}
+{"ts": 1784993583.6629322, "task": "residual_stream_deadlock", "event": "tool_result", "kind": "synth", "phase": "pass", "ok": true, "elapsed_s": 23.1, "credit_spent": 35, "log": ""}
+{"ts": 1784993583.6630633, "task": "residual_stream_deadlock", "event": "optimize_discard", "round": 2, "reason": "no_improvement", "best_latency": 34, "cand_latency": 192}
+{"ts": 1784993583.6631281, "task": "residual_stream_deadlock", "event": "optimize_fallback", "round": 2, "picked": ["Interleaved Stream Writes & Dataflow Restructuring"], "reason": "combo failed; retrying first strategy only (with failure feedback)"}
+{"ts": 1784993587.2851434, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 3.6, "stale": false, "credit_remaining": 45}
+{"ts": 1784993597.2854078, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 45}
+{"ts": 1784993607.2857037, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 45}
+{"ts": 1784993617.285989, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 45}
+{"ts": 1784993627.2862957, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 45}
+{"ts": 1784993637.286624, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 45}
+{"ts": 1784993647.109019, "task": "residual_stream_deadlock", "event": "llm_call", "purpose": "apply_strategies", "strategies": "Interleaved Stream Writes & Dataflow Restructuring", "retry": 0, "prompt_tokens": 1080, "completion_tokens": 4356, "reasoning_tokens": 4079, "model": "qwen3.6-27b"}
+{"ts": 1784993647.1091256, "task": "residual_stream_deadlock", "event": "mechanical_review", "passed": true, "issues": []}
+{"ts": 1784993647.2869542, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 0.2, "stale": false, "credit_remaining": 45}
+{"ts": 1784993657.28724, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 45}
+{"ts": 1784993667.287539, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 45}
+{"ts": 1784993677.2878346, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 45}
+{"ts": 1784993687.2881217, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 45}
+{"ts": 1784993693.7906919, "task": "residual_stream_deadlock", "event": "review", "verdict": "pass", "retry": 0, "issues": "PASS"}
+{"ts": 1784993697.2884114, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "csim", "age_s": 3.5, "stale": false, "credit_remaining": 45}
+{"ts": 1784993701.440088, "task": "residual_stream_deadlock", "event": "tool_result", "kind": "csim", "phase": "pass", "ok": true, "rc": 0, "elapsed_s": 7.6, "credit_spent": 36, "log": ""}
+{"ts": 1784993707.2886968, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "synth", "age_s": 5.8, "stale": false, "credit_remaining": 44}
+{"ts": 1784993717.2889843, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "synth", "age_s": 10.0, "stale": false, "credit_remaining": 44}
+{"ts": 1784993717.5361814, "task": "residual_stream_deadlock", "event": "tool_result", "kind": "synth", "phase": "pass", "ok": true, "elapsed_s": 16.1, "credit_spent": 40, "log": ""}
+{"ts": 1784993717.536313, "task": "residual_stream_deadlock", "event": "optimize_discard", "round": 2, "reason": "no_improvement", "best_latency": 34, "cand_latency": 68}
+{"ts": 1784993717.5363865, "task": "residual_stream_deadlock", "event": "optimize_stop", "reason": "no_improvement", "best_latency": 34}
+{"ts": 1784993717.5364306, "task": "residual_stream_deadlock", "event": "phase_exit", "phase": "optimize", "result": "ok", "best_level": 2, "best_latency": 34}
+{"ts": 1784993727.2892644, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "cosim", "age_s": 9.8, "stale": false, "credit_remaining": 40}
+{"ts": 1784993737.2895572, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 40}
+{"ts": 1784993747.2898512, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 40}
+{"ts": 1784993757.290168, "task": "residual_stream_deadlock", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 40}
+{"ts": 1784993766.12023, "task": "residual_stream_deadlock", "event": "tool_result", "kind": "cosim", "phase": "pass", "ok": true, "elapsed_s": 48.6, "credit_spent": 60, "log": ""}
+{"ts": 1784993766.1203532, "task": "residual_stream_deadlock", "event": "cosim_recheck", "result": "pass"}
+{"ts": 1784993766.1204987, "task": "residual_stream_deadlock", "event": "submit", "final_level": 2, "final_latency": 34, "credit_spent": 60}

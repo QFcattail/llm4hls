@@ -1,0 +1,59 @@
+{
+  "run_dir": "runs/fir_optimize",
+  "baseline": {
+    "part": "xcu55c-fsvh2892-2L-e",
+    "top": "fir",
+    "target_clock_ns": 5.0,
+    "clock_uncertainty_ns": 1.35,
+    "estimated_clock_ns": 3.307,
+    "timing_met": true,
+    "fmax_conservative_mhz": 214.7,
+    "latency_min": "16529",
+    "latency_avg": "16529",
+    "latency_max": "16529",
+    "interval_min": "16384",
+    "interval_max": "16384",
+    "resources": {
+      "LUT": 5174,
+      "FF": 6078,
+      "BRAM_18K": 0,
+      "DSP": 10,
+      "URAM": 0
+    },
+    "available": {
+      "LUT": 1303680,
+      "FF": 2607360,
+      "BRAM_18K": 4032,
+      "DSP": 9024,
+      "URAM": 960
+    }
+  },
+  "candidate": {
+    "part": "xcu55c-fsvh2892-2L-e",
+    "top": "fir",
+    "target_clock_ns": 5.0,
+    "clock_uncertainty_ns": 1.35,
+    "estimated_clock_ns": 2.976,
+    "timing_met": true,
+    "fmax_conservative_mhz": 231.2,
+    "latency_min": "542",
+    "latency_avg": "542",
+    "latency_max": "542",
+    "interval_min": "512",
+    "interval_max": "512",
+    "resources": {
+      "LUT": 19033,
+      "FF": 27041,
+      "BRAM_18K": 0,
+      "DSP": 316,
+      "URAM": 0
+    },
+    "available": {
+      "LUT": 1303680,
+      "FF": 2607360,
+      "BRAM_18K": 4032,
+      "DSP": 9024,
+      "URAM": 960
+    }
+  }
+}

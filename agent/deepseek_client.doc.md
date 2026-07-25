@@ -59,3 +59,22 @@ No `__all__`; primary export is `DeepSeekClient`; module constants `DEFAULT_BASE
 - max_tokens is not sent by default (None = unlimited, letting the model think fully within its context window); thinking.reasoning_effort ("high"/"max") is the only knob for reasoning depth, with no separate max_reasoning_tokens. Since v0.7.0 complete() accepts a per-call `reasoning_effort` override, with "off" mapping to thinking.type=disabled (cheap verdict-class calls save tokens; reasoning is ~89% of completion tokens, i.e. the dominant share).
 - Usage tracking: accumulates prompt/completion/reasoning tokens and call count; `last_usage` holds the per-call snapshot of the most recent call (main_loop's llm_call events log prompt_tokens/completion_tokens/reasoning_tokens from it, architecture §12.2); when streaming yields no usage, completion is estimated as char count / 4.
 - Architecture note: the first iteration ignores token cost (per the architecture), but token usage is higher than non-reasoning models and affects the final score.
+
+### Environment Overrides (v0.8.1, multi-model support)
+Despite the name, the client is now a generic OpenAI-compatible client. When the
+following env vars are unset, behavior is byte-identical to the original DeepSeek
+defaults:
+
+| Env var | Effect |
+|---|---|
+| `LLM_API_KEY` | API key (takes priority over `DEEPSEEK_API_KEY`) |
+| `LLM_BASE_URL` | Chat-completions endpoint URL |
+| `LLM_MODEL` | Model identifier |
+| `LLM_THINKING` | `deepseek` (default, send `thinking` dict) / `enable_thinking` (Qwen-style bool, `off`→false) / `none` (omit field) |
+| `LLM_TEMPERATURE` | Sampling temperature (default 0.2) |
+| `LLM_TIMEOUT` | Request timeout seconds (default 300) |
+
+Used for the FPT'26 rule-6 multi-model evaluation (Qwen3.5 122B / Qwen3.6 27B via
+an Aliyun MaaS OpenAI-compatible endpoint); see `experiments/EXPERIMENT-LOG.md`.
+Known robustness gap surfaced there: no HTTP-level retry — a read timeout aborts
+the whole run (report limitation #4).

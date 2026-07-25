@@ -57,25 +57,44 @@ class DeepSeekClient:
         model: str | None = None,
         api_key: str | None = None,
         base_url: str | None = None,
-        temperature: float = 0.2,
+        temperature: float | None = None,
         max_tokens: int | None = None,
         reasoning_effort: str = "high",
-        timeout: float = 300.0,
+        timeout: float | None = None,
         stream: bool = False,
         on_stream=None,
     ) -> None:
-        self.api_key = api_key or os.environ.get("DEEPSEEK_API_KEY", "")
+        # Environment overrides let the same client talk to any
+        # OpenAI-compatible endpoint (e.g. Aliyun MaaS for Qwen models)
+        # without code changes. Defaults are byte-identical to the original
+        # DeepSeek behavior when the env vars are unset.
+        #   LLM_API_KEY   - API key (fallback: DEEPSEEK_API_KEY)
+        #   LLM_BASE_URL  - chat-completions endpoint URL
+        #   LLM_MODEL     - model identifier
+        #   LLM_THINKING  - "deepseek" (default, send thinking dict) |
+        #                   "enable_thinking" (Qwen-style: map effort to
+        #                   enable_thinking bool, off -> false) |
+        #                   "none" (omit the field entirely; some providers
+        #                   reject unknown fields)
+        #   LLM_TEMPERATURE - sampling temperature
+        #   LLM_TIMEOUT   - request timeout in seconds
+        self.api_key = (api_key or os.environ.get("LLM_API_KEY")
+                        or os.environ.get("DEEPSEEK_API_KEY", ""))
         if not self.api_key:
             raise RuntimeError(
-                "DeepSeek API key missing. Set DEEPSEEK_API_KEY in the "
+                "API key missing. Set LLM_API_KEY or DEEPSEEK_API_KEY in the "
                 "environment (do NOT hardcode it into version-controlled files)."
             )
-        self.model = model or DEFAULT_MODEL
-        self.base_url = base_url or DEFAULT_BASE_URL
-        self.temperature = temperature
+        self.model = model or os.environ.get("LLM_MODEL") or DEFAULT_MODEL
+        self.base_url = (base_url or os.environ.get("LLM_BASE_URL")
+                         or DEFAULT_BASE_URL)
+        self.temperature = (temperature if temperature is not None else
+                            float(os.environ.get("LLM_TEMPERATURE", "0.2")))
         self.max_tokens = max_tokens
         self.reasoning_effort = reasoning_effort
-        self.timeout = timeout
+        self.timeout = (timeout if timeout is not None else
+                        float(os.environ.get("LLM_TIMEOUT", "300")))
+        self.thinking_mode = os.environ.get("LLM_THINKING", "deepseek")
         self.stream = stream
         self.on_stream = on_stream  # callback(delta_kind: str, delta_text: str)
         # running usage stats (for later token accounting)
@@ -125,9 +144,16 @@ class DeepSeekClient:
             # thinking: control reasoning model behavior.
             # reasoning_effort "high" is default; "max" for complex agent tasks;
             # "off" (per-call) disables thinking for cheap verdict calls.
-            "thinking": thinking,
+            # The field is DeepSeek-specific; LLM_THINKING=none omits it for
+            # providers that reject unknown fields (e.g. some MaaS gateways).
             "stream": self.stream,
         }
+        if self.thinking_mode == "enable_thinking":
+            # Qwen-style switch: any effort other than "off" keeps the
+            # model's default thinking behavior; "off" disables it.
+            payload_dict["enable_thinking"] = (effort != "off")
+        elif self.thinking_mode != "none":
+            payload_dict["thinking"] = thinking
         # max_tokens: only send if explicitly set. If None (default), don't
         # send it - let the model use its full context window unconstrained.
         if self.max_tokens is not None:
@@ -226,7 +252,7 @@ class DeepSeekClient:
     def usage_summary(self) -> str:
         """Return a one-line summary of accumulated token usage across calls."""
         return (
-            f"DeepSeek {self.calls} calls | "
+            f"{self.model} {self.calls} calls | "
             f"prompt={self.total_prompt} completion={self.total_completion} "
             f"(reasoning={self.total_reasoning}) "
             f"total={self.total_prompt + self.total_completion}"

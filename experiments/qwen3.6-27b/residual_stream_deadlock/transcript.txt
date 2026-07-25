@@ -1,0 +1,182 @@
+[log] route {'task_type': 'structural', 'correctness_stages': ['csim', 'cosim'], 'initial_level': 0, 'budget': 80, 'token_mode': 'full'}
+[log] pre_csim_review {'attempt': 1}
+[log] kb_search {'query': [], 'hits': 0, 'hit_ids': []}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 80}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 80}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 80}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 80}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 80}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 80}
+[log] mechanical_review {'passed': True, 'issues': []}
+[log] heartbeat {'stage': 'llm', 'age_s': 2.8, 'stale': False, 'credit_remaining': 80}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 80}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 80}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 80}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 80}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 80}
+[log] review {'verdict': 'pass', 'retry': 0, 'issues': 'PASS'}
+[log] pre_csim_fix_applied {'note': 'LLM found issues before first csim'}
+[log] heartbeat {'stage': 'csim', 'age_s': 7.1, 'stale': False, 'credit_remaining': 80}
+[log] tool_result {'kind': 'csim', 'phase': 'pass', 'ok': True, 'rc': 0, 'elapsed_s': 7.5, 'credit_spent': 1, 'log': ''}
+[log] heartbeat {'stage': 'cosim', 'age_s': 9.6, 'stale': False, 'credit_remaining': 79}
+[log] heartbeat {'stage': 'cosim', 'age_s': 10.0, 'stale': False, 'credit_remaining': 79}
+[log] heartbeat {'stage': 'cosim', 'age_s': 10.0, 'stale': False, 'credit_remaining': 79}
+[log] heartbeat {'stage': 'cosim', 'age_s': 10.0, 'stale': False, 'credit_remaining': 79}
+[log] heartbeat {'stage': 'cosim', 'age_s': 10.0, 'stale': False, 'credit_remaining': 79}
+[log] tool_result {'kind': 'cosim', 'phase': 'pass', 'ok': True, 'rc': 0, 'elapsed_s': 51.0, 'credit_spent': 21, 'log': ''}
+[log] checkpoint {'old': 0, 'new': 1, 'reason': 'correctness_gate'}
+[log] phase_exit {'phase': 'correctness', 'result': 'ok', 'best_level': 1}
+[log] heartbeat {'stage': 'synth', 'age_s': 8.5, 'stale': False, 'credit_remaining': 59}
+[log] tool_result {'kind': 'synth', 'phase': 'pass', 'ok': True, 'elapsed_s': 15.9, 'credit_spent': 25, 'log': ''}
+[log] checkpoint {'old': 1, 'new': 2, 'latency': 68, 'reason': 'synth_ok'}
+[log] phase_exit {'phase': 'synth', 'result': 'ok', 'latency': 68}
+[log] phase_enter {'phase': 'optimize', 'best_level': 2, 'best_latency': 68}
+[log] heartbeat {'stage': 'llm', 'age_s': 2.6, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] llm_call {'purpose': 'extract_brief', 'chars': 1164, 'prompt_tokens': 884, 'completion_tokens': 2739, 'reasoning_tokens': 2458, 'model': 'qwen3.6-27b'}
+[log] design_brief {'chars': 1164}
+[log] heartbeat {'stage': 'llm', 'age_s': 8.2, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] llm_call {'purpose': 'propose_strategies', 'round': 1, 'count': 3, 'raw_head': '', 'prompt_tokens': 1250, 'completion_tokens': 5777, 'reasoning_tokens': 5220, 'model': 'qwen3.6-27b'}
+[log] heartbeat {'stage': 'llm', 'age_s': 4.5, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 8.4, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] llm_call {'purpose': 'select_strategies', 'round': 1, 'prompt_tokens': 1381, 'completion_tokens': 4230, 'reasoning_tokens': 4143, 'model': 'qwen3.6-27b'}
+[log] strategy_select {'round': 1, 'indices': [1, 2], 'picked': ['Fuse Stages into Single Pipelined Loop', 'Cyclic Array Partitioning for 2-Way Parallelism'], 'all': ['Fix Dataflow Hazard via Read Order Swap & Depth Tuning', 'Fuse Stages into Single Pipelined Loop', 'Cyclic Array Partitioning for 2-Way Parallelism'], 'reason': 'Fusing eliminates the deadlock-prone dataflow structure entirely, and cyclic partitioning halves the trip count; both pragmas are fully compatible and yield the lowest latency.', 'rejected': [], 'fallback': False}
+[log] heartbeat {'stage': 'llm', 'age_s': 9.9, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] llm_call {'purpose': 'apply_strategies', 'strategies': 'Fuse Stages into Single Pipelined Loop+Cyclic Array Partitioning for 2-Way Parallelism', 'retry': 0, 'prompt_tokens': 1417, 'completion_tokens': 3329, 'reasoning_tokens': 3186, 'model': 'qwen3.6-27b'}
+[log] mechanical_review {'passed': True, 'issues': []}
+[log] heartbeat {'stage': 'llm', 'age_s': 0.5, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] review {'verdict': 'pass', 'retry': 0, 'issues': 'PASS'}
+[log] heartbeat {'stage': 'csim', 'age_s': 2.9, 'stale': False, 'credit_remaining': 55}
+[log] tool_result {'kind': 'csim', 'phase': 'pass', 'ok': True, 'rc': 0, 'elapsed_s': 7.2, 'credit_spent': 26, 'log': ''}
+[log] heartbeat {'stage': 'synth', 'age_s': 5.7, 'stale': False, 'credit_remaining': 54}
+[log] tool_result {'kind': 'synth', 'phase': 'pass', 'ok': True, 'elapsed_s': 15.6, 'credit_spent': 30, 'log': ''}
+[log] checkpoint {'old': 2, 'new': 2, 'old_latency': 68, 'new_latency': 34, 'reason': 'optimize_improve'}
+[log] heartbeat {'stage': 'llm', 'age_s': 0.1, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] llm_call {'purpose': 'propose_strategies', 'round': 2, 'count': 3, 'raw_head': '', 'prompt_tokens': 1072, 'completion_tokens': 4824, 'reasoning_tokens': 4288, 'model': 'qwen3.6-27b'}
+[log] heartbeat {'stage': 'llm', 'age_s': 4.3, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] llm_call {'purpose': 'select_strategies', 'round': 2, 'prompt_tokens': 1357, 'completion_tokens': 2749, 'reasoning_tokens': 2631, 'model': 'qwen3.6-27b'}
+[log] strategy_select {'round': 2, 'indices': [0, 1], 'picked': ['Interleaved Stream Writes & Dataflow Restructuring', 'Explicit FIFO Depth Tuning & DATAFLOW Alignment'], 'all': ['Interleaved Stream Writes & Dataflow Restructuring', 'Explicit FIFO Depth Tuning & DATAFLOW Alignment', 'Full Array Partitioning & Loop Unrolling'], 'reason': 'Interleaving fixes the structural write-order deadlock, while explicit depth=2 optimizes FIFO sizing; both are compatible with DATAFLOW and safely achieve steady-state II=1 latency.', 'rejected': [{'id': 3, 'name': 'Full Array Partitioning & Loop Unrolling', 'why': 'Loop unrolling eliminates the iterative tasks required for DATAFLOW scheduling, causing pragma conflicts and invalidating the streaming architecture.'}], 'fallback': False}
+[log] heartbeat {'stage': 'llm', 'age_s': 0.8, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] llm_call {'purpose': 'apply_strategies', 'strategies': 'Interleaved Stream Writes & Dataflow Restructuring+Explicit FIFO Depth Tuning & DATAFLOW Alignment', 'retry': 0, 'prompt_tokens': 1216, 'completion_tokens': 6863, 'reasoning_tokens': 6486, 'model': 'qwen3.6-27b'}
+[log] mechanical_review {'passed': True, 'issues': []}
+[log] heartbeat {'stage': 'llm', 'age_s': 2.4, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] review {'verdict': 'pass', 'retry': 0, 'issues': 'PASS'}
+[log] heartbeat {'stage': 'csim', 'age_s': 4.4, 'stale': False, 'credit_remaining': 50}
+[log] tool_result {'kind': 'csim', 'phase': 'pass', 'ok': True, 'rc': 0, 'elapsed_s': 7.6, 'credit_spent': 31, 'log': ''}
+[log] heartbeat {'stage': 'synth', 'age_s': 6.8, 'stale': False, 'credit_remaining': 49}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 49}
+[log] tool_result {'kind': 'synth', 'phase': 'pass', 'ok': True, 'elapsed_s': 23.1, 'credit_spent': 35, 'log': ''}
+[log] optimize_discard {'round': 2, 'reason': 'no_improvement', 'best_latency': 34, 'cand_latency': 192}
+[log] optimize_fallback {'round': 2, 'picked': ['Interleaved Stream Writes & Dataflow Restructuring'], 'reason': 'combo failed; retrying first strategy only (with failure feedback)'}
+[log] heartbeat {'stage': 'llm', 'age_s': 3.6, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] llm_call {'purpose': 'apply_strategies', 'strategies': 'Interleaved Stream Writes & Dataflow Restructuring', 'retry': 0, 'prompt_tokens': 1080, 'completion_tokens': 4356, 'reasoning_tokens': 4079, 'model': 'qwen3.6-27b'}
+[log] mechanical_review {'passed': True, 'issues': []}
+[log] heartbeat {'stage': 'llm', 'age_s': 0.2, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] review {'verdict': 'pass', 'retry': 0, 'issues': 'PASS'}
+[log] heartbeat {'stage': 'csim', 'age_s': 3.5, 'stale': False, 'credit_remaining': 45}
+[log] tool_result {'kind': 'csim', 'phase': 'pass', 'ok': True, 'rc': 0, 'elapsed_s': 7.6, 'credit_spent': 36, 'log': ''}
+[log] heartbeat {'stage': 'synth', 'age_s': 5.8, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] tool_result {'kind': 'synth', 'phase': 'pass', 'ok': True, 'elapsed_s': 16.1, 'credit_spent': 40, 'log': ''}
+[log] optimize_discard {'round': 2, 'reason': 'no_improvement', 'best_latency': 34, 'cand_latency': 68}
+[log] optimize_stop {'reason': 'no_improvement', 'best_latency': 34}
+[log] phase_exit {'phase': 'optimize', 'result': 'ok', 'best_level': 2, 'best_latency': 34}
+[log] heartbeat {'stage': 'cosim', 'age_s': 9.8, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'cosim', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'cosim', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'cosim', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] tool_result {'kind': 'cosim', 'phase': 'pass', 'ok': True, 'elapsed_s': 48.6, 'credit_spent': 60, 'log': ''}
+[log] cosim_recheck {'result': 'pass'}
+[log] submit {'final_level': 2, 'final_latency': 34, 'credit_spent': 60}
+=== Task residual_stream_deadlock [structural, difficulty 4] ===
+    budget: 80 credits | backend: deepseek
+
+qwen3.6-27b 14 calls | prompt=13854 completion=54511 (reasoning=51669) total=68365
+
+--- metered tool transcript ---
+  #1  [csim] pass (rc=0, 7.5s)   [spent 1/80]
+  #2  [cosim] pass (rc=0, 51.0s) | cosim=Pass measured_latency(max)=97   [spent 21/80]
+  #3  [synth] pass (rc=0, 15.9s) | latency(worst)=68 cyc  II=64  clk~2.796ns  LUT=406 FF=231 DSP=0 BRAM=0 URAM=0   [spent 25/80]
+  #4  [csim] pass (rc=0, 7.2s)   [spent 26/80]
+  #5  [synth] pass (rc=0, 15.6s) | latency(worst)=34 cyc  II=32  clk~1.481ns  LUT=142 FF=14 DSP=0 BRAM=0 URAM=0   [spent 30/80]
+  #6  [csim] pass (rc=0, 7.6s)   [spent 31/80]
+  #7  [synth] pass (rc=0, 23.1s) | latency(worst)=192 cyc  II=64  clk~2.796ns  LUT=2564 FF=1426 DSP=0 BRAM=0 URAM=0   [spent 35/80]
+  #8  [csim] pass (rc=0, 7.6s)   [spent 36/80]
+  #9  [synth] pass (rc=0, 16.1s) | latency(worst)=68 cyc  II=64  clk~2.796ns  LUT=406 FF=231 DSP=0 BRAM=0 URAM=0   [spent 40/80]
+  #10 [cosim] pass (rc=0, 48.6s) | cosim=Pass measured_latency(max)=32   [spent 60/80]
+  budget 60/80 credits spent (csimx4, cosimx2, synthx4)
+
+=== Grading (hidden testbench + PPA, uncharged) ===
+=== Scorecard: residual_stream_deadlock (difficulty 4) ===
+  functional (hidden TB): PASS
+  synthesizable         : PASS
+  cosim (C/RTL verify)  : PASS
+  baseline latency      : 135 cyc
+  candidate latency     : 34 cyc
+  acceleration          : 3.97x  (opt=True)
+  candidate resources   : LUT=142 FF=14 DSP=0 BRAM=0
+  SCORE                 : 3.396
+
+recent scores (residual_stream_deadlock):
+  2026-07-25 23:37  SCORE 3.396  lat=34  credits=60  tokens=68365
+
+final kernel -> /home/admin/fpga-agent/runs/qwen3.6-27b/residual_stream_deadlock/final_residual.cpp

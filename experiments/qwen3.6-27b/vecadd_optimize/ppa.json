@@ -1,0 +1,59 @@
+{
+  "run_dir": "runs/qwen3.6-27b/vecadd_optimize",
+  "baseline": {
+    "part": "xcu55c-fsvh2892-2L-e",
+    "top": "vecadd",
+    "target_clock_ns": 5.0,
+    "clock_uncertainty_ns": 1.35,
+    "estimated_clock_ns": 2.976,
+    "timing_met": true,
+    "fmax_conservative_mhz": 231.2,
+    "latency_min": "4102",
+    "latency_avg": "4102",
+    "latency_max": "4102",
+    "interval_min": "4096",
+    "interval_max": "4096",
+    "resources": {
+      "LUT": 330,
+      "FF": 305,
+      "BRAM_18K": 0,
+      "DSP": 2,
+      "URAM": 0
+    },
+    "available": {
+      "LUT": 1303680,
+      "FF": 2607360,
+      "BRAM_18K": 4032,
+      "DSP": 9024,
+      "URAM": 960
+    }
+  },
+  "candidate": {
+    "part": "xcu55c-fsvh2892-2L-e",
+    "top": "vecadd",
+    "target_clock_ns": 5.0,
+    "clock_uncertainty_ns": 1.35,
+    "estimated_clock_ns": 2.976,
+    "timing_met": true,
+    "fmax_conservative_mhz": 231.2,
+    "latency_min": "4102",
+    "latency_avg": "4102",
+    "latency_max": "4102",
+    "interval_min": "4096",
+    "interval_max": "4096",
+    "resources": {
+      "LUT": 330,
+      "FF": 305,
+      "BRAM_18K": 0,
+      "DSP": 2,
+      "URAM": 0
+    },
+    "available": {
+      "LUT": 1303680,
+      "FF": 2607360,
+      "BRAM_18K": 4032,
+      "DSP": 9024,
+      "URAM": 960
+    }
+  }
+}

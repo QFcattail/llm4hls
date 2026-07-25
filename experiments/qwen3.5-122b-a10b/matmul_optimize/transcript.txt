@@ -1,0 +1,434 @@
+[log] route {'task_type': 'optimize', 'correctness_stages': ['csim'], 'initial_level': 1, 'budget': 60, 'token_mode': 'full'}
+[log] pre_csim_review {'attempt': 1}
+[log] kb_search {'query': [], 'hits': 0, 'hit_ids': []}
+[log] mechanical_review {'passed': True, 'issues': []}
+[log] heartbeat {'stage': 'llm', 'age_s': 0.8, 'stale': False, 'credit_remaining': 60}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 60}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 60}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 60}
+[log] review {'verdict': 'reject', 'retry': 0, 'issues': 'FAIL\n\n**Issues:**\n1.  **Pragma Placement Hazard:** `#pragma HLS PIPELINE` is separated from the target `k` loop by the variable declaration `DataT acc = 0;`. HLS pragmas must immediately precede the l'}
+[log] heartbeat {'stage': 'llm', 'age_s': 1.2, 'stale': False, 'credit_remaining': 60}
+[log] mechanical_review {'passed': True, 'issues': []}
+[log] heartbeat {'stage': 'llm', 'age_s': 5.3, 'stale': False, 'credit_remaining': 60}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 60}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 60}
+[log] review {'verdict': 'reject', 'retry': 1, 'issues': 'FAIL\n\n**Issues:**\n1.  **Invalid `DATAFLOW` Usage:** `#pragma HLS DATAFLOW` is applied at the function level but the function contains no internal task functions. `DATAFLOW` regions require tasks (sub-'}
+[log] pre_csim_fix_applied {'note': 'LLM found issues before first csim'}
+[log] tool_result {'kind': 'csim', 'phase': 'pass', 'ok': True, 'rc': 0, 'elapsed_s': 7.0, 'credit_spent': 1, 'log': ''}
+[log] phase_exit {'phase': 'correctness', 'result': 'ok', 'best_level': 1}
+[log] heartbeat {'stage': 'synth', 'age_s': 0.4, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 59}
+[log] tool_result {'kind': 'synth', 'phase': 'timeout', 'ok': False, 'elapsed_s': 600.1, 'credit_spent': 5, 'log': "\n****** vitis-run v2025.2 (64-bit)\n  **** SW Build 6295257 on 2025-11-13-01:29:13\n  **** Start of session at: Sat Jul 25 23:48:14 2026\n    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.\n    ** Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.\n\n  **** HLS Build v2025.2 6295257\nSourcing Tcl script '/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_2/run_hls.tcl'\nINFO: [HLS 200-1510] Running: open_project synth_proj \nWARNING: [HLS 200-2182] The 'synth_proj' project will not automatically appear within Vitis IDE workspaces and is meant only for TCL batch use.  Please use open_component instead of open_project/open_solution to generate Vitis IDE compatible component files and directory structure.\nResolution: For help on HLS 200-2182 see docs.amd.com/access/sources/dita/topic?Doc_Version=2025.2%20English&url=ug1448-hls-guidance&resourceid=200-2182.html\nINFO: [HLS 200-10] Creating and opening solution '/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_2/synth_proj'.\nINFO: [HLS 200-1510] Running: add_files matmul.cpp \nINFO: [HLS 200-10] Adding design file 'matmul.cpp' to the project\nINFO: [HLS 200-1510] Running: open_solution sol -flow_target vivado \nINFO: [HLS 200-10] Creating and opening solution '/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_2/synth_proj/sol'.\nINFO: [HLS 200-1505] Using flow_target 'vivado'\nResolution: For help on HLS 200-1505 see docs.amd.com/access/sources/dita/topic?Doc_Version=2025.2%20English&url=ug1448-hls-guidance&resourceid=200-1505.html\nINFO: [HLS 200-1510] Running: set_top matmul \nINFO: [HLS 200-1510] Running: set_part xcu55c-fsvh2892-2L-e \nINFO: [HLS 200-1611] Setting target device to 'xcu55c-fsvh2892-2L-e'\nINFO: [HLS 200-1510] Running: create_clock -period 5.0 -name clk_default \nINFO: [SYN 201-201] Setting up clock 'clk_default' with a period of 5ns.\nINFO: [HLS 200-1510] Running: config_compile -unsafe_math_optimizations \nINFO: [XFORM 203-1172] Optimizing floating point zeros and discarding its signedness.\nINFO: [XFORM 203-1176] Optimizing floating point comparison without checking NaN.\nINFO: [XFORM 203-1173] Reordering floating point operations aggressively.\nINFO: [HLS 200-1510] Running: csynth_design \nINFO: [HLS 200-111] Finished File checks and directory preparation: CPU user time: 0.1 seconds. CPU system time: 0.07 seconds. Elapsed time: 0.17 seconds; current allocated memory: 463.777 MB.\nINFO: [HLS 200-2191] C-Synthesis will use clang-16 as the compiler\nINFO: [HLS 200-10] Analyzing design file 'matmul.cpp' ... \nWARNING: [HLS 214-114] Since the only kind of statements allowed in a canonical dataflow region are variable declarations and function calls, the compiler may not be able to correctly handle the region (matmul.cpp:16:9)\nResolution: For help on HLS 214-114 see docs.amd.com/access/sources/dita/topic?Doc_Version=2025.2%20English&url=ug1448-hls-guidance&resourceid=214-114.html\nWARNING: [HLS 200-471] Dataflow form checks found 1 issue(s) in file matmul.cpp\nResolution: For help on HLS 200-471 see docs.amd.com/access/sources/dita/topic?Doc_Version=2025.2%20English&url=ug1448-hls-guidance&resourceid=200-471.html\nINFO: [HLS 200-111] Finished Source Code Analysis and Preprocessing: CPU user time: 0.34 seconds. CPU system time: 0.33 seconds. Elapsed time: 0.67 seconds; current allocated memory: 465.754 MB.\nINFO: [HLS 200-777] Using interface defaults for 'Vivado' flow target.\nINFO: [HLS 200-1995] There were 54 instructions in the design after the 'Compile/Link' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_2/synth_proj/sol/syn/report/csynth_design_size.rpt:2)\nINFO: [HLS 200-1995] There were 38 instructions in the design after the 'Unroll/Inline (step 1)' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_2/synth_proj/sol/syn/report/csynth_design_size.rpt:2)\nINFO: [HLS 200-1995] There were 32 instructions in the design after the 'Unroll/Inline (step 2)' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_2/synth_proj/sol/syn/report/csynth_design_size.rpt:2)\nINFO: [HLS 200-1995] There were 32 instructions in the design after the 'Unroll/Inline (step 3)' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_2/synth_proj/sol/syn/report/csynth_design_size.rpt:2)\nINFO: [HLS 200-1995] There were 32 instructions in the design after the 'Unroll/Inline (step 4)' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_2/synth_proj/sol/syn/report/csynth_design_size.rpt:2)\nINFO: [HLS 200-1995] There were 6,585 instructions in the design after the 'Array/Struct (step 1)' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_2/synth_proj/sol/syn/report/csynth_design_size.rpt:2)\nINFO: [HLS 200-1995] There were 6,553 instructions in the design after the 'Array/Struct (step 2)' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_2/synth_proj/sol/syn/report/csynth_design_size.rpt:2)\nINFO: [HLS 200-1995] There were 6,553 instructions in the design after the 'Array/Struct (step 3)' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_2/synth_proj/sol/syn/report/csynth_design_size.rpt:2)\nINFO: [HLS 200-1995] There were 6,553 instructions in the design after the 'Array/Struct (step 4)' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.\n... [337438 chars elided] ...\n'C_15_31', 'C_16_0', 'C_16_1', 'C_16_2', 'C_16_3', 'C_16_4', 'C_16_5', 'C_16_6', 'C_16_7', 'C_16_8', 'C_16_9', 'C_16_10', 'C_16_11', 'C_16_12', 'C_16_13', 'C_16_14', 'C_16_15', 'C_16_16', 'C_16_17', 'C_16_18', 'C_16_19', 'C_16_20', 'C_16_21', 'C_16_22', 'C_16_23', 'C_16_24', 'C_16_25', 'C_16_26', 'C_16_27', 'C_16_28', 'C_16_29', 'C_16_30', 'C_16_31', 'C_17_0', 'C_17_1', 'C_17_2', 'C_17_3', 'C_17_4', 'C_17_5', 'C_17_6', 'C_17_7', 'C_17_8', 'C_17_9', 'C_17_10', 'C_17_11', 'C_17_12', 'C_17_13', 'C_17_14', 'C_17_15', 'C_17_16', 'C_17_17', 'C_17_18', 'C_17_19', 'C_17_20', 'C_17_21', 'C_17_22', 'C_17_23', 'C_17_24', 'C_17_25', 'C_17_26', 'C_17_27', 'C_17_28', 'C_17_29', 'C_17_30', 'C_17_31', 'C_18_0', 'C_18_1', 'C_18_2', 'C_18_3', 'C_18_4', 'C_18_5', 'C_18_6', 'C_18_7', 'C_18_8', 'C_18_9', 'C_18_10', 'C_18_11', 'C_18_12', 'C_18_13', 'C_18_14', 'C_18_15', 'C_18_16', 'C_18_17', 'C_18_18', 'C_18_19', 'C_18_20', 'C_18_21', 'C_18_22', 'C_18_23', 'C_18_24', 'C_18_25', 'C_18_26', 'C_18_27', 'C_18_28', 'C_18_29', 'C_18_30', 'C_18_31', 'C_19_0', 'C_19_1', 'C_19_2', 'C_19_3', 'C_19_4', 'C_19_5', 'C_19_6', 'C_19_7', 'C_19_8', 'C_19_9', 'C_19_10', 'C_19_11', 'C_19_12', 'C_19_13', 'C_19_14', 'C_19_15', 'C_19_16', 'C_19_17', 'C_19_18', 'C_19_19', 'C_19_20', 'C_19_21', 'C_19_22', 'C_19_23', 'C_19_24', 'C_19_25', 'C_19_26', 'C_19_27', 'C_19_28', 'C_19_29', 'C_19_30', 'C_19_31', 'C_20_0', 'C_20_1', 'C_20_2', 'C_20_3', 'C_20_4', 'C_20_5', 'C_20_6', 'C_20_7', 'C_20_8', 'C_20_9', 'C_20_10', 'C_20_11', 'C_20_12', 'C_20_13', 'C_20_14', 'C_20_15', 'C_20_16', 'C_20_17', 'C_20_18', 'C_20_19', 'C_20_20', 'C_20_21', 'C_20_22', 'C_20_23', 'C_20_24', 'C_20_25', 'C_20_26', 'C_20_27', 'C_20_28', 'C_20_29', 'C_20_30', 'C_20_31', 'C_21_0', 'C_21_1', 'C_21_2', 'C_21_3', 'C_21_4', 'C_21_5', 'C_21_6', 'C_21_7', 'C_21_8', 'C_21_9', 'C_21_10', 'C_21_11', 'C_21_12', 'C_21_13', 'C_21_14', 'C_21_15', 'C_21_16', 'C_21_17', 'C_21_18', 'C_21_19', 'C_21_20', 'C_21_21', 'C_21_22', 'C_21_23', 'C_21_24', 'C_21_25', 'C_21_26', 'C_21_27', 'C_21_28', 'C_21_29', 'C_21_30', 'C_21_31', 'C_22_0', 'C_22_1', 'C_22_2', 'C_22_3', 'C_22_4', 'C_22_5', 'C_22_6', 'C_22_7', 'C_22_8', 'C_22_9', 'C_22_10', 'C_22_11', 'C_22_12', 'C_22_13', 'C_22_14', 'C_22_15', 'C_22_16', 'C_22_17', 'C_22_18', 'C_22_19', 'C_22_20', 'C_22_21', 'C_22_22', 'C_22_23', 'C_22_24', 'C_22_25', 'C_22_26', 'C_22_27', 'C_22_28', 'C_22_29', 'C_22_30', 'C_22_31', 'C_23_0', 'C_23_1', 'C_23_2', 'C_23_3', 'C_23_4', 'C_23_5', 'C_23_6', 'C_23_7', 'C_23_8', 'C_23_9', 'C_23_10', 'C_23_11', 'C_23_12', 'C_23_13', 'C_23_14', 'C_23_15', 'C_23_16', 'C_23_17', 'C_23_18', 'C_23_19', 'C_23_20', 'C_23_21', 'C_23_22', 'C_23_23', 'C_23_24', 'C_23_25', 'C_23_26', 'C_23_27', 'C_23_28', 'C_23_29', 'C_23_30', 'C_23_31', 'C_24_0', 'C_24_1', 'C_24_2', 'C_24_3', 'C_24_4', 'C_24_5', 'C_24_6', 'C_24_7', 'C_24_8', 'C_24_9', 'C_24_10', 'C_24_11', 'C_24_12', 'C_24_13', 'C_24_14', 'C_24_15', 'C_24_16', 'C_24_17', 'C_24_18', 'C_24_19', 'C_24_20', 'C_24_21', 'C_24_22', 'C_24_23', 'C_24_24', 'C_24_25', 'C_24_26', 'C_24_27', 'C_24_28', 'C_24_29', 'C_24_30', 'C_24_31', 'C_25_0', 'C_25_1', 'C_25_2', 'C_25_3', 'C_25_4', 'C_25_5', 'C_25_6', 'C_25_7', 'C_25_8', 'C_25_9', 'C_25_10', 'C_25_11', 'C_25_12', 'C_25_13', 'C_25_14', 'C_25_15', 'C_25_16', 'C_25_17', 'C_25_18', 'C_25_19', 'C_25_20', 'C_25_21', 'C_25_22', 'C_25_23', 'C_25_24', 'C_25_25', 'C_25_26', 'C_25_27', 'C_25_28', 'C_25_29', 'C_25_30', 'C_25_31', 'C_26_0', 'C_26_1', 'C_26_2', 'C_26_3', 'C_26_4', 'C_26_5', 'C_26_6', 'C_26_7', 'C_26_8', 'C_26_9', 'C_26_10', 'C_26_11', 'C_26_12', 'C_26_13', 'C_26_14', 'C_26_15', 'C_26_16', 'C_26_17', 'C_26_18', 'C_26_19', 'C_26_20', 'C_26_21', 'C_26_22', 'C_26_23', 'C_26_24', 'C_26_25', 'C_26_26', 'C_26_27', 'C_26_28', 'C_26_29', 'C_26_30', 'C_26_31', 'C_27_0', 'C_27_1', 'C_27_2', 'C_27_3', 'C_27_4', 'C_27_5', 'C_27_6', 'C_27_7', 'C_27_8', 'C_27_9', 'C_27_10', 'C_27_11', 'C_27_12', 'C_27_13', 'C_27_14', 'C_27_15', 'C_27_16', 'C_27_17', 'C_27_18', 'C_27_19', 'C_27_20', 'C_27_21', 'C_27_22', 'C_27_23', 'C_27_24', 'C_27_25', 'C_27_26', 'C_27_27', 'C_27_28', 'C_27_29', 'C_27_30', 'C_27_31', 'C_28_0', 'C_28_1', 'C_28_2', 'C_28_3', 'C_28_4', 'C_28_5', 'C_28_6', 'C_28_7', 'C_28_8', 'C_28_9', 'C_28_10', 'C_28_11', 'C_28_12', 'C_28_13', 'C_28_14', 'C_28_15', 'C_28_16', 'C_28_17', 'C_28_18', 'C_28_19', 'C_28_20', 'C_28_21', 'C_28_22', 'C_28_23', 'C_28_24', 'C_28_25', 'C_28_26', 'C_28_27', 'C_28_28', 'C_28_29', 'C_28_30', 'C_28_31', 'C_29_0', 'C_29_1', 'C_29_2', 'C_29_3', 'C_29_4', 'C_29_5', 'C_29_6', 'C_29_7', 'C_29_8', 'C_29_9', 'C_29_10', 'C_29_11', 'C_29_12', 'C_29_13', 'C_29_14', 'C_29_15', 'C_29_16', 'C_29_17', 'C_29_18', 'C_29_19', 'C_29_20', 'C_29_21', 'C_29_22', 'C_29_23', 'C_29_24', 'C_29_25', 'C_29_26', 'C_29_27', 'C_29_28', 'C_29_29', 'C_29_30', 'C_29_31', 'C_30_0', 'C_30_1', 'C_30_2', 'C_30_3', 'C_30_4', 'C_30_5', 'C_30_6', 'C_30_7', 'C_30_8', 'C_30_9', 'C_30_10', 'C_30_11', 'C_30_12', 'C_30_13', 'C_30_14', 'C_30_15', 'C_30_16', 'C_30_17', 'C_30_18', 'C_30_19', 'C_30_20', 'C_30_21', 'C_30_22', 'C_30_23', 'C_30_24', 'C_30_25', 'C_30_26', 'C_30_27', 'C_30_28', 'C_30_29', 'C_30_30', 'C_30_31', 'C_31_0', 'C_31_1', 'C_31_2', 'C_31_3', 'C_31_4', 'C_31_5', 'C_31_6', 'C_31_7', 'C_31_8', 'C_31_9', 'C_31_10', 'C_31_11', 'C_31_12', 'C_31_13', 'C_31_14', 'C_31_15', 'C_31_16', 'C_31_17', 'C_31_18', 'C_31_19', 'C_31_20', 'C_31_21', 'C_31_22', 'C_31_23', 'C_31_24', 'C_31_25', 'C_31_26', 'C_31_27', 'C_31_28', 'C_31_29', 'C_31_30' and 'C_31_31' to AXI-Lite port control.\nINFO: [RTGEN 206-100] Bundling port 'return' to AXI-Lite port ctrl.\nINFO: [RTGEN 206-100] Finished creating RTL model for 'matmul'.\nINFO: [HLS 200-111] Finished Creating RTL model: CPU user time: 44.67 seconds. CPU system time: 1.12 seconds. Elapsed time: 45.8 seconds; current allocated memory: 1.723 GB.\nINFO: [HLS 200-111] Finished Generating all RTL models: CPU user time: 65.19 seconds. CPU system time: 1.52 seconds. Elapsed time: 66.71 seconds; current allocated memory: 1.964 GB.\n\n"}
+[log] kb_search {'query': ['[HLS 200-1510]', '[HLS 200-2182]', '[HLS 200-10]', '[HLS 200-1505]', '[HLS 200-1611]', '[XFORM 203-1172]', '[XFORM 203-1176]', '[XFORM 203-1173]', '[HLS 200-111]', '[HLS 200-2191]', '[HLS 214-114]', '[HLS 200-471]', '[HLS 200-777]', '[HLS 200-1995]', '[RTGEN 206-100]'], 'hits': 0, 'hit_ids': []}
+[log] heartbeat {'stage': 'llm', 'age_s': 0.3, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] mechanical_review {'passed': True, 'issues': []}
+[log] heartbeat {'stage': 'llm', 'age_s': 7.7, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] review {'verdict': 'reject', 'retry': 0, 'issues': 'FAIL\n\n**Issues:**\n1.  **Pragma Placement Hazard:** Loop directives (`#pragma HLS PIPELINE`, `#pragma HLS LOOP_FLATTEN`) are placed **inside** the loop bodies instead of immediately preceding the loop '}
+[log] heartbeat {'stage': 'llm', 'age_s': 4.4, 'stale': False, 'credit_remaining': 55}
+[log] mechanical_review {'passed': True, 'issues': []}
+[log] heartbeat {'stage': 'llm', 'age_s': 6.1, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 55}
+[log] review {'verdict': 'reject', 'retry': 1, 'issues': 'FAIL\n\nConcrete Issues:\n1.  **Invalid Interface Pragma**: `#pragma HLS INTERFACE s_axilite port=return` is specified for a `void` function. The return port does not exist for `void` functions and will '}
+[log] tool_result {'kind': 'csim', 'phase': 'pass', 'ok': True, 'rc': 0, 'elapsed_s': 7.0, 'credit_spent': 6, 'log': ''}
+[log] heartbeat {'stage': 'synth', 'age_s': 0.3, 'stale': False, 'credit_remaining': 54}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 54}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 54}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 54}
+[log] tool_result {'kind': 'synth', 'phase': 'pass', 'ok': True, 'elapsed_s': 39.0, 'credit_spent': 10, 'log': ''}
+[log] checkpoint {'old': 1, 'new': 2, 'latency': 52295, 'reason': 'synth_ok'}
+[log] phase_exit {'phase': 'synth', 'result': 'ok', 'latency': 52295}
+[log] phase_enter {'phase': 'optimize', 'best_level': 2, 'best_latency': 52295}
+[log] heartbeat {'stage': 'llm', 'age_s': 1.3, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] llm_call {'purpose': 'extract_brief', 'chars': 1070, 'prompt_tokens': 881, 'completion_tokens': 2109, 'reasoning_tokens': 1865, 'model': 'qwen3.5-122b-a10b'}
+[log] design_brief {'chars': 1070}
+[log] heartbeat {'stage': 'llm', 'age_s': 9.6, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] llm_call {'purpose': 'propose_strategies', 'round': 1, 'count': 4, 'raw_head': '', 'prompt_tokens': 1221, 'completion_tokens': 1608, 'reasoning_tokens': 997, 'model': 'qwen3.5-122b-a10b'}
+[log] heartbeat {'stage': 'llm', 'age_s': 9.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] llm_call {'purpose': 'select_strategies', 'round': 1, 'prompt_tokens': 1355, 'completion_tokens': 7262, 'reasoning_tokens': 7063, 'model': 'qwen3.5-122b-a10b'}
+[log] strategy_select {'round': 1, 'indices': [3], 'picked': ['Partial UNROLL on outer loops (factor=4)'], 'all': ['Full UNROLL outer loops', 'DATAFLOW pragma on function', 'Remove LOOP_FLATTEN off pragmas', 'Partial UNROLL on outer loops (factor=4)'], 'reason': 'Partial unroll achieves high performance gain with guaranteed timing closure on the target device.', 'rejected': [{'id': 1, 'name': 'Full UNROLL outer loops', 'why': 'Full unroll creates 1024 parallel pipelines; routing congestion and register pressure will likely violate timing at 200 MHz.'}, {'id': 2, 'name': 'DATAFLOW pragma on function', 'why': 'DATAFLOW requires explicit task boundaries (functions) to parallelize loops; applying it to a monolithic function without task extraction is ineffective.'}], 'fallback': False}
+[log] heartbeat {'stage': 'llm', 'age_s': 2.8, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] llm_call {'purpose': 'apply_strategies', 'strategies': 'Partial UNROLL on outer loops (factor=4)', 'retry': 0, 'prompt_tokens': 1211, 'completion_tokens': 5748, 'reasoning_tokens': 5393, 'model': 'qwen3.5-122b-a10b'}
+[log] mechanical_review {'passed': True, 'issues': []}
+[log] heartbeat {'stage': 'llm', 'age_s': 2.8, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] review {'verdict': 'reject', 'retry': 0, 'issues': 'FAIL\n\nConcrete Issues:\n1. **Invalid `ARRAY_PARTITION` on `m_axi` Interfaces**: `#pragma HLS ARRAY_PARTITION` is applied to function arguments `A` and `B` which are mapped to `m_axi` (external memory).'}
+[log] heartbeat {'stage': 'llm', 'age_s': 3.3, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] llm_call {'purpose': 'apply_strategies', 'strategies': 'Partial UNROLL on outer loops (factor=4)', 'retry': 1, 'prompt_tokens': 1211, 'completion_tokens': 5921, 'reasoning_tokens': 5566, 'model': 'qwen3.5-122b-a10b'}
+[log] mechanical_review {'passed': True, 'issues': []}
+[log] heartbeat {'stage': 'llm', 'age_s': 8.7, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 50}
+[log] review {'verdict': 'reject', 'retry': 1, 'issues': 'FAIL\n\n**Issues:**\n1.  **Output Array Contention:** The `i` and `j` loops are unrolled (4x4 = 16 parallel instances), resulting in 16 concurrent writes to `C[i][j]`. However, `C` is not partitioned. Th'}
+[log] heartbeat {'stage': 'csim', 'age_s': 3.8, 'stale': False, 'credit_remaining': 50}
+[log] tool_result {'kind': 'csim', 'phase': 'pass', 'ok': True, 'rc': 0, 'elapsed_s': 7.6, 'credit_spent': 11, 'log': ''}
+[log] heartbeat {'stage': 'synth', 'age_s': 6.2, 'stale': False, 'credit_remaining': 49}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 49}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 49}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 49}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 49}
+[log] tool_result {'kind': 'synth', 'phase': 'pass', 'ok': True, 'elapsed_s': 55.7, 'credit_spent': 15, 'log': ''}
+[log] checkpoint {'old': 2, 'new': 2, 'old_latency': 52295, 'new_latency': 51753, 'reason': 'optimize_improve'}
+[log] heartbeat {'stage': 'llm', 'age_s': 0.5, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] llm_call {'purpose': 'propose_strategies', 'round': 2, 'count': 4, 'raw_head': '', 'prompt_tokens': 1241, 'completion_tokens': 1537, 'reasoning_tokens': 878, 'model': 'qwen3.5-122b-a10b'}
+[log] heartbeat {'stage': 'llm', 'age_s': 6.9, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] llm_call {'purpose': 'select_strategies', 'round': 2, 'prompt_tokens': 1401, 'completion_tokens': 6063, 'reasoning_tokens': 5892, 'model': 'qwen3.5-122b-a10b'}
+[log] strategy_select {'round': 2, 'indices': [2], 'picked': ['Increase Unroll Factor to 16'], 'all': ['Complete Unroll Outer Loops', 'Add DATAFLOW with Task Partitioning', 'Increase Unroll Factor to 16', 'Remove LOOP_FLATTEN OFF Pragmas'], 'reason': 'Strategy 3 provides significant latency reduction (256x parallelism) while maintaining timing closure feasibility, avoiding the excessive risk of full unroll and overhead of DATAFLOW.', 'rejected': [{'id': 1, 'name': 'Complete Unroll Outer Loops', 'why': 'Full unroll of 32x32 creates 1024 parallel paths causing routing congestion and timing violations at 200MHz despite DSP availability.'}, {'id': 4, 'name': 'Remove LOOP_FLATTEN OFF Pragmas', 'why': 'Removing LOOP_FLATTEN does not resolve outer loop serialization bottleneck and may disrupt accumulation dependencies.'}], 'fallback': False}
+[log] heartbeat {'stage': 'llm', 'age_s': 6.4, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] llm_call {'purpose': 'apply_strategies', 'strategies': 'Increase Unroll Factor to 16', 'retry': 0, 'prompt_tokens': 1230, 'completion_tokens': 7289, 'reasoning_tokens': 6932, 'model': 'qwen3.5-122b-a10b'}
+[log] mechanical_review {'passed': True, 'issues': []}
+[log] heartbeat {'stage': 'llm', 'age_s': 1.6, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] review {'verdict': 'reject', 'retry': 0, 'issues': 'FAIL\n\nConcrete Issues:\n1.  **Invalid Pragma Application:** `ARRAY_PARTITION` cannot be applied to function arguments mapped to `m_axi` interfaces (`A`, `B`). `m_axi` ports represent external memory; p'}
+[log] heartbeat {'stage': 'llm', 'age_s': 0.9, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] llm_call {'purpose': 'apply_strategies', 'strategies': 'Increase Unroll Factor to 16', 'retry': 1, 'prompt_tokens': 1230, 'completion_tokens': 6079, 'reasoning_tokens': 5722, 'model': 'qwen3.5-122b-a10b'}
+[log] mechanical_review {'passed': True, 'issues': []}
+[log] heartbeat {'stage': 'llm', 'age_s': 5.8, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 45}
+[log] review {'verdict': 'reject', 'retry': 1, 'issues': 'FAIL\n\n1.  **Array Partitioning Mismatch (Write Contention):** `i` and `j` loops are unrolled by factor 16, creating up to 256 concurrent write operations to `C`. `C` lacks `ARRAY_PARTITION`, defaultin'}
+[log] tool_result {'kind': 'csim', 'phase': 'pass', 'ok': True, 'rc': 0, 'elapsed_s': 7.0, 'credit_spent': 16, 'log': ''}
+[log] heartbeat {'stage': 'synth', 'age_s': 1.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 44}
+[log] tool_result {'kind': 'synth', 'phase': 'pass', 'ok': True, 'elapsed_s': 198.1, 'credit_spent': 20, 'log': ''}
+[log] checkpoint {'old': 2, 'new': 2, 'old_latency': 51753, 'new_latency': 50595, 'reason': 'optimize_improve'}
+[log] heartbeat {'stage': 'llm', 'age_s': 2.8, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] llm_call {'purpose': 'propose_strategies', 'round': 3, 'count': 4, 'raw_head': '', 'prompt_tokens': 1245, 'completion_tokens': 1361, 'reasoning_tokens': 657, 'model': 'qwen3.5-122b-a10b'}
+[log] heartbeat {'stage': 'llm', 'age_s': 7.4, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] llm_call {'purpose': 'select_strategies', 'round': 3, 'prompt_tokens': 1389, 'completion_tokens': 6310, 'reasoning_tokens': 6099, 'model': 'qwen3.5-122b-a10b'}
+[log] strategy_select {'round': 3, 'indices': [1, 2], 'picked': ['DATAFLOW with Task Pipelining', 'C Array Partitioning (Row-wise)'], 'all': ['Full Unroll Outer Loops + C Partition', 'DATAFLOW with Task Pipelining', 'C Array Partitioning (Row-wise)', 'Remove LOOP_FLATTEN OFF Pragmas'], 'reason': 'DATAFLOW overlaps outer iterations while C partition prevents write contention, maximizing throughput without resource explosion.', 'rejected': [{'id': 1, 'name': 'Full Unroll Outer Loops + C Partition', 'why': '1024 parallel units saturate m_axi bandwidth and cause bank conflicts on A/B partitions; resource usage risks timing failure at 200MHz.'}, {'id': 4, 'name': 'Remove LOOP_FLATTEN OFF Pragmas', 'why': "Contradicts 'no pragmas' initial state description; loop flattening degrades memory locality required for effective matrix partitioning."}], 'fallback': False}
+[log] heartbeat {'stage': 'llm', 'age_s': 2.7, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] llm_call {'purpose': 'apply_strategies', 'strategies': 'DATAFLOW with Task Pipelining+C Array Partitioning (Row-wise)', 'retry': 0, 'prompt_tokens': 1354, 'completion_tokens': 14601, 'reasoning_tokens': 14176, 'model': 'qwen3.5-122b-a10b'}
+[log] mechanical_review {'passed': True, 'issues': []}
+[log] heartbeat {'stage': 'llm', 'age_s': 8.8, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] review {'verdict': 'reject', 'retry': 0, 'issues': 'FAIL\n\n**Concrete Issues:**\n1.  **PIPELINE + DATAFLOW Conflict:** `compute_element` is marked `INLINE`. When inlined into `matmul` (which contains `#pragma HLS DATAFLOW`), the `#pragma HLS PIPELINE` in'}
+[log] heartbeat {'stage': 'llm', 'age_s': 9.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] llm_call {'purpose': 'apply_strategies', 'strategies': 'DATAFLOW with Task Pipelining+C Array Partitioning (Row-wise)', 'retry': 1, 'prompt_tokens': 1354, 'completion_tokens': 10536, 'reasoning_tokens': 10022, 'model': 'qwen3.5-122b-a10b'}
+[log] mechanical_review {'passed': True, 'issues': []}
+[log] heartbeat {'stage': 'llm', 'age_s': 8.4, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 40}
+[log] review {'verdict': 'reject', 'retry': 1, 'issues': 'FAIL\n\n**Concrete Issues:**\n1.  **Conflicting Memory Model:** `#pragma HLS ARRAY_PARTITION` on `A`, `B`, `C` inside `compute_cell` contradicts the `m_axi` interface in `matmul`. Partitioning arguments '}
+[log] heartbeat {'stage': 'csim', 'age_s': 2.8, 'stale': False, 'credit_remaining': 40}
+[log] tool_result {'kind': 'csim', 'phase': 'pass', 'ok': True, 'rc': 0, 'elapsed_s': 7.0, 'credit_spent': 21, 'log': ''}
+[log] heartbeat {'stage': 'synth', 'age_s': 5.9, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] heartbeat {'stage': 'synth', 'age_s': 10.0, 'stale': False, 'credit_remaining': 39}
+[log] tool_result {'kind': 'synth', 'phase': 'timeout', 'ok': False, 'elapsed_s': 600.0, 'credit_spent': 25, 'log': "\n****** vitis-run v2025.2 (64-bit)\n  **** SW Build 6295257 on 2025-11-13-01:29:13\n  **** Start of session at: Sun Jul 26 00:22:39 2026\n    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.\n    ** Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.\n\n  **** HLS Build v2025.2 6295257\nSourcing Tcl script '/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_10/run_hls.tcl'\nINFO: [HLS 200-1510] Running: open_project synth_proj \nWARNING: [HLS 200-2182] The 'synth_proj' project will not automatically appear within Vitis IDE workspaces and is meant only for TCL batch use.  Please use open_component instead of open_project/open_solution to generate Vitis IDE compatible component files and directory structure.\nResolution: For help on HLS 200-2182 see docs.amd.com/access/sources/dita/topic?Doc_Version=2025.2%20English&url=ug1448-hls-guidance&resourceid=200-2182.html\nINFO: [HLS 200-10] Creating and opening solution '/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_10/synth_proj'.\nINFO: [HLS 200-1510] Running: add_files matmul.cpp \nINFO: [HLS 200-10] Adding design file 'matmul.cpp' to the project\nINFO: [HLS 200-1510] Running: open_solution sol -flow_target vivado \nINFO: [HLS 200-10] Creating and opening solution '/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_10/synth_proj/sol'.\nINFO: [HLS 200-1505] Using flow_target 'vivado'\nResolution: For help on HLS 200-1505 see docs.amd.com/access/sources/dita/topic?Doc_Version=2025.2%20English&url=ug1448-hls-guidance&resourceid=200-1505.html\nINFO: [HLS 200-1510] Running: set_top matmul \nINFO: [HLS 200-1510] Running: set_part xcu55c-fsvh2892-2L-e \nINFO: [HLS 200-1611] Setting target device to 'xcu55c-fsvh2892-2L-e'\nINFO: [HLS 200-1510] Running: create_clock -period 5.0 -name clk_default \nINFO: [SYN 201-201] Setting up clock 'clk_default' with a period of 5ns.\nINFO: [HLS 200-1510] Running: config_compile -unsafe_math_optimizations \nINFO: [XFORM 203-1172] Optimizing floating point zeros and discarding its signedness.\nINFO: [XFORM 203-1176] Optimizing floating point comparison without checking NaN.\nINFO: [XFORM 203-1173] Reordering floating point operations aggressively.\nINFO: [HLS 200-1510] Running: csynth_design \nINFO: [HLS 200-111] Finished File checks and directory preparation: CPU user time: 0.07 seconds. CPU system time: 0.08 seconds. Elapsed time: 0.17 seconds; current allocated memory: 463.777 MB.\nINFO: [HLS 200-2191] C-Synthesis will use clang-16 as the compiler\nINFO: [HLS 200-10] Analyzing design file 'matmul.cpp' ... \nWARNING: [HLS 214-114] Since the only kind of statements allowed in a canonical dataflow region are variable declarations and function calls, the compiler may not be able to correctly handle the region (matmul.cpp:34:9)\nResolution: For help on HLS 214-114 see docs.amd.com/access/sources/dita/topic?Doc_Version=2025.2%20English&url=ug1448-hls-guidance&resourceid=214-114.html\nWARNING: [HLS 200-471] Dataflow form checks found 1 issue(s) in file matmul.cpp\nResolution: For help on HLS 200-471 see docs.amd.com/access/sources/dita/topic?Doc_Version=2025.2%20English&url=ug1448-hls-guidance&resourceid=200-471.html\nINFO: [HLS 200-111] Finished Source Code Analysis and Preprocessing: CPU user time: 0.37 seconds. CPU system time: 0.33 seconds. Elapsed time: 0.69 seconds; current allocated memory: 465.816 MB.\nINFO: [HLS 200-777] Using interface defaults for 'Vivado' flow target.\nINFO: [HLS 200-1995] There were 58 instructions in the design after the 'Compile/Link' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_10/synth_proj/sol/syn/report/csynth_design_size.rpt:2)\nINFO: [HLS 200-1995] There were 25,640 instructions in the design after the 'Unroll/Inline (step 1)' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_10/synth_proj/sol/syn/report/csynth_design_size.rpt:2)\nINFO: [HLS 200-1995] There were 19,461 instructions in the design after the 'Unroll/Inline (step 2)' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_10/synth_proj/sol/syn/report/csynth_design_size.rpt:2)\nINFO: [HLS 200-1995] There were 18,440 instructions in the design after the 'Unroll/Inline (step 3)' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_10/synth_proj/sol/syn/report/csynth_design_size.rpt:2)\nINFO: [HLS 200-1995] There were 18,440 instructions in the design after the 'Unroll/Inline (step 4)' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_10/synth_proj/sol/syn/report/csynth_design_size.rpt:2)\nWARNING: [HLS 200-1995] There were 111,842 instructions in the design after the 'Array/Struct (step 1)' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_10/synth_proj/sol/syn/report/csynth_design_size.rpt:2)\nINFO: [HLS 200-1995] There were 16,578 instructions in the design after the 'Array/Struct (step 2)' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_10/synth_proj/sol/syn/report/csynth_design_size.rpt:2)\nINFO: [HLS 200-1995] There were 16,578 instructions in the design after the 'Array/Struct (step 3)' phase of compilation. See the Design Size Report for more details (/home/admin/fpga-agent/runs/qwen3.5-122b-a10b/matmul_optimize/agent/synth_10/synth_proj/sol/syn/report/csynth_design_size.rpt:2)\nINFO: [HLS 200-1995] There were 16,578 instructions in the design after the 'Array/Struct (step 4)' phase of compilation. See the Design Size Report for more details\n... [8049893 chars elided] ...\n1_19_0_ARLOCK' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_819_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_19_0_ARCACHE' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_819_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_19_0_ARPROT' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_819_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_19_0_ARQOS' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_819_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_19_0_ARREGION' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_819_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_19_0_ARUSER' to 0.\nINFO: [RTGEN 206-100] Generating core module 'fadd_32ns_32ns_32_2_full_dsp_1': 1 instance(s).\nINFO: [RTGEN 206-100] Generating core module 'fmul_32ns_32ns_32_4_max_dsp_1': 1 instance(s).\nINFO: [RTGEN 206-100] Finished creating RTL model for 'compute_cell_819_Pipeline_VITIS_LOOP_19_1'.\nINFO: [HLS 200-111] Finished Creating RTL model: CPU user time: 0.26 seconds. CPU system time: 0.01 seconds. Elapsed time: 0.27 seconds; current allocated memory: 26.368 GB.\nINFO: [HLS 200-10] ----------------------------------------------------------------\nINFO: [HLS 200-10] -- Generating RTL for module 'compute_cell_819' \nINFO: [HLS 200-10] ----------------------------------------------------------------\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_819/grp_fu_20186_p_opcode' to 0.\nINFO: [RTGEN 206-100] Generating core module 'fadd_32ns_32ns_32_2_full_dsp_1': 1 instance(s).\nINFO: [RTGEN 206-100] Generating core module 'fmul_32ns_32ns_32_4_max_dsp_1': 1 instance(s).\nINFO: [RTGEN 206-100] Finished creating RTL model for 'compute_cell_819'.\nINFO: [HLS 200-111] Finished Creating RTL model: CPU user time: 0.15 seconds. CPU system time: 0.02 seconds. Elapsed time: 0.17 seconds; current allocated memory: 26.372 GB.\nINFO: [HLS 200-10] ----------------------------------------------------------------\nINFO: [HLS 200-10] -- Generating RTL for module 'compute_cell_820_Pipeline_VITIS_LOOP_19_1' \nINFO: [HLS 200-10] ----------------------------------------------------------------\nINFO: [HLS 200-1030] Apply Unified Pipeline Control on module 'compute_cell_820_Pipeline_VITIS_LOOP_19_1' pipeline 'VITIS_LOOP_19_1' pipeline type 'loop pipeline'\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem0_25_0_ARVALID' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem0_25_0_ARADDR' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem0_25_0_ARID' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem0_25_0_ARLEN' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem0_25_0_ARSIZE' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem0_25_0_ARBURST' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem0_25_0_ARLOCK' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem0_25_0_ARCACHE' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem0_25_0_ARPROT' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem0_25_0_ARQOS' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem0_25_0_ARREGION' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem0_25_0_ARUSER' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_20_0_ARVALID' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_20_0_ARADDR' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_20_0_ARID' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_20_0_ARLEN' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_20_0_ARSIZE' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_20_0_ARBURST' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_20_0_ARLOCK' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_20_0_ARCACHE' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_20_0_ARPROT' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_20_0_ARQOS' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_20_0_ARREGION' to 0.\nWARNING: [RTGEN 206-101] Setting dangling out port 'compute_cell_820_Pipeline_VITIS_LOOP_19_1/m_axi_gmem1_20_0_ARUSER' to 0.\nINFO: [RTGEN 206-100] Generating core module 'fadd_32ns_32ns_32_2_full_dsp_1': 1 instance(s).\nINFO: [RTGEN 206-100] Generating core module 'fmul_32ns_32ns_32_4_max_dsp_1': 1 instance(s).\nINFO: [RTGEN 206-100] Finished creating RTL model for 'compute_cell_820_Pipeline_VITIS_LOOP_19_1'.\nINFO: [HLS 200-111] Finished Creating RTL model: CPU user time: 0.25 seconds. CPU system time: 0.01 seconds. Elapsed time: 0.27 seconds; current allocated memory: 26.376 GB.\nINFO: [HLS 200-10] ----------------------------------------------------------------\nINFO: [HLS 200-10] -- Generating RTL for module 'compute_cell_820' \nINFO: [HLS 200-10] ----------------------------------------------------------------\n\n"}
+[log] optimize_discard {'round': 3, 'reason': 'synth_failed', 'phase': 'timeout', 'repairs': 0}
+[log] optimize_fallback {'round': 3, 'picked': ['DATAFLOW with Task Pipelining'], 'reason': 'combo failed; retrying first strategy only (with failure feedback)'}
+[log] heartbeat {'stage': 'llm', 'age_s': 5.8, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] heartbeat {'stage': 'llm', 'age_s': 10.0, 'stale': False, 'credit_remaining': 35}
+[log] submit {'final_level': 2, 'final_latency': 50595, 'credit_spent': 25}
+=== Task matmul_optimize [optimize, difficulty 3] ===
+    budget: 60 credits | backend: deepseek
+Traceback (most recent call last):
+  File "/home/admin/fpga-agent/scripts/run_agent.py", line 176, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/admin/fpga-agent/scripts/run_agent.py", line 140, in main
+    final = agent.run()
+            ^^^^^^^^^^^
+  File "/home/admin/fpga-agent/agent/main_loop.py", line 116, in run
+    return self._run_plan(plan, ckpt)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/admin/fpga-agent/agent/main_loop.py", line 169, in _run_plan
+    self._optimize(plan, ckpt)
+  File "/home/admin/fpga-agent/agent/main_loop.py", line 527, in _optimize
+    outcome, _ = self._try_opt_candidate(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/admin/fpga-agent/agent/main_loop.py", line 617, in _try_opt_candidate
+    cand = self._apply_with_review(ckpt.code, strategies,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/admin/fpga-agent/agent/main_loop.py", line 715, in _apply_with_review
+    new_code = self.llm.apply_strategies(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/admin/fpga-agent/agent/llm_client.py", line 412, in apply_strategies
+    return _harness_extract(self._complete(system, user,
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/admin/fpga-agent/agent/llm_client.py", line 126, in _complete
+    resp = self.backend.complete(system, user)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/admin/fpga-agent/agent/deepseek_client.py", line 175, in complete
+    resp = urllib.request.urlopen(req, timeout=self.timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 515, in open
+    response = self._open(req, data)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 532, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 1392, in https_open
+    return self.do_open(http.client.HTTPSConnection, req,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 1348, in do_open
+    r = h.getresponse()
+        ^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/http/client.py", line 1450, in getresponse
+    response.begin()
+  File "/usr/lib/python3.12/http/client.py", line 336, in begin
+    version, status, reason = self._read_status()
+                              ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/http/client.py", line 297, in _read_status
+    line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/socket.py", line 720, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/ssl.py", line 1251, in recv_into
+    return self.read(nbytes, buffer)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/ssl.py", line 1103, in read
+    return self._sslobj.read(len, buffer)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TimeoutError: The read operation timed out

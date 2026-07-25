@@ -1,0 +1,19 @@
+{"ts": 1784726852.7150543, "task": "projection_bugfix", "event": "route", "task_type": "repair", "correctness_stages": ["csim"], "initial_level": 0, "budget": 20, "token_mode": "full"}
+{"ts": 1784726852.715339, "task": "projection_bugfix", "event": "pre_csim_review", "attempt": 1}
+{"ts": 1784726852.7154725, "task": "projection_bugfix", "event": "kb_search", "query": [], "hits": 0, "hit_ids": []}
+{"ts": 1784726852.7159874, "task": "projection_bugfix", "event": "mechanical_review", "passed": true, "issues": []}
+{"ts": 1784726852.7161837, "task": "projection_bugfix", "event": "review", "verdict": "reject", "retry": 0, "issues": "```cpp\n#include \"projection.h\"\n\n// Golden correct reference.\nvoid projection(Triangle_3D triangle_3d, Triangle_2D *triangle_2d, bit2 angle) {\n    if (angle == 0) {\n        triangle_2d->x0 = triangle_3"}
+{"ts": 1784726852.7163754, "task": "projection_bugfix", "event": "mechanical_review", "passed": true, "issues": []}
+{"ts": 1784726852.7164989, "task": "projection_bugfix", "event": "review", "verdict": "reject", "retry": 1, "issues": "```cpp\n#include \"projection.h\"\n\n// Golden correct reference.\nvoid projection(Triangle_3D triangle_3d, Triangle_2D *triangle_2d, bit2 angle) {\n    if (angle == 0) {\n        triangle_2d->x0 = triangle_3"}
+{"ts": 1784726852.716551, "task": "projection_bugfix", "event": "pre_csim_fix_applied", "note": "LLM found issues before first csim"}
+{"ts": 1784726862.2623563, "task": "projection_bugfix", "event": "tool_result", "kind": "csim", "phase": "pass", "ok": true, "rc": 0, "elapsed_s": 9.5, "credit_spent": 1, "log": ""}
+{"ts": 1784726862.2624948, "task": "projection_bugfix", "event": "checkpoint", "old": 0, "new": 1, "reason": "correctness_gate"}
+{"ts": 1784726862.2625587, "task": "projection_bugfix", "event": "phase_exit", "phase": "correctness", "result": "ok", "best_level": 1}
+{"ts": 1784726862.7154272, "task": "projection_bugfix", "event": "heartbeat", "stage": "synth", "age_s": 0.5, "stale": false, "credit_remaining": 19}
+{"ts": 1784726872.7157445, "task": "projection_bugfix", "event": "heartbeat", "stage": "synth", "age_s": 10.0, "stale": false, "credit_remaining": 19}
+{"ts": 1784726882.7173398, "task": "projection_bugfix", "event": "heartbeat", "stage": "synth", "age_s": 10.0, "stale": false, "credit_remaining": 19}
+{"ts": 1784726885.349605, "task": "projection_bugfix", "event": "tool_result", "kind": "synth", "phase": "pass", "ok": true, "elapsed_s": 23.1, "credit_spent": 5, "log": ""}
+{"ts": 1784726885.3497498, "task": "projection_bugfix", "event": "checkpoint", "old": 1, "new": 2, "latency": null, "reason": "synth_ok"}
+{"ts": 1784726885.3498287, "task": "projection_bugfix", "event": "phase_exit", "phase": "synth", "result": "ok", "latency": null}
+{"ts": 1784726885.349904, "task": "projection_bugfix", "event": "optimize_skip", "reason": "latency_unreachable", "best_latency": null, "note": "synth latency is 0/missing; PPA slice not scorable, skipping optimization"}
+{"ts": 1784726885.3500805, "task": "projection_bugfix", "event": "submit", "final_level": 2, "final_latency": null, "credit_spent": 5}

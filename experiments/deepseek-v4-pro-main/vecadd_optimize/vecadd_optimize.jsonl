@@ -1,0 +1,50 @@
+{"ts": 1784555537.0334587, "task": "vecadd_optimize", "event": "route", "task_type": "optimize", "correctness_stages": ["csim"], "initial_level": 1, "budget": 20, "token_mode": "aggressive"}
+{"ts": 1784555537.0337415, "task": "vecadd_optimize", "event": "pre_csim_review", "attempt": 1}
+{"ts": 1784555537.0339255, "task": "vecadd_optimize", "event": "kb_search", "query": [], "hits": 0, "hit_ids": []}
+{"ts": 1784555547.033844, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 20}
+{"ts": 1784555557.0341544, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 20}
+{"ts": 1784555567.0344584, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 20}
+{"ts": 1784555577.0347483, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 20}
+{"ts": 1784555587.0350447, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 20}
+{"ts": 1784555597.0353293, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 20}
+{"ts": 1784555599.5249295, "task": "vecadd_optimize", "event": "mechanical_review", "passed": true, "issues": []}
+{"ts": 1784555600.5669956, "task": "vecadd_optimize", "event": "review", "verdict": "pass", "retry": 0, "issues": "PASS"}
+{"ts": 1784555600.5671434, "task": "vecadd_optimize", "event": "pre_csim_fix_applied", "note": "LLM found issues before first csim"}
+{"ts": 1784555607.0356123, "task": "vecadd_optimize", "event": "heartbeat", "stage": "csim", "age_s": 6.5, "stale": false, "credit_remaining": 20}
+{"ts": 1784555607.4393854, "task": "vecadd_optimize", "event": "tool_result", "kind": "csim", "phase": "pass", "ok": true, "rc": 0, "elapsed_s": 6.9, "credit_spent": 1, "log": ""}
+{"ts": 1784555607.4395041, "task": "vecadd_optimize", "event": "phase_exit", "phase": "correctness", "result": "ok", "best_level": 1}
+{"ts": 1784555617.0358896, "task": "vecadd_optimize", "event": "heartbeat", "stage": "synth", "age_s": 9.6, "stale": false, "credit_remaining": 19}
+{"ts": 1784555623.5316234, "task": "vecadd_optimize", "event": "tool_result", "kind": "synth", "phase": "pass", "ok": true, "elapsed_s": 16.1, "credit_spent": 5, "log": ""}
+{"ts": 1784555623.5317566, "task": "vecadd_optimize", "event": "checkpoint", "old": 1, "new": 2, "latency": 4117, "reason": "synth_ok"}
+{"ts": 1784555623.5318077, "task": "vecadd_optimize", "event": "phase_exit", "phase": "synth", "result": "ok", "latency": 4117}
+{"ts": 1784555623.5318537, "task": "vecadd_optimize", "event": "phase_enter", "phase": "optimize", "best_level": 2, "best_latency": 4117}
+{"ts": 1784555627.0361753, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 3.5, "stale": false, "credit_remaining": 15}
+{"ts": 1784555630.366849, "task": "vecadd_optimize", "event": "llm_call", "purpose": "extract_brief", "chars": 1332, "prompt_tokens": 744, "completion_tokens": 321, "reasoning_tokens": 0, "model": "deepseek-v4-pro"}
+{"ts": 1784555630.366983, "task": "vecadd_optimize", "event": "design_brief", "chars": 1332}
+{"ts": 1784555637.0364578, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 6.7, "stale": false, "credit_remaining": 15}
+{"ts": 1784555645.675024, "task": "vecadd_optimize", "event": "llm_call", "purpose": "propose_strategies", "round": 1, "count": 4, "raw_head": "", "prompt_tokens": 1161, "completion_tokens": 716, "reasoning_tokens": 0, "model": "deepseek-v4-pro"}
+{"ts": 1784555647.0367398, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 1.4, "stale": false, "credit_remaining": 15}
+{"ts": 1784555648.4690096, "task": "vecadd_optimize", "event": "llm_call", "purpose": "select_strategies", "round": 1, "prompt_tokens": 1227, "completion_tokens": 163, "reasoning_tokens": 0, "model": "deepseek-v4-pro"}
+{"ts": 1784555648.4691544, "task": "vecadd_optimize", "event": "strategy_select", "round": 1, "indices": [0], "picked": ["Dataflow with double buffering"], "all": ["Dataflow with double buffering", "Wider memory bursts via loop coalescing", "Manual burst length control and prefetching", "Loop interchange and on-chip caching"], "reason": "Dataflow with double buffering overlaps reads and writes, hiding memory latency and reducing overall execution time without conflicting with existing pragmas or requiring excessive resources.", "rejected": [{"id": 2, "name": "Wider memory bursts via loop coalescing", "why": "Increasing unroll factor to 16 may exceed resource limits and cause routing congestion; tool may not automatically widen bursts beyond 256-bit without explicit interface width specification, risking failure to achieve wider bursts."}], "fallback": false}
+{"ts": 1784555657.0370257, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 8.6, "stale": false, "credit_remaining": 15}
+{"ts": 1784555667.0373168, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 15}
+{"ts": 1784555677.037626, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 15}
+{"ts": 1784555687.037916, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 15}
+{"ts": 1784555697.038218, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 15}
+{"ts": 1784555707.0385027, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 15}
+{"ts": 1784555717.0387933, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 15}
+{"ts": 1784555727.0390944, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 15}
+{"ts": 1784555737.0393806, "task": "vecadd_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 15}
+{"ts": 1784555743.291436, "task": "vecadd_optimize", "event": "llm_call", "purpose": "apply_strategies", "strategies": "Dataflow with double buffering", "retry": 0, "prompt_tokens": 1164, "completion_tokens": 6114, "reasoning_tokens": 5229, "model": "deepseek-v4-pro"}
+{"ts": 1784555743.2920444, "task": "vecadd_optimize", "event": "mechanical_review", "passed": true, "issues": []}
+{"ts": 1784555744.1621933, "task": "vecadd_optimize", "event": "review", "verdict": "pass", "retry": 0, "issues": "PASS"}
+{"ts": 1784555747.0397077, "task": "vecadd_optimize", "event": "heartbeat", "stage": "csim", "age_s": 2.9, "stale": false, "credit_remaining": 15}
+{"ts": 1784555752.9477465, "task": "vecadd_optimize", "event": "tool_result", "kind": "csim", "phase": "pass", "ok": true, "rc": 0, "elapsed_s": 8.8, "credit_spent": 6, "log": ""}
+{"ts": 1784555757.0399823, "task": "vecadd_optimize", "event": "heartbeat", "stage": "synth", "age_s": 4.1, "stale": false, "credit_remaining": 14}
+{"ts": 1784555767.0402548, "task": "vecadd_optimize", "event": "heartbeat", "stage": "synth", "age_s": 10.0, "stale": false, "credit_remaining": 14}
+{"ts": 1784555777.040538, "task": "vecadd_optimize", "event": "heartbeat", "stage": "synth", "age_s": 10.0, "stale": false, "credit_remaining": 14}
+{"ts": 1784555777.366417, "task": "vecadd_optimize", "event": "tool_result", "kind": "synth", "phase": "pass", "ok": true, "elapsed_s": 24.4, "credit_spent": 10, "log": ""}
+{"ts": 1784555777.3665464, "task": "vecadd_optimize", "event": "optimize_discard", "round": 1, "reason": "no_improvement", "best_latency": 4117, "cand_latency": 4126}
+{"ts": 1784555777.3665993, "task": "vecadd_optimize", "event": "optimize_stop", "reason": "no_improvement", "best_latency": 4117}
+{"ts": 1784555777.366641, "task": "vecadd_optimize", "event": "phase_exit", "phase": "optimize", "result": "ok", "best_level": 2, "best_latency": 4117}
+{"ts": 1784555777.366776, "task": "vecadd_optimize", "event": "submit", "final_level": 2, "final_latency": 4117, "credit_spent": 10}

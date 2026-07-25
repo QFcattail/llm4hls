@@ -1,0 +1,163 @@
+{"ts": 1784991295.5133615, "task": "matmul_optimize", "event": "route", "task_type": "optimize", "correctness_stages": ["csim"], "initial_level": 1, "budget": 60, "token_mode": "full"}
+{"ts": 1784991295.513635, "task": "matmul_optimize", "event": "pre_csim_review", "attempt": 1}
+{"ts": 1784991295.513728, "task": "matmul_optimize", "event": "kb_search", "query": [], "hits": 0, "hit_ids": []}
+{"ts": 1784991305.5137484, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991315.514067, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991325.5143979, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991335.5146947, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991345.5150077, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991355.5153027, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991365.5156014, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991375.5159044, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991378.7730353, "task": "matmul_optimize", "event": "mechanical_review", "passed": true, "issues": []}
+{"ts": 1784991385.5161998, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 6.7, "stale": false, "credit_remaining": 60}
+{"ts": 1784991395.516487, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991405.5167837, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991415.5171113, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991425.5174031, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991432.3271012, "task": "matmul_optimize", "event": "review", "verdict": "reject", "retry": 0, "issues": "FAIL\n- `#pragma HLS ARRAY_PARTITION variable=B dim=0 complete`: HLS array dimensions are strictly 1-indexed. `dim=0` is invalid and will cause a synthesis error. Should be `dim=1` (rows) to match the "}
+{"ts": 1784991435.5176866, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 3.2, "stale": false, "credit_remaining": 60}
+{"ts": 1784991445.517977, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991455.5182593, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991465.5185528, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991475.5188668, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991485.5191498, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991495.5194428, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991505.519744, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991515.52004, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991525.520331, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991535.5206466, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991545.52095, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991555.5212584, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991565.5215554, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991567.434338, "task": "matmul_optimize", "event": "mechanical_review", "passed": true, "issues": []}
+{"ts": 1784991575.522157, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 8.1, "stale": false, "credit_remaining": 60}
+{"ts": 1784991585.5224495, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991595.5227513, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991605.5230637, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991615.5233634, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991625.5236695, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991635.523968, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 60}
+{"ts": 1784991639.1512895, "task": "matmul_optimize", "event": "review", "verdict": "reject", "retry": 1, "issues": "FAIL\n\n- **Pragma hazard**: `#pragma HLS PIPELINE` on the inner `k` loop is invalid. The loop contains a loop-carried dependency (`acc += ...`), which HLS cannot pipeline. This will trigger synthesis e"}
+{"ts": 1784991639.1513667, "task": "matmul_optimize", "event": "pre_csim_fix_applied", "note": "LLM found issues before first csim"}
+{"ts": 1784991645.5242531, "task": "matmul_optimize", "event": "heartbeat", "stage": "csim", "age_s": 6.4, "stale": false, "credit_remaining": 60}
+{"ts": 1784991646.0472476, "task": "matmul_optimize", "event": "tool_result", "kind": "csim", "phase": "pass", "ok": true, "rc": 0, "elapsed_s": 6.9, "credit_spent": 1, "log": ""}
+{"ts": 1784991646.0473776, "task": "matmul_optimize", "event": "phase_exit", "phase": "correctness", "result": "ok", "best_level": 1}
+{"ts": 1784991655.524532, "task": "matmul_optimize", "event": "heartbeat", "stage": "synth", "age_s": 9.5, "stale": false, "credit_remaining": 59}
+{"ts": 1784991665.524814, "task": "matmul_optimize", "event": "heartbeat", "stage": "synth", "age_s": 10.0, "stale": false, "credit_remaining": 59}
+{"ts": 1784991675.525307, "task": "matmul_optimize", "event": "heartbeat", "stage": "synth", "age_s": 10.0, "stale": false, "credit_remaining": 59}
+{"ts": 1784991678.221829, "task": "matmul_optimize", "event": "tool_result", "kind": "synth", "phase": "pass", "ok": true, "elapsed_s": 32.2, "credit_spent": 5, "log": ""}
+{"ts": 1784991678.2220304, "task": "matmul_optimize", "event": "checkpoint", "old": 1, "new": 2, "latency": 1071, "reason": "synth_ok"}
+{"ts": 1784991678.2221074, "task": "matmul_optimize", "event": "phase_exit", "phase": "synth", "result": "ok", "latency": 1071}
+{"ts": 1784991678.2221692, "task": "matmul_optimize", "event": "phase_enter", "phase": "optimize", "best_level": 2, "best_latency": 1071}
+{"ts": 1784991685.5256069, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 7.3, "stale": false, "credit_remaining": 55}
+{"ts": 1784991695.525893, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991705.5261924, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991715.5265126, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991719.7109232, "task": "matmul_optimize", "event": "llm_call", "purpose": "extract_brief", "chars": 1027, "prompt_tokens": 825, "completion_tokens": 2394, "reasoning_tokens": 2155, "model": "qwen3.6-27b"}
+{"ts": 1784991719.7110395, "task": "matmul_optimize", "event": "design_brief", "chars": 1027}
+{"ts": 1784991725.526813, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 5.8, "stale": false, "credit_remaining": 55}
+{"ts": 1784991735.527114, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991745.5274255, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991755.5277169, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991765.5280266, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991775.528334, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991785.5286229, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991795.5289242, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991805.5292344, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991815.217568, "task": "matmul_optimize", "event": "llm_call", "purpose": "propose_strategies", "round": 1, "count": 3, "raw_head": "", "prompt_tokens": 1158, "completion_tokens": 5452, "reasoning_tokens": 4969, "model": "qwen3.6-27b"}
+{"ts": 1784991815.5295222, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 0.3, "stale": false, "credit_remaining": 55}
+{"ts": 1784991825.5298243, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991835.5301337, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991845.5304253, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991852.4037642, "task": "matmul_optimize", "event": "llm_call", "purpose": "select_strategies", "round": 1, "prompt_tokens": 1237, "completion_tokens": 2330, "reasoning_tokens": 2214, "model": "qwen3.6-27b"}
+{"ts": 1784991852.403873, "task": "matmul_optimize", "event": "strategy_select", "round": 1, "indices": [0, 1, 2], "picked": ["Complete k-loop unroll", "Pipeline j-loop", "Partition B on dim=2"], "all": ["Complete k-loop unroll", "Pipeline j-loop", "Partition B on dim=2"], "reason": "All three are synergistic and non-conflicting: k-unroll minimizes inner-loop latency, j-pipeline enables column concurrency, and B-dim2 partition resolves resulting memory conflicts without violating ", "rejected": [], "fallback": false}
+{"ts": 1784991855.5307207, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 3.1, "stale": false, "credit_remaining": 55}
+{"ts": 1784991865.5310235, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991875.5313108, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991885.5316055, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991895.53193, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991905.5322337, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991915.5325315, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991925.5328608, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991928.3461387, "task": "matmul_optimize", "event": "llm_call", "purpose": "apply_strategies", "strategies": "Complete k-loop unroll+Pipeline j-loop+Partition B on dim=2", "retry": 0, "prompt_tokens": 1363, "completion_tokens": 5347, "reasoning_tokens": 5148, "model": "qwen3.6-27b"}
+{"ts": 1784991928.3462722, "task": "matmul_optimize", "event": "mechanical_review", "passed": true, "issues": []}
+{"ts": 1784991935.53315, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 7.2, "stale": false, "credit_remaining": 55}
+{"ts": 1784991945.533451, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991955.5337641, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991965.5340633, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991975.5343728, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 55}
+{"ts": 1784991978.9841223, "task": "matmul_optimize", "event": "review", "verdict": "pass", "retry": 0, "issues": "PASS"}
+{"ts": 1784991985.5346851, "task": "matmul_optimize", "event": "heartbeat", "stage": "csim", "age_s": 6.6, "stale": false, "credit_remaining": 55}
+{"ts": 1784991985.932894, "task": "matmul_optimize", "event": "tool_result", "kind": "csim", "phase": "pass", "ok": true, "rc": 0, "elapsed_s": 6.9, "credit_spent": 6, "log": ""}
+{"ts": 1784991995.5350094, "task": "matmul_optimize", "event": "heartbeat", "stage": "synth", "age_s": 9.6, "stale": false, "credit_remaining": 54}
+{"ts": 1784992005.5353048, "task": "matmul_optimize", "event": "heartbeat", "stage": "synth", "age_s": 10.0, "stale": false, "credit_remaining": 54}
+{"ts": 1784992015.5356004, "task": "matmul_optimize", "event": "heartbeat", "stage": "synth", "age_s": 10.0, "stale": false, "credit_remaining": 54}
+{"ts": 1784992025.5359092, "task": "matmul_optimize", "event": "heartbeat", "stage": "synth", "age_s": 10.0, "stale": false, "credit_remaining": 54}
+{"ts": 1784992035.5361981, "task": "matmul_optimize", "event": "heartbeat", "stage": "synth", "age_s": 10.0, "stale": false, "credit_remaining": 54}
+{"ts": 1784992045.5365047, "task": "matmul_optimize", "event": "heartbeat", "stage": "synth", "age_s": 10.0, "stale": false, "credit_remaining": 54}
+{"ts": 1784992055.5367992, "task": "matmul_optimize", "event": "heartbeat", "stage": "synth", "age_s": 10.0, "stale": false, "credit_remaining": 54}
+{"ts": 1784992065.53708, "task": "matmul_optimize", "event": "heartbeat", "stage": "synth", "age_s": 10.0, "stale": false, "credit_remaining": 54}
+{"ts": 1784992068.8530612, "task": "matmul_optimize", "event": "tool_result", "kind": "synth", "phase": "pass", "ok": true, "elapsed_s": 82.9, "credit_spent": 10, "log": ""}
+{"ts": 1784992068.8532155, "task": "matmul_optimize", "event": "checkpoint", "old": 2, "new": 2, "old_latency": 1071, "new_latency": 78, "reason": "optimize_improve"}
+{"ts": 1784992075.5373654, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 6.7, "stale": false, "credit_remaining": 50}
+{"ts": 1784992085.537655, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992095.5379589, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992105.538243, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992115.5385613, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992125.538846, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992135.539142, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992145.5394223, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992155.5397205, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992165.5400343, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992175.5403183, "task": "matmul_optimize", "event": "heartbeat", "stage": "llm", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992177.1633685, "task": "matmul_optimize", "event": "llm_call", "purpose": "propose_strategies", "round": 2, "count": 0, "raw_head": "\">```json { \"", "prompt_tokens": 1077, "completion_tokens": 6078, "reasoning_tokens": 6069, "model": "qwen3.6-27b"}
+{"ts": 1784992177.1634703, "task": "matmul_optimize", "event": "optimize_stop", "reason": "no_strategy"}
+{"ts": 1784992177.1635206, "task": "matmul_optimize", "event": "phase_exit", "phase": "optimize", "result": "ok", "best_level": 2, "best_latency": 78}
+{"ts": 1784992185.5406022, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 8.4, "stale": false, "credit_remaining": 50}
+{"ts": 1784992195.5409284, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992205.5412662, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992215.5415854, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992225.541901, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992235.54218, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992245.5424898, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992255.5428073, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992265.5430913, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992275.5433757, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992285.5436826, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992295.5439813, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992305.5443144, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992315.5446799, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992325.5449772, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992335.5452862, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992345.5456443, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992355.5460186, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992365.5463731, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992375.5467386, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992385.5471046, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992395.547453, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992405.5477638, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992415.548039, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992425.5483284, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992435.548626, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992445.5489113, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992455.549194, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992465.5494902, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992475.5498214, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992485.5501964, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992495.5505698, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992505.5509415, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992515.5512736, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992525.5516555, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992535.5520601, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992545.5524218, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992555.5527234, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992565.5530076, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992575.553308, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992585.5536163, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992595.5539157, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992605.5542164, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992615.5545242, "task": "matmul_optimize", "event": "heartbeat", "stage": "cosim", "age_s": 10.0, "stale": false, "credit_remaining": 50}
+{"ts": 1784992620.1527345, "task": "matmul_optimize", "event": "tool_result", "kind": "cosim", "phase": "pass", "ok": true, "elapsed_s": 443.0, "credit_spent": 30, "log": ""}
+{"ts": 1784992620.1528413, "task": "matmul_optimize", "event": "cosim_recheck", "result": "pass"}
+{"ts": 1784992620.1529813, "task": "matmul_optimize", "event": "submit", "final_level": 2, "final_latency": 78, "credit_spent": 30}

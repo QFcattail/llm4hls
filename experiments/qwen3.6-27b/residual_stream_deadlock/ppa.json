@@ -1,0 +1,59 @@
+{
+  "run_dir": "runs/qwen3.6-27b/residual_stream_deadlock",
+  "baseline": {
+    "part": "xcu55c-fsvh2892-2L-e",
+    "top": "residual",
+    "target_clock_ns": 5.0,
+    "clock_uncertainty_ns": 1.35,
+    "estimated_clock_ns": 2.796,
+    "timing_met": true,
+    "fmax_conservative_mhz": 241.2,
+    "latency_min": "135",
+    "latency_avg": "135",
+    "latency_max": "135",
+    "interval_min": "136",
+    "interval_max": "136",
+    "resources": {
+      "LUT": 539,
+      "FF": 248,
+      "BRAM_18K": 0,
+      "DSP": 0,
+      "URAM": 0
+    },
+    "available": {
+      "LUT": 1303680,
+      "FF": 2607360,
+      "BRAM_18K": 4032,
+      "DSP": 9024,
+      "URAM": 960
+    }
+  },
+  "candidate": {
+    "part": "xcu55c-fsvh2892-2L-e",
+    "top": "residual",
+    "target_clock_ns": 5.0,
+    "clock_uncertainty_ns": 1.35,
+    "estimated_clock_ns": 1.481,
+    "timing_met": true,
+    "fmax_conservative_mhz": 353.2,
+    "latency_min": "34",
+    "latency_avg": "34",
+    "latency_max": "34",
+    "interval_min": "32",
+    "interval_max": "32",
+    "resources": {
+      "LUT": 142,
+      "FF": 14,
+      "BRAM_18K": 0,
+      "DSP": 0,
+      "URAM": 0
+    },
+    "available": {
+      "LUT": 1303680,
+      "FF": 2607360,
+      "BRAM_18K": 4032,
+      "DSP": 9024,
+      "URAM": 960
+    }
+  }
+}
