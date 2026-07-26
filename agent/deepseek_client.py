@@ -22,8 +22,11 @@ written into version-controlled files.
 """
 from __future__ import annotations
 
+import http.client
 import json
 import os
+import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -78,6 +81,9 @@ class DeepSeekClient:
         #                   reject unknown fields)
         #   LLM_TEMPERATURE - sampling temperature
         #   LLM_TIMEOUT   - request timeout in seconds
+        #   LLM_MAX_RETRIES - transient-failure retries per call (default 3)
+        #   LLM_RETRY_BASE_DELAY - backoff base seconds (default 10;
+        #                   delay = base * 2**attempt, capped at 120s)
         self.api_key = (api_key or os.environ.get("LLM_API_KEY")
                         or os.environ.get("DEEPSEEK_API_KEY", ""))
         if not self.api_key:
@@ -95,6 +101,8 @@ class DeepSeekClient:
         self.timeout = (timeout if timeout is not None else
                         float(os.environ.get("LLM_TIMEOUT", "300")))
         self.thinking_mode = os.environ.get("LLM_THINKING", "deepseek")
+        self.max_retries = int(os.environ.get("LLM_MAX_RETRIES", "3"))
+        self.retry_base_delay = float(os.environ.get("LLM_RETRY_BASE_DELAY", "10"))
         self.stream = stream
         self.on_stream = on_stream  # callback(delta_kind: str, delta_text: str)
         # running usage stats (for later token accounting)
@@ -171,19 +179,54 @@ class DeepSeekClient:
             },
             method="POST",
         )
-        try:
-            resp = urllib.request.urlopen(req, timeout=self.timeout)
-        except urllib.error.HTTPError as e:
-            raise RuntimeError(
-                f"DeepSeek HTTP {e.code}: {e.read().decode('utf-8', 'replace')}"
-            ) from e
+        # Retry loop (v0.8.1): network-level failures (read timeout,
+        # connection reset) and transient HTTP statuses (429/5xx) get
+        # exponential backoff instead of aborting the whole agent run --
+        # a 122B-class model can legitimately sit silent for minutes, and
+        # one dropped connection must not discard hours of credit-funded
+        # work (observed 2026-07-25: qwen3.5-122b matmul run lost to a
+        # single 300s read timeout). A retried POST may double-bill tokens
+        # if the server actually processed the timed-out request; that cost
+        # is far smaller than losing the run. 4xx client errors (other
+        # than 429) indicate a real request bug and fail immediately.
+        last_err: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                resp = urllib.request.urlopen(req, timeout=self.timeout)
+                if self.stream:
+                    return self._read_stream(resp)
+                body = json.loads(resp.read().decode("utf-8"))
+                resp.close()
+                return self._parse_response(body)
+            except urllib.error.HTTPError as e:
+                if e.code in (429, 500, 502, 503, 504) \
+                        and attempt < self.max_retries:
+                    last_err = e
+                    self._sleep_before_retry(attempt, f"HTTP {e.code}")
+                    continue
+                raise RuntimeError(
+                    f"DeepSeek HTTP {e.code}: "
+                    f"{e.read().decode('utf-8', 'replace')}"
+                ) from e
+            except (urllib.error.URLError, TimeoutError, ConnectionError,
+                    http.client.HTTPException) as e:
+                if attempt < self.max_retries:
+                    last_err = e
+                    self._sleep_before_retry(attempt, repr(e))
+                    continue
+                raise RuntimeError(
+                    f"LLM request failed after {self.max_retries + 1} "
+                    f"attempts: {e}"
+                ) from e
+        raise RuntimeError(f"LLM request failed: {last_err}")
 
-        if self.stream:
-            return self._read_stream(resp)
-        else:
-            body = json.loads(resp.read().decode("utf-8"))
-            resp.close()
-            return self._parse_response(body)
+    def _sleep_before_retry(self, attempt: int, why: str) -> None:
+        """Sleep with exponential backoff and log the retry to stderr."""
+        delay = min(self.retry_base_delay * (2 ** attempt), 120.0)
+        print(f"[deepseek_client] transient failure ({why}); "
+              f"retry {attempt + 1}/{self.max_retries} in {delay:.0f}s",
+              file=sys.stderr, flush=True)
+        time.sleep(delay)
 
     def _read_stream(self, resp) -> str:
         """Read SSE stream, call on_stream per delta, return full content."""

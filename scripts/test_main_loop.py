@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline unit tests for agent/main_loop.py (TC-AGENT-001 .. TC-AGENT-019).
+"""Offline unit tests for agent/main_loop.py (TC-AGENT-001 .. TC-AGENT-021).
 
 No Vitis and no LLM API needed: FakeToolServer replays rule-based
 ToolResults against a real harness Budget, and a prompt-sniffing canned
@@ -26,6 +26,10 @@ semantics (agent-architecture.md §4.3-§4.5):
   TC-AGENT-018  v2.8: latency unreachable (lat=0) -> optimize skipped,
                 no token spent
   TC-AGENT-019  v2.8: optimize csim failure -> repair (feedback+KB) -> success
+  TC-AGENT-020  v0.8.1: baseline anchoring -- a known-good optimize seed is
+                csim-verified as-is; the blind pre-csim review is skipped
+  TC-AGENT-021  v0.8.1: synth timeout backoff -- 2 consecutive timeouts stop
+                the synth stage instead of burning the remaining rounds
 
 Usage:
     python3 scripts/test_main_loop.py
@@ -350,7 +354,7 @@ def tc_003() -> None:
 
 
 def tc_004() -> None:
-    """TC-AGENT-004: structural rollback on post-optimization cosim failure."""
+    """TC-AGENT-004: structural post-opt cosim failure -> repair-then-rollback."""
     task = FakeTask(id="fake_structural", type="structural",
                     requires_cosim=True, budget=80)
     server = FakeToolServer(total=80)
@@ -371,22 +375,26 @@ def tc_004() -> None:
     server.synth_handler = synth_handler
     server.cosim_handler = cosim_handler
     events: list = []
+    # v2.9: cosim failure now triggers a repair attempt on the optimized
+    # code before rolling back. repair_codes=[BASE_CODE] means the repair
+    # generates BASE_CODE (no FAST60), which passes cosim -> the agent
+    # keeps the repaired version (no rollback).
     agent = _make_agent(task, server,
                         CannedBackend(repair_codes=[BASE_CODE],
                                       apply_codes=[FAST60_CODE]),
                         events, max_optimize_rounds=1)
     final = agent.run()
 
-    assert final == BASE_CODE, "rollback must restore the cosim-verified code"
-    assert server.cosim_calls == 2, \
-        f"correctness cosim + recheck = 2, got {server.cosim_calls}"
+    # The repair succeeds (BASE_CODE passes cosim), so no rollback.
+    assert final == BASE_CODE, \
+        "cosim repair should produce the verified code"
     rollbacks = [f for e, f in events if e == "rollback"]
-    assert any(r.get("reason") == "optimization_reintroduced_hazard"
-               for r in rollbacks), f"missing hazard rollback: {rollbacks}"
-    submits = [f for e, f in events if e == "submit"]
-    assert submits[0]["final_latency"] == 100, \
-        "latency must roll back to the snapshot value (100), not keep 60"
-    print("TC-AGENT-004 PASS  cosim hazard -> real snapshot rollback (code+latency)")
+    assert not rollbacks, \
+        f"successful repair must not trigger rollback: {rollbacks}"
+    rechecks = [f for e, f in events if e == "cosim_recheck"]
+    assert any(r.get("result") == "repair_pass" for r in rechecks), \
+        f"expected repair_pass in cosim_recheck events: {rechecks}"
+    print("TC-AGENT-004 PASS  cosim hazard -> repaired (repair-then-rollback)")
 
 
 def tc_005() -> None:
@@ -760,9 +768,9 @@ def tc_014() -> None:
 
 
 def tc_015() -> None:
-    """TC-AGENT-015: non-structural final RTL recheck rolls back too (v2.7)."""
+    """TC-AGENT-015: non-structural final RTL recheck repairs then keeps (v2.9)."""
     task = FakeTask(type="optimize")   # requires_cosim=False
-    server = FakeToolServer(total=40)
+    server = FakeToolServer(total=80)   # enough for cosim repair after optimize
 
     server.synth_handler = lambda code: _synth_result(
         True, code, 60 if "FAST60" in code else 100)
@@ -779,6 +787,8 @@ def tc_015() -> None:
 
     server.cosim_handler = cosim_handler
     events: list = []
+    # v2.9: cosim failure triggers repair; repair_codes=[BASE_CODE] produces
+    # BASE_CODE which passes cosim -> agent keeps the repaired version.
     agent = _make_agent(task, server,
                         CannedBackend(repair_codes=[BASE_CODE],
                                       apply_codes=[FAST60_CODE]),
@@ -786,15 +796,14 @@ def tc_015() -> None:
     final = agent.run()
 
     assert final == BASE_CODE, \
-        "RTL-failed optimized code must roll back even for non-structural tasks"
-    assert server.cosim_calls == 1, \
-        "exactly one final recheck (no cosim in correctness for this type)"
+        "repaired code (BASE_CODE) should be kept after cosim repair passes"
     rollbacks = [f for e, f in events if e == "rollback"]
-    assert any(r.get("reason") == "optimization_reintroduced_hazard"
-               for r in rollbacks)
-    submits = [f for e, f in events if e == "submit"]
-    assert submits[0]["final_latency"] == 100
-    print("TC-AGENT-015 PASS  non-structural RTL recheck -> snapshot rollback")
+    assert not rollbacks, \
+        f"successful repair must not trigger rollback: {rollbacks}"
+    rechecks = [f for e, f in events if e == "cosim_recheck"]
+    assert any(r.get("result") == "repair_pass" for r in rechecks), \
+        f"expected repair_pass: {rechecks}"
+    print("TC-AGENT-015 PASS  non-structural RTL recheck -> repaired (v2.9)")
 
 
 class _KwBackend:
@@ -902,7 +911,10 @@ def tc_017() -> None:
 
     # 2) A full agent run wires the recorder: every LLM call is captured
     #    with the right purpose tags, and the JSONL stays valid.
-    task = FakeTask(type="optimize")
+    #    type="repair" keeps the blind pre-csim review (and its "repair"
+    #    call) in the pipeline; for "optimize" seeds the v0.8.1 baseline-
+    #    anchoring guard skips it (covered by TC-AGENT-020).
+    task = FakeTask(type="repair")
     server = FakeToolServer(total=40)
     events: list = []
     run_dir2 = Path(tempfile.mkdtemp(prefix="agent_test_"))
@@ -1003,11 +1015,89 @@ def tc_019() -> None:
     print("TC-AGENT-019 PASS  csim-broken -> repair w/ feedback+KB -> FAST60 accepted")
 
 
+def tc_020() -> None:
+    """TC-AGENT-020: baseline anchoring -- blind review never mutates a good seed.
+
+    For optimize tasks the router seeds the checkpoint at CORRECT, and the
+    archive and live code are the same object. A blind pre-csim review that
+    rewrote ckpt.code would destroy the known-good baseline before any tool
+    confirms the rewrite (qwen3.5-122b matmul incident, 2026-07-25: latency
+    doubled 16422->32827). The v0.8.1 guard skips the blind review for such
+    seeds: the first csim must run on the ORIGINAL seed, and no repair call
+    may happen before it.
+    """
+    task = FakeTask(type="optimize")
+    server = FakeToolServer(total=40)
+    server.synth_handler = lambda code: _synth_result(
+        True, code, 60 if "FAST60" in code else 100)
+    seen: list[str] = []
+    orig_csim = server.csim
+
+    def csim_spy(code: str) -> ToolResult:
+        """Record every csim input, then delegate."""
+        seen.append(code)
+        return orig_csim(code)
+
+    server.csim = csim_spy
+    events: list = []
+    backend = CannedBackend(repair_codes=[FIXED_CODE],
+                            apply_codes=[FAST60_CODE])
+    agent = _make_agent(task, server, backend, events, max_optimize_rounds=1)
+    final = agent.run()
+
+    skipped = [f for e, f in events
+               if e == "pre_csim_review" and f.get("skipped")]
+    assert skipped, f"expected a skipped pre_csim_review event: {events[:4]}"
+    assert seen and seen[0] == BASE_CODE, \
+        f"first csim must verify the original seed, got {seen[:1]}"
+    assert backend._ri == 0, \
+        f"no repair call may happen for a passing seed, got {backend._ri}"
+    assert final == FAST60_CODE, "optimize stage must be unaffected"
+    print("TC-AGENT-020 PASS  baseline anchored: seed verified as-is, no blind repair")
+
+
+def tc_021() -> None:
+    """TC-AGENT-021: synth timeout backoff stops credit burn (v0.8.1).
+
+    A synth timeout is not a normal code error (design explosion or an
+    overloaded tool host). One repair retry is allowed; a SECOND consecutive
+    timeout stops the synth stage early, keeping the correct version instead
+    of burning the remaining rounds (qwen3.5-122b vecadd incident: 4
+    consecutive timeouts ~= 19 credits for a correctness-only score).
+    """
+    task = FakeTask(type="optimize")
+    server = FakeToolServer(total=40)
+
+    def synth_handler(code: str) -> ToolResult:
+        """Every synth attempt times out."""
+        return ToolResult(kind="synth", ok=False, phase="timeout",
+                          return_code=-1, log="synthesis exceeded time limit\n",
+                          elapsed_s=600.0)
+
+    server.synth_handler = synth_handler
+    events: list = []
+    agent = _make_agent(task, server,
+                        CannedBackend(repair_codes=[BASE_CODE]),
+                        events, max_optimize_rounds=0)
+    final = agent.run()
+
+    assert server.synth_calls == 2, \
+        f"backoff must stop after the 2nd consecutive timeout, got {server.synth_calls}"
+    backoff = [f for e, f in events if e == "synth_timeout_backoff"]
+    assert backoff, f"missing synth_timeout_backoff event: {events}"
+    submits = [f for e, f in events if e == "submit"]
+    assert submits[0]["final_level"] == 1, \
+        f"correct version must be kept (level CORRECT), got {submits}"
+    assert final == BASE_CODE
+    print("TC-AGENT-021 PASS  2 consecutive synth timeouts -> backoff, credit saved")
+
+
 def main() -> int:
     """Run all TC-AGENT cases; return 0 iff every one passes."""
     cases = [tc_001, tc_002, tc_003, tc_004, tc_005, tc_006,
              tc_007, tc_008, tc_009, tc_010, tc_011, tc_012,
-             tc_013, tc_014, tc_015, tc_016, tc_017, tc_018, tc_019]
+             tc_013, tc_014, tc_015, tc_016, tc_017, tc_018, tc_019,
+             tc_020, tc_021]
     failed = 0
     for tc in cases:
         try:

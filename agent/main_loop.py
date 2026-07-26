@@ -30,6 +30,12 @@ from .router import RunPlan, route
 # the harness on the path during partial development).
 from llm4hls.budget import BudgetExceeded  # noqa: E402
 
+# Credits reserved for the post-optimization cosim re-check (§4.5) when the
+# task requires cosim: 1 cosim (20) + 1 csim repair re-verify (1) + 1 synth
+# re-verify (4) + 1 extra csim (1) = 26. This lets the re-check repair a
+# cosim failure rather than forcing an immediate rollback.
+_COSIM_RECHECK_RESERVE = 26
+
 
 class Agent:
     """Our agent. Replaces llm4hls.ReferenceAgent with the §4 architecture.
@@ -60,7 +66,7 @@ class Agent:
         kb=None,                # knowledge_base retriever or None
         max_rounds: int = 6,
         max_synth_rounds: int = 3,
-        max_optimize_rounds: int = 4,
+        max_optimize_rounds: int = 20,
         max_opt_repair: int = 3,
         run_dir: Path | str = "runs",
         token_mode: str = "full",
@@ -192,7 +198,17 @@ class Agent:
             # LLM look at the code and fix obvious issues. On the first attempt
             # this catches bugs without needing a csim diagnostic at all; on
             # later attempts it reviews the previous repair before re-running.
-            if attempt == 1:
+            #
+            # Baseline-anchoring guard (v0.8.1): when the seed is already
+            # assumed correct (optimize tasks, router §3 initial_level=CORRECT),
+            # the archive and the live code are the SAME object, so a blind
+            # review that rewrites ckpt.code destroys the known-good baseline
+            # before any tool confirms the rewrite (observed 2026-07-25:
+            # qwen3.5-122b "fixed" a correct matmul seed and doubled its
+            # latency 16422->32827). For such seeds, skip the blind review and
+            # verify the baseline as-is; only a real csim failure enters the
+            # repair loop (with real feedback, which beats blind guessing).
+            if attempt == 1 and ckpt.level < Level.CORRECT:
                 self.log.event("pre_csim_review", attempt=attempt)
                 # Token note (P4-03): repair() already injects the FULL
                 # description, so the snippet here is redundant. It is kept in
@@ -215,6 +231,12 @@ class Agent:
                 else:
                     self.log.event("pre_csim_no_change",
                                    note="LLM found no issues, proceeding to csim")
+            elif attempt == 1:
+                self.log.event(
+                    "pre_csim_review", attempt=attempt,
+                    skipped="seed_assumed_correct",
+                    note="baseline anchoring: verify the known-good seed "
+                         "as-is instead of letting a blind review mutate it")
 
             self.hb.set_stage("csim", self.server.budget.remaining())
             csim_r = self.server.csim(ckpt.code)
@@ -335,6 +357,7 @@ class Agent:
             success, or None if synth was skipped or never passed.
         """
         fb = None   # Feedback of the latest failure, drives the next repair
+        consecutive_timeouts = 0   # synth-timeout backoff counter (v0.8.1)
         for round_n in range(self.max_synth_rounds + 1):
             # 1) repair pass (skipped on the first attempt: no feedback yet)
             if fb is not None:
@@ -385,6 +408,30 @@ class Agent:
                 self.log.event("phase_exit", phase="synth", result="ok",
                                latency=lat)
                 return lat
+            # Synth-timeout backoff (v0.8.1): a timeout means the design made
+            # synthesis blow up (e.g. pathological full array_partition) or
+            # the tool host is overloaded -- either way it is NOT a normal
+            # code error. One repair retry is reasonable; a SECOND consecutive
+            # timeout means the retry changed nothing fundamental, so stop
+            # before burning the remaining rounds (observed 2026-07-25:
+            # qwen3.5-122b vecadd burned 4 consecutive synth timeouts = ~19
+            # credits and still finished at correctness-only score).
+            if r.phase == "timeout":
+                consecutive_timeouts += 1
+                if consecutive_timeouts >= 2:
+                    self.log.event(
+                        "synth_timeout_backoff",
+                        consecutive=consecutive_timeouts,
+                        round=round_n,
+                        note="repeated synth timeouts; keeping the correct "
+                             "version and stopping synth attempts to "
+                             "preserve credit")
+                    self.log.event("phase_exit", phase="synth",
+                                   result="timeout_backoff",
+                                   best_level=ckpt.level)
+                    return None
+            else:
+                consecutive_timeouts = 0
             fb = build_feedback(r)   # synth failed; next round repairs it
 
         self.log.event("phase_exit", phase="synth", result="failed",
@@ -425,8 +472,21 @@ class Agent:
         verification now enters a repair loop (feedback + KB injection,
         symmetric with §4.2/§4.3) before being discarded. A failed
         multi-strategy candidate falls back to the subset's first strategy
-        alone (combo attribution). Stops on repair exhaustion / no
-        improvement / unaffordable tools / the round cap.
+        alone (combo attribution).
+
+        Stopping policy (credit-driven, v2.9):
+          - **No-improvement convergence**: a candidate that passes
+            csim+synth but is NOT strictly faster than the archive
+            (latency >= best) is treated as convergence -- stop optimizing.
+          - **Credit exhaustion**: for tasks NOT requiring cosim, keep
+            optimizing until one csim + one synth can no longer be afforded.
+            For tasks requiring cosim, stop early enough to reserve at least
+            ``_COSIM_RECHECK_RESERVE`` credits (26 = 1 cosim + 1 csim + 1
+            synth + a repair re-verify csim) for the final RTL re-check
+            (§4.5) so a cosim failure can still be repaired rather than
+            forcing an immediate rollback.
+          - ``max_optimize_rounds`` is a safety cap (default 20), not the
+            primary stopping condition.
 
         Args:
             plan: The RunPlan (used for context; optimization applies to all).
@@ -450,8 +510,7 @@ class Agent:
             self.log.event("design_brief", chars=len(self._design_brief))
 
         for round_n in range(1, self.max_optimize_rounds + 1):
-            if not (self.server.budget.can_afford("csim")
-                    and self.server.budget.can_afford("synth")):
+            if not self._optimize_can_continue(plan):
                 self.log.event("budget_exhausted", where="optimize",
                                best_level=ckpt.level, best_latency=ckpt.latency)
                 break
@@ -518,6 +577,27 @@ class Agent:
         self.log.event("phase_exit", phase="optimize", result="ok",
                        best_level=ckpt.level, best_latency=ckpt.latency)
 
+    def _optimize_can_continue(self, plan: RunPlan) -> bool:
+        """Check whether the optimize loop can afford another round.
+
+        A round needs at least one csim (1) + one synth (4). For tasks that
+        require cosim, an additional ``_COSIM_RECHECK_RESERVE`` (26) credits
+        are reserved so the post-optimization cosim re-check (§4.5) can run
+        even after this round -- and repair a cosim failure if needed --
+        rather than forcing an immediate rollback.
+
+        Args:
+            plan: The RunPlan (used to check whether cosim is required).
+
+        Returns:
+            True if one more optimize round is affordable while still
+            reserving the cosim re-check budget (when applicable).
+        """
+        need = 1 + 4   # one csim + one synth per optimize round
+        if self.task_requires_cosim():
+            need += _COSIM_RECHECK_RESERVE
+        return self.server.budget.remaining() >= need
+
     def _try_opt_candidate(self, ckpt: Checkpoint,
                            strategies: list[Strategy], round_n: int,
                            failure_feedback: str = "") -> tuple[str, str]:
@@ -564,6 +644,7 @@ class Agent:
         # (isolate the cause by retrying the first strategy alone).
         can_repair = len(strategies) <= 1
         fb = failure_feedback   # accumulated failure feedback, drives repair
+        prev_synth_timeout = False   # timeout backoff within the repair loop
         for repair_n in range(self.max_opt_repair + 1):
             # Credit gate: need at least 1 csim + 1 synth to verify a
             # candidate. Stop (not discard) when neither is affordable.
@@ -615,6 +696,16 @@ class Agent:
                            credit_spent=self.server.budget.spent,
                            log=sr.log if not sr.ok else "")
             if not sr.ok or sr.report is None:
+                # Timeout backoff (v0.8.1): a second consecutive synth
+                # timeout means this candidate class is too heavy for the
+                # tool's time limit -- discard instead of repairing again
+                # (each repair burns 1 csim + 1 synth = 5 credits).
+                if sr.phase == "timeout" and prev_synth_timeout:
+                    self.log.event("optimize_discard", round=round_n,
+                                   reason="synth_timeout_backoff",
+                                   repairs=repair_n)
+                    return "failed", build_feedback(sr).as_prompt_block()
+                prev_synth_timeout = (sr.phase == "timeout")
                 if can_repair and repair_n < self.max_opt_repair:
                     self.log.event("optimize_repair", round=round_n,
                                    repair=repair_n, reason="synth_failed",
@@ -713,7 +804,7 @@ class Agent:
         return new_code   # exhausted retries; return last attempt anyway
 
     def _post_opt_cosim_recheck(self, ckpt: Checkpoint) -> None:
-        """Final RTL re-check after optimization, with real rollback (§4.5).
+        """Final RTL re-check after optimization, repair-then-rollback (§4.5).
 
         Runs only when the best code actually changed during optimization
         (otherwise the verified correctness version still stands) and cosim
@@ -721,9 +812,17 @@ class Agent:
         structural ones: the synth report is a static estimate, not a
         measured value (e.g. the residual task estimated 68 vs measured 97
         cycles), so an optimized kernel deserves an RTL-level sanity check
-        even when the rules do not require it. On cosim failure — or when
-        cosim is unaffordable for a structural task — restores the
-        pre-optimization snapshot in full (code/level/latency/cosim_ok).
+        even when the rules do not require it.
+
+        On cosim failure the agent now **attempts to repair the final
+        optimized version** (injecting the cosim failure feedback + KB hits
+        into a review-gated repair, then re-verifying csim + cosim) before
+        falling back to a rollback. Only when the repair budget is exhausted
+        or credits run out does it restore the pre-optimization snapshot.
+        This preserves optimized latency when possible rather than
+        discarding it wholesale. When cosim is unaffordable for a structural
+        task, the pre-optimization snapshot is restored (the verified
+        version must not be abandoned without an RTL check).
 
         Args:
             ckpt: The checkpoint holding the optimized code to re-verify.
@@ -750,11 +849,79 @@ class Agent:
         if r.ok:
             ckpt.cosim_ok = True
             self.log.event("cosim_recheck", result="pass")
+            return
+
+        # Cosim failed -- attempt to repair the optimized version before
+        # falling back to the pre-optimization snapshot (v2.9). The repair
+        # injects the cosim failure feedback + KB hits so the LLM can fix
+        # the deadlock/streaming hazard while keeping the optimized latency.
+        self.log.event("cosim_recheck", result="fail_repairing")
+        if self._repair_optimized_cosim(ckpt, r):
+            self.log.event("cosim_recheck", result="repair_pass")
         else:
             self.log.event("rollback",
-                           reason="optimization_reintroduced_hazard",
+                           reason="cosim_repair_exhausted",
                            note="restored pre-optimization verified version")
             self._restore_snapshot(ckpt, snap)
+
+    def _repair_optimized_cosim(self, ckpt: Checkpoint, cosim_fail) -> bool:
+        """Repair the optimized code after a cosim failure, then re-verify.
+
+        Up to ``max_opt_repair`` attempts: distill the cosim failure feedback
+        -> KB lookup -> review-gated repair -> re-verify csim (cheap) ->
+        re-verify cosim. Returns True if a repaired version passes cosim.
+
+        Args:
+            ckpt: The checkpoint holding the cosim-failing optimized code.
+                On success, updated in place with the repaired code and
+                cosim_ok=True.
+            cosim_fail: The ToolResult from the failed cosim re-check,
+                used to build the initial repair feedback.
+
+        Returns:
+            True if the repaired code passes cosim, False if repairs are
+            exhausted or credits run out.
+        """
+        fb = build_feedback(None, cosim_fail)
+        for attempt in range(self.max_opt_repair):
+            if not (self.server.budget.can_afford("csim")
+                    and self.server.budget.can_afford("cosim")):
+                return False
+            kb_text = self._kb_lookup(fb)
+            self.hb.set_stage("llm", self.server.budget.remaining())
+            new_code = self._repair_with_review(ckpt.code, fb.as_prompt_block(), kb_text)
+            if new_code is None:
+                return False
+            # Re-verify csim first (cheap, 1 credit): a repair that broke
+            # functional correctness must not waste a 20-credit cosim.
+            self.hb.set_stage("csim", self.server.budget.remaining())
+            cr = self.server.csim(new_code)
+            self.log.event("tool_result", kind="csim", phase=cr.phase,
+                           ok=cr.ok, rc=cr.return_code,
+                           elapsed_s=round(cr.elapsed_s, 1),
+                           credit_spent=self.server.budget.spent,
+                           log=cr.log if not cr.ok else "")
+            if not cr.ok:
+                fb = build_feedback(cr)
+                self.log.event("cosim_repair", attempt=attempt + 1,
+                               result="csim_broken")
+                continue
+            # Re-verify cosim.
+            self.hb.set_stage("cosim", self.server.budget.remaining())
+            r2 = self.server.cosim(new_code)
+            self.log.event("tool_result", kind="cosim", phase=r2.phase,
+                           ok=r2.ok, rc=r2.return_code,
+                           elapsed_s=round(r2.elapsed_s, 1),
+                           credit_spent=self.server.budget.spent,
+                           log=r2.log if not r2.ok else "")
+            if r2.ok:
+                ckpt.code = new_code
+                ckpt.cosim_ok = True
+                return True
+            fb = build_feedback(None, r2)
+            self.log.event("cosim_repair", attempt=attempt + 1,
+                           result="cosim_still_failing")
+        return False
 
     def task_requires_cosim(self) -> bool:
         """Return True when this task's correctness gate includes cosim.

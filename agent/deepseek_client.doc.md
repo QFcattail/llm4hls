@@ -73,8 +73,19 @@ defaults:
 | `LLM_THINKING` | `deepseek` (default, send `thinking` dict) / `enable_thinking` (Qwen-style bool, `off`→false) / `none` (omit field) |
 | `LLM_TEMPERATURE` | Sampling temperature (default 0.2) |
 | `LLM_TIMEOUT` | Request timeout seconds (default 300) |
+| `LLM_MAX_RETRIES` | Transient-failure retries per call (default 3) |
+| `LLM_RETRY_BASE_DELAY` | Backoff base seconds (default 10; delay = base × 2^attempt, capped at 120s) |
 
 Used for the FPT'26 rule-6 multi-model evaluation (Qwen3.5 122B / Qwen3.6 27B via
 an Aliyun MaaS OpenAI-compatible endpoint); see `experiments/EXPERIMENT-LOG.md`.
-Known robustness gap surfaced there: no HTTP-level retry — a read timeout aborts
-the whole run (report limitation #4).
+
+### Retry Policy (v0.8.1)
+`complete()` retries transient failures with exponential backoff instead of
+aborting the run: network-level errors (`URLError`/`TimeoutError`/
+`ConnectionError`/`http.client.HTTPException`, e.g. a read timeout on a slow
+122B-class model) and HTTP 429/500/502/503/504. Other 4xx fail immediately
+(real request bug). Each retry logs to stderr. Rationale: a single 300s read
+timeout lost the entire qwen3.5-122b matmul run on 2026-07-25 (report
+limitation #4, now fixed); a retried POST may double-bill tokens if the server
+actually processed the timed-out request — far cheaper than losing a
+credit-funded run. Retries are capped by `LLM_MAX_RETRIES` (default 3).
