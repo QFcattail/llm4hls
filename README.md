@@ -116,7 +116,12 @@ fpga-agent/
 ├── fpga-agent.py        TUI 一行启动入口
 ├── run.sh               自动 source Vitis + .env + venv 的启动脚本
 ├── getting-started.md   快速入门指南（怎么装、怎么跑）
-├── .env                 API key（已 gitignore，不入库）
+├── Dockerfile           Docker 镜像构建（详见 docker/README.md）
+├── docker-run.sh        Docker 运行脚本
+├── docker/README.md     Docker 详细说明（运行 agent、配置模型接入点/ID/key）
+├── .env.example         环境变量模板（复制为 .env 后填写 API key）
+├── LICENSE              MIT 许可证
+├── NOTICE               第三方组件归属与许可证
 └── .gitignore
 ```
 
@@ -243,4 +248,9 @@ fpga-agent/
 
 ## 许可证
 
-待定（开源前补充）。
+本项目采用 **MIT** 许可证，详见 [`LICENSE`](LICENSE)。
+
+- `agent/`、`tui/`、`scripts/`、`tools/` 目录下的代码为原创工作，版权归 Xinyu Fang 和 Qianhe Cheng 所有。
+- `contest/fpt26-harness/` 是 FPT'26 竞赛官方提供的参考评估 harness，按竞赛要求原样复用，版权归竞赛组织方所有。
+- `contest/fpl26_reference/` 仅供参考，不参与运行时。
+- 第三方依赖（textual、rich、IEEEtran 等）的归属与许可见 [`NOTICE`](NOTICE)。

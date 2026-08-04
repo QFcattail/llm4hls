@@ -1,0 +1,70 @@
+# FPGA Agent - Third-Party Notices & Attributions
+#
+# This project incorporates work from the following third-party sources.
+# The MIT license (see LICENSE) applies only to the original code authored by
+# the FPGA Agent contributors. Third-party components retain their respective
+# licenses and copyrights.
+
+===============================================================================
+1. FPT'26 / FPL'26 LLM4HLS Track A - Reference Agent & Evaluation Harness
+===============================================================================
+Location:  contest/fpt26-harness/
+Source:    Provided by the FPT'26 Design Competition Organizing Committee as
+           part of the Track A (LLM4HLS Agent) task package.
+Copyright: (c) FPT'26 Design Competition Organizing Committee
+License:   No explicit license file was distributed with the harness. The
+           harness README states it is "an example implementation of the Track
+           A reference agent and evaluation harness" and that "competitors are
+           free to implement their own agent and evaluation harness." It is
+           used here in good faith as the official evaluation interface
+           required by the contest, unmodified in its core logic.
+Note:      This is a fork of the official harness, kept verbatim per the contest
+           requirement that the evaluation interface remain locked to in-process
+           Python calls. Any modifications are limited to packaging (sys.path
+           injection in entry scripts) and do not alter evaluation logic.
+
+===============================================================================
+2. FPL'26 Reference DCP Optimizer (Track B)
+===============================================================================
+Location:  contest/fpl26_reference/
+Source:    FPL'26 Agentic FPGA Contest reference materials.
+Copyright: (c) FPL'26 Contest Organizers
+License:   No explicit license distributed. Reference material only, not used
+           in the agent runtime. Excluded from the Docker image via
+           .dockerignore.
+
+===============================================================================
+3. IEEEtran LaTeX class
+===============================================================================
+Location:  report/IEEEtran.cls, report/IEEEtran.bst
+Source:    https://www.ctan.org/pkg/ieeetran
+Copyright: (c) 2002-2015 Michael Shell
+License:   Distributed under the LaTeX Project Public License (LPPL),
+           version 1.3c or later. See http://www.latex-project.org/lppl.txt
+
+===============================================================================
+4. Python packages (installed at runtime, not vendored)
+===============================================================================
+The following third-party Python packages are installed at runtime (via pip in
+the Dockerfile or in the development venv). They are NOT bundled in this
+repository; only their names and versions are declared here for attribution.
+
+  textual (0.86.2)    - MIT License     - https://github.com/Textualize/textual
+  rich (13.9.4)        - MIT License     - https://github.com/Textualize/rich
+
+===============================================================================
+5. AMD Vitis HLS 2025.2
+===============================================================================
+Vitis HLS is a proprietary EDA tool from AMD/Xilinx. It is NOT included in this
+repository or the Docker image (license-bound, ~92 GB). It is bind-mounted from
+the host at runtime. See AMD's license terms at:
+  https://www.amd.com/en/products/software/adaptive-socs-and-fpgas/vitis/vitis-hls.html
+
+===============================================================================
+6. Contest task materials
+===============================================================================
+Location:  contest/*.md, contest/*.docx, contest/*.html, contest/*.jpg
+Source:    FPT'26 / FPL'26 Design Competition official documentation.
+Copyright: (c) Respective competition organizers.
+License:   Contest-provided reference materials. Used for development context
+           only; not part of the agent runtime.

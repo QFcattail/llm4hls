@@ -46,6 +46,7 @@ Release/
 # ---- Secrets (never commit) ----
 .env
 .env.*
+!.env.example
 **/.env
 **/api_keys.*
 **/secrets.*
