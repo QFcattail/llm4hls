@@ -78,6 +78,7 @@ tmp/
 # ---- Local LLM / agent caches ----
 runs/*
 !runs/README.md
+!runs/README.cn.md
 
 # ---- ZCode agent internals ----
 .zcode/

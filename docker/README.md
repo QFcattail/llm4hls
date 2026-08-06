@@ -1,35 +1,35 @@
-# Docker 部署指南 (Docker Deployment Guide)
+> [中文](README.cn.md)
 
-> 本文是 FPGA Agent 的 Docker 完整使用文档，涵盖：构建镜像、运行 agent、配置模型接入点（endpoint）、模型 ID 和 API key。
->
+# Docker Deployment Guide (Docker 部署指南)
+
 > This is the complete Docker guide for the FPGA Agent: building the image, running the agent, and configuring the model endpoint, model ID, and API key.
 
 ---
 
-## 目录
+## Table of Contents
 
-- [1. 概述](#1-概述)
-- [2. 前置条件](#2-前置条件)
-- [3. 构建镜像](#3-构建镜像)
-- [4. 配置模型接入点、ID 和 API Key](#4-配置模型接入点id-和-api-key)
-- [5. 运行 Agent](#5-运行-agent)
-- [6. 镜像内部结构](#6-镜像内部结构)
-- [7. 常见问题](#7-常见问题)
+- [1. Overview](#1-overview)
+- [2. Prerequisites](#2-prerequisites)
+- [3. Build the Image](#3-build-the-image)
+- [4. Configure the Model Endpoint, ID, and API Key](#4-configure-the-model-endpoint-id-and-api-key)
+- [5. Run the Agent](#5-run-the-agent)
+- [6. Image Internal Structure](#6-image-internal-structure)
+- [7. FAQ](#7-faq)
 
 ---
 
-## 1. 概述
+## 1. Overview
 
-FPT'26 Track A 要求提交物能在 Docker 环境中 build 和 run。本镜像包含：
+FPT'26 Track A requires that the submission can be built and run in a Docker environment. This image contains:
 
-| 组件 | 说明 |
+| Component | Description |
 |------|------|
-| Ubuntu 22.04 | 基础系统 |
-| Vitis HLS 运行时依赖 | 镜像官方 `vitis.dockerfile` 依赖层 |
-| Python 3.12 + textual/rich | agent 运行环境 + TUI 仪表盘 |
-| Agent 源码 + 官方 harness | `/opt/fpga-agent/` |
+| Ubuntu 22.04 | Base system |
+| Vitis HLS runtime dependencies | Dependency layer from the official `vitis.dockerfile` |
+| Python 3.12 + textual/rich | agent runtime environment + TUI dashboard |
+| Agent source code + official harness | `/opt/fpga-agent/` |
 
-**Vitis 2025.2 本身不打进镜像**（~92 GB，license 绑定），而是从宿主机只读挂载——这正是官方 `run-vitis.sh` 的模型。
+**Vitis 2025.2 itself is not baked into the image** (~92 GB, license-bound); instead it is bind-mounted read-only from the host -- this is exactly the model of the official `run-vitis.sh`.
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -42,7 +42,7 @@ FPT'26 Track A 要求提交物能在 Docker 环境中 build 和 run。本镜像�
 │  └───────────────────────────────────────┘  │
 │         │ bind-mount (read-only)            │
 │         ▼                                    │
-│  /home/<user>/Xilinx/  ← 宿主机 Vitis 树    │
+│  /home/<user>/Xilinx/  ← host Vitis tree    │
 └─────────────────────────────────────────────┘
         │
         ▼  HTTPS
@@ -51,120 +51,120 @@ FPT'26 Track A 要求提交物能在 Docker 环境中 build 和 run。本镜像�
 
 ---
 
-## 2. 前置条件
+## 2. Prerequisites
 
-### 2.1 宿主机要求
+### 2.1 Host requirements
 
-| 项目 | 要求 |
+| Item | Requirement |
 |------|------|
-| 操作系统 | Linux（Ubuntu 22.04 推荐） |
-| Docker | 已安装并运行（`docker info` 正常） |
-| Vitis HLS | 2025.2 已安装（默认路径见下方） |
-| 磁盘空间 | 镜像 ~3 GB + 运行产物 |
-| API Key | 至少一个 LLM 服务的 API key（见第 4 节） |
+| Operating system | Linux (Ubuntu 22.04 recommended) |
+| Docker | Installed and running (`docker info` works) |
+| Vitis HLS | 2025.2 installed (default path below) |
+| Disk space | Image ~3 GB + run artifacts |
+| API Key | At least one LLM service API key (see Section 4) |
 
-### 2.2 Vitis 路径
+### 2.2 Vitis path
 
-Vitis 2025.2 的 `settings64.sh` 所在目录。默认：
+The directory containing `settings64.sh` for Vitis 2025.2. Default:
 
 ```
 /home/admin/Xilinx/2025.2/Vitis
 ```
 
-如果你的 Vitis 装在别处，用 `VITIS_ROOT` 环境变量覆盖。
+If your Vitis is installed elsewhere, override it with the `VITIS_ROOT` environment variable.
 
 ### 2.3 API Key
 
-运行真 LLM 修复（`--backend deepseek`）需要 API key。获取方式：
+Running real LLM repair (`--backend deepseek`) requires an API key. How to obtain one:
 
-- **DeepSeek**: 在 https://platform.deepseek.com 注册，创建 API key（`sk-...` 格式）
-- **阿里云 MaaS (Qwen)**: 在 https://dashscope.aliyun.com 开通服务，创建 API key
-- **其他 OpenAI 兼容端点**: 任意兼容 OpenAI chat completions 格式的服务
+- **DeepSeek**: Register at https://platform.deepseek.com and create an API key (`sk-...` format)
+- **Alibaba Cloud MaaS (Qwen)**: Activate the service at https://dashscope.aliyun.com and create an API key
+- **Other OpenAI-compatible endpoints**: Any service compatible with the OpenAI chat completions format
 
 ---
 
-## 3. 构建镜像
+## 3. Build the Image
 
 ```bash
 cd fpga-agent
 docker build -t fpga-agent:0.8.1 .
 ```
 
-构建过程约 5-10 分钟（取决于网络速度，主要是 apt 依赖安装）。
+The build process takes about 5-10 minutes (depending on network speed, mainly the apt dependency installation).
 
-> **镜像源说明**：Dockerfile 使用清华 PyPI 镜像加速 pip 安装。如果你的网络环境无法访问清华源，修改 Dockerfile 第 86-90 行的 `-i` 参数为官方源或其他镜像。
+> **Mirror source note**: The Dockerfile uses the Tsinghua PyPI mirror to accelerate pip installation. If your network environment cannot access the Tsinghua mirror, change the `-i` argument on lines 86-90 of the Dockerfile to the official source or another mirror.
 
-验证构建成功：
+Verify the build succeeded:
 
 ```bash
 docker run --rm fpga-agent:0.8.1 --help
 ```
 
-应输出 `run_agent.py` 的帮助信息。
+It should print the help information for `run_agent.py`.
 
 ---
 
-## 4. 配置模型接入点、ID 和 API Key
+## 4. Configure the Model Endpoint, ID, and API Key
 
-这是最重要的配置步骤。FPGA Agent 的 LLM 客户端（`agent/deepseek_client.py`）通过**环境变量**读取所有模型配置，支持任意 OpenAI 兼容端点。
+This is the most important configuration step. The FPGA Agent's LLM client (`agent/deepseek_client.py`) reads all model configuration via **environment variables** and supports any OpenAI-compatible endpoint.
 
-### 4.1 环境变量一览
+### 4.1 Environment variable overview
 
-| 环境变量 | 必填 | 默认值 | 说明 |
+| Environment variable | Required | Default | Description |
 |----------|------|--------|------|
-| `DEEPSEEK_API_KEY` | 是* | — | API key（DeepSeek 原生 key） |
-| `LLM_API_KEY` | 是* | — | 通用 API key（优先于 `DEEPSEEK_API_KEY`） |
-| `LLM_BASE_URL` | 否 | `https://api.deepseek.com/v1/chat/completions` | 模型接入点 URL |
-| `LLM_MODEL` | 否 | `deepseek-v4-pro` | 模型 ID |
-| `LLM_THINKING` | 否 | `deepseek` | 思考模式：`deepseek` / `enable_thinking` / `none` |
-| `LLM_TEMPERATURE` | 否 | `0.2` | 采样温度 |
-| `LLM_TIMEOUT` | 否 | `300` | 请求超时（秒），大模型建议 `600` |
-| `LLM_MAX_RETRIES` | 否 | `3` | 瞬时失败重试次数 |
-| `VITIS_ROOT` | 否 | `/home/admin/Xilinx/2025.2/Vitis` | 宿主机 Vitis 安装路径 |
+| `DEEPSEEK_API_KEY` | yes* | - | API key (native DeepSeek key) |
+| `LLM_API_KEY` | yes* | - | Generic API key (takes precedence over `DEEPSEEK_API_KEY`) |
+| `LLM_BASE_URL` | no | `https://api.deepseek.com/v1/chat/completions` | Model endpoint URL |
+| `LLM_MODEL` | no | `deepseek-v4-pro` | Model ID |
+| `LLM_THINKING` | no | `deepseek` | Thinking mode: `deepseek` / `enable_thinking` / `none` |
+| `LLM_TEMPERATURE` | no | `0.2` | Sampling temperature |
+| `LLM_TIMEOUT` | no | `300` | Request timeout (seconds); `600` recommended for large models |
+| `LLM_MAX_RETRIES` | no | `3` | Number of retries on transient failures |
+| `VITIS_ROOT` | no | `/home/admin/Xilinx/2025.2/Vitis` | Host Vitis installation path |
 
-> \* `DEEPSEEK_API_KEY` 和 `LLM_API_KEY` 二选一。客户端先查 `LLM_API_KEY`，未设置则回退到 `DEEPSEEK_API_KEY`。
+> \* Choose one of `DEEPSEEK_API_KEY` or `LLM_API_KEY`. The client checks `LLM_API_KEY` first; if unset, it falls back to `DEEPSEEK_API_KEY`.
 
-### 4.2 配置方式一：.env 文件（推荐）
+### 4.2 Configuration method 1: .env file (recommended)
 
-在仓库根目录创建 `.env` 文件（已 gitignore，不会入库）：
+Create a `.env` file in the repo root (already gitignored, won't be committed):
 
 ```bash
 cp .env.example .env
-# 然后编辑 .env，填入你的 key
+# Then edit .env and fill in your key
 ```
 
-`.env` 文件示例（DeepSeek V4 Pro）：
+Example `.env` file (DeepSeek V4 Pro):
 
 ```bash
 export DEEPSEEK_API_KEY=sk-your-actual-api-key-here
 ```
 
-`docker-run.sh` 会自动读取 `.env` 并通过 `-e` 传递给容器。
+`docker-run.sh` automatically reads `.env` and passes it to the container via `-e`.
 
-### 4.3 配置方式二：环境变量直接传递
+### 4.3 Configuration method 2: pass environment variables directly
 
-不使用 `.env` 文件，直接在命令行设置：
+Without using a `.env` file, set them directly on the command line:
 
 ```bash
 # DeepSeek V4 Pro
 DEEPSEEK_API_KEY=sk-your-key ./docker-run.sh contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 ```
 
-### 4.4 各模型的完整配置示例
+### 4.4 Complete configuration examples for each model
 
-#### DeepSeek V4 Pro（原生端点，最简配置）
+#### DeepSeek V4 Pro (native endpoint, minimal config)
 
 `.env`:
 ```bash
 export DEEPSEEK_API_KEY=sk-your-deepseek-key
 ```
 
-只需一个 key，其他都用默认值：
-- 端点：`https://api.deepseek.com/v1/chat/completions`（内置默认）
-- 模型 ID：`deepseek-v4-pro`（内置默认）
-- 思考模式：`deepseek`（内置默认）
+Just one key; everything else uses defaults:
+- Endpoint: `https://api.deepseek.com/v1/chat/completions` (built-in default)
+- Model ID: `deepseek-v4-pro` (built-in default)
+- Thinking mode: `deepseek` (built-in default)
 
-#### Qwen3.5 122B（阿里云 MaaS）
+#### Qwen3.5 122B (Alibaba Cloud MaaS)
 
 `.env`:
 ```bash
@@ -175,7 +175,7 @@ export LLM_THINKING=enable_thinking
 export LLM_TIMEOUT=600
 ```
 
-#### Qwen3.6 27B（阿里云 MaaS）
+#### Qwen3.6 27B (Alibaba Cloud MaaS)
 
 `.env`:
 ```bash
@@ -185,7 +185,7 @@ export LLM_MODEL=qwen3.6-27b
 export LLM_THINKING=enable_thinking
 ```
 
-#### 其他 OpenAI 兼容端点（vLLM / Ollama / OpenRouter 等）
+#### Other OpenAI-compatible endpoints (vLLM / Ollama / OpenRouter, etc.)
 
 ```bash
 export LLM_API_KEY=your-key-or-dummy
@@ -194,17 +194,17 @@ export LLM_MODEL=your-model-name
 export LLM_THINKING=none
 ```
 
-> `LLM_THINKING=none` 适用于不支持 `thinking` 字段的端点（某些 MaaS 网关会拒绝未知字段）。
+> `LLM_THINKING=none` applies to endpoints that don't support the `thinking` field (some MaaS gateways reject unknown fields).
 
-### 4.5 Docker 中传递环境变量的原理
+### 4.5 How environment variables are passed in Docker
 
-`docker-run.sh` 做了以下处理：
+`docker-run.sh` does the following:
 
-1. 如果 `DEEPSEEK_API_KEY` 环境变量已设置 → 直接传给容器
-2. 否则如果 `.env` 文件存在 → source 它提取 key → 传给容器
-3. API key 通过 `docker run -e` 传入，**绝不打入镜像**
+1. If the `DEEPSEEK_API_KEY` environment variable is set -> pass it directly to the container
+2. Otherwise, if the `.env` file exists -> source it to extract the key -> pass it to the container
+3. The API key is passed in via `docker run -e` and is **never baked into the image**
 
-如需传递额外的 `LLM_*` 环境变量（如切换到 Qwen），可以手动 `docker run`：
+If you need to pass additional `LLM_*` environment variables (e.g. switching to Qwen), you can `docker run` manually:
 
 ```bash
 docker run --rm \
@@ -221,128 +221,128 @@ docker run --rm \
 
 ---
 
-## 5. 运行 Agent
+## 5. Run the Agent
 
-### 5.1 CLI 模式（无 TUI，最常用）
+### 5.1 CLI mode (no TUI, most common)
 
 ```bash
-# 脚本后端（不花 token，验证工具链）
+# Scripted backend (no token cost, verify the toolchain)
 ./docker-run.sh contest/fpt26-harness/tasks/projection_bugfix
 
-# 真 LLM 修复（花 token，需要 API key）
+# Real LLM repair (costs tokens, requires API key)
 ./docker-run.sh contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 
-# 限制 budget（小预算测试）
+# Limit budget (small-budget test)
 ./docker-run.sh contest/fpt26-harness/tasks/dotProduct_optimize --backend deepseek --budget 10
 
-# 指定 token 节省模式
+# Specify token-saving mode
 ./docker-run.sh contest/fpt26-harness/tasks/vecadd_optimize --backend deepseek --token-mode balanced
 ```
 
-`docker-run.sh` 自动完成：
-1. 挂载宿主机 Xilinx 目录树到容器内相同路径（只读）
-2. 传递 `DEEPSEEK_API_KEY`（或从 `.env` 读取）
-3. 挂载 `runs/` 输出目录（持久化到宿主机）
-4. 调用 `scripts/run_agent.py`
+`docker-run.sh` automatically:
+1. Mounts the host's Xilinx directory tree to the same path inside the container (read-only)
+2. Passes `DEEPSEEK_API_KEY` (or reads it from `.env`)
+3. Mounts the `runs/` output directory (persisted to the host)
+4. Invokes `scripts/run_agent.py`
 
-### 5.2 TUI 模式（交互式仪表盘）
+### 5.2 TUI mode (interactive dashboard)
 
 ```bash
 ./docker-run.sh --tui contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 ```
 
-TUI 需要终端（`-it`），`docker-run.sh --tui` 已自动处理。
+TUI requires a terminal (`-it`); `docker-run.sh --tui` handles this automatically.
 
-### 5.3 可用任务列表
+### 5.3 Available task list
 
 ```bash
 ls contest/fpt26-harness/tasks/
 # projection_bugfix   dotProduct_optimize   residual_stream_deadlock
 ```
 
-### 5.4 运行输出
+### 5.4 Run output
 
-每次运行产出：
+Each run produces:
 
-| 输出 | 位置 | 说明 |
+| Output | Location | Description |
 |------|------|------|
-| 实时日志 | stderr | 事件流（route/tool_result/review/checkpoint） |
-| Transcript | stdout | 工具调用序列 + credit 消耗 |
-| 评分卡 | stdout | SCORE + 正确性/synth/PPA |
-| JSONL 日志 | `runs/<task_id>/<task_id>.jsonl` | 结构化事件，可用 `jq` 分析 |
-| 最终代码 | `runs/<task_id>/final_<kernel>.cpp` | 提交的最终 kernel |
-| 评分历史 | `runs/<task_id>/scores.jsonl` | 跨运行 SCORE 趋势 |
+| Real-time log | stderr | Event stream (route/tool_result/review/checkpoint) |
+| Transcript | stdout | Tool call sequence + credit consumption |
+| Scorecard | stdout | SCORE + correctness/synth/PPA |
+| JSONL log | `runs/<task_id>/<task_id>.jsonl` | Structured events, analyzable with `jq` |
+| Final code | `runs/<task_id>/final_<kernel>.cpp` | The final submitted kernel |
+| Score history | `runs/<task_id>/scores.jsonl` | SCORE trend across runs |
 
-### 5.5 run_agent.py 完整参数
+### 5.5 Full run_agent.py options
 
 ```bash
 python3 scripts/run_agent.py <task_dir> [options]
 
-选项：
-  --backend {scripted,deepseek,openrouter}   LLM 后端（默认 scripted）
-  --budget N                                 覆盖 credit 预算
-  --work DIR                                 工作目录（默认 runs/<task_id>）
-  --force                                    无 Vitis 时强制运行（csim 会失败）
-  --token-mode {full,balanced,aggressive}    token 节省模式（默认 full）
+Options:
+  --backend {scripted,deepseek,openrouter}   LLM backend (default scripted)
+  --budget N                                 Override the credit budget
+  --work DIR                                 Working directory (default runs/<task_id>)
+  --force                                    Force run without Vitis (csim will fail)
+  --token-mode {full,balanced,aggressive}    Token-saving mode (default full)
 ```
 
 ---
 
-## 6. 镜像内部结构
+## 6. Image Internal Structure
 
-| 路径（容器内） | 说明 |
+| Path (inside container) | Description |
 |----------------|------|
-| `/opt/fpga-agent/` | 项目根（agent/ + tui/ + scripts/ + contest/） |
-| `/opt/venv/` | Python 3.12 虚拟环境（textual + rich） |
-| `/home/admin/Xilinx/` | 宿主机 Xilinx 树挂载点（只读，运行时注入） |
-| `/opt/fpga-agent/runs/` | 运行产物输出（挂载到宿主机，持久化） |
+| `/opt/fpga-agent/` | Project root (agent/ + tui/ + scripts/ + contest/) |
+| `/opt/venv/` | Python 3.12 virtual environment (textual + rich) |
+| `/home/admin/Xilinx/` | Host Xilinx tree mount point (read-only, injected at runtime) |
+| `/opt/fpga-agent/runs/` | Run artifact output (mounted to host, persisted) |
 
-关键环境变量（Dockerfile 内设置）：
+Key environment variables (set inside the Dockerfile):
 
-| 变量 | 值 | 说明 |
+| Variable | Value | Description |
 |------|----|------|
-| `LLM4HLS_VITIS_HLS_ROOT` | `/home/admin/Xilinx/2025.2/Vitis` | harness 定位 Vitis |
-| `LLM4HLS_TASKS_ROOT` | `/opt/fpga-agent/contest/fpt26-harness/tasks` | 任务目录 |
-| `PATH` | `/opt/venv/bin:$PATH` | Python 3.12 优先 |
+| `LLM4HLS_VITIS_HLS_ROOT` | `/home/admin/Xilinx/2025.2/Vitis` | harness locates Vitis |
+| `LLM4HLS_TASKS_ROOT` | `/opt/fpga-agent/contest/fpt26-harness/tasks` | Task directory |
+| `PATH` | `/opt/venv/bin:$PATH` | Python 3.12 takes priority |
 
-运行用户为非 root 用户 `agent`（uid 1000），拥有免密 sudo。
+The runtime user is the non-root user `agent` (uid 1000), with passwordless sudo.
 
 ---
 
-## 7. 常见问题
+## 7. FAQ
 
-### Q: 报错 "Vitis root not found at /home/admin/Xilinx/2025.2/Vitis"
+### Q: Error "Vitis root not found at /home/admin/Xilinx/2025.2/Vitis"
 
-A: Vitis 安装路径不是默认值。设置 `VITIS_ROOT` 环境变量：
+A: The Vitis installation path is not the default. Set the `VITIS_ROOT` environment variable:
 
 ```bash
 VITIS_ROOT=/your/path/to/Vitis ./docker-run.sh ...
 ```
 
-### Q: 报错 "API key missing. Set LLM_API_KEY or DEEPSEEK_API_KEY"
+### Q: Error "API key missing. Set LLM_API_KEY or DEEPSEEK_API_KEY"
 
-A: 没有配置 API key。二选一：
-1. 在仓库根目录创建 `.env` 文件（参考 `.env.example`）
-2. 在命令行直接传递：`DEEPSEEK_API_KEY=sk-... ./docker-run.sh ...`
+A: No API key is configured. Choose one:
+1. Create a `.env` file in the repo root (see `.env.example`)
+2. Pass it directly on the command line: `DEEPSEEK_API_KEY=sk-... ./docker-run.sh ...`
 
-### Q: 报错 "vitis-run not found"
+### Q: Error "vitis-run not found"
 
-A: 容器内找不到 Vitis。确认：
-1. 宿主机已安装 Vitis 2025.2
-2. `VITIS_ROOT` 路径正确（指向包含 `settings64.sh` 的目录）
-3. 该路径下的 `settings64.sh` 文件存在
+A: Vitis cannot be found inside the container. Confirm:
+1. Vitis 2025.2 is installed on the host
+2. The `VITIS_ROOT` path is correct (pointing to the directory containing `settings64.sh`)
+3. The `settings64.sh` file exists at that path
 
-### Q: LLM 返回空 content
+### Q: LLM returns empty content
 
-A: 推理模型的 reasoning 可能吃光了 max_tokens。保持 `max_tokens` 不设置（默认 None，不限制）即可。如果仍有问题，尝试增大 `LLM_TIMEOUT`。
+A: The reasoning model's reasoning may have consumed all of max_tokens. Keep `max_tokens` unset (default None, unlimited). If problems persist, try increasing `LLM_TIMEOUT`.
 
-### Q: 如何切换到 Qwen 模型？
+### Q: How to switch to the Qwen model?
 
-A: 设置 `LLM_*` 环境变量（见第 4.4 节）。注意 `--backend deepseek` 参数名虽然叫 deepseek，但实际上它实例化的是 `DeepSeekClient`，该客户端完全支持通过环境变量切换到任意 OpenAI 兼容端点。
+A: Set the `LLM_*` environment variables (see Section 4.4). Note that although the `--backend deepseek` parameter is named deepseek, it actually instantiates `DeepSeekClient`, which fully supports switching to any OpenAI-compatible endpoint via environment variables.
 
-### Q: 如何查看容器内的 LLM 配置是否正确？
+### Q: How to check whether the LLM configuration inside the container is correct?
 
-A: 进入容器检查：
+A: Enter the container to check:
 
 ```bash
 docker run --rm -it \
@@ -351,6 +351,6 @@ docker run --rm -it \
     bash -c 'echo "API_KEY set: ${DEEPSEEK_API_KEY:+yes}" && echo "BASE_URL: ${LLM_BASE_URL:-default(deepseek)}" && echo "MODEL: ${LLM_MODEL:-default(deepseek-v4-pro)}"'
 ```
 
-### Q: runs/ 目录在哪？
+### Q: Where is the runs/ directory?
 
-A: `docker-run.sh` 会自动将宿主机的 `./runs/` 挂载到容器的 `/opt/fpga-agent/runs/`。运行产物会直接出现在宿主机的 `runs/` 目录下，容器删除后依然保留。
+A: `docker-run.sh` automatically mounts the host's `./runs/` to the container's `/opt/fpga-agent/runs/`. Run artifacts appear directly in the host's `runs/` directory and are retained even after the container is deleted.

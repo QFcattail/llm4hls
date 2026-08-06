@@ -1,122 +1,124 @@
-# 快速入门指南 (Getting Started)
+> [中文](getting-started.cn.md)
 
-> 面向新加入的开发者（或未来的自己）。5 分钟读完，知道怎么装、怎么跑、代码怎么读。
+# Getting Started Guide (快速入门指南)
+
+> Aimed at newly onboarded developers (or your future self). Read in 5 minutes to know how to install, how to run, and how to read the code.
 
 ---
 
-## 1. 环境要求
+## 1. Environment Requirements
 
-| 项目 | 要求 |
+| Item | Requirement |
 |---|---|
-| OS | Linux（Ubuntu 22.04 推荐）。Windows 不支持加速流 |
-| Python | 3.11+（需要 tomllib 标准库）。推荐 3.12 |
-| Vitis | 2025.2（仅真 csim/synth/cosim 需要；离线开发不需要） |
-| LLM API | DeepSeek V4 Pro（或 OpenRouter 开源模型） |
+| OS | Linux (Ubuntu 22.04 recommended). Windows does not support the acceleration flow |
+| Python | 3.11+ (requires the tomllib standard library). 3.12 recommended |
+| Vitis | 2025.2 (only required for real csim/synth/cosim; not needed for offline development) |
+| LLM API | DeepSeek V4 Pro (or OpenRouter open-source models) |
 
-**不需要的东西**：GPU、数据库、消息队列、Web 服务器。
+**Things you don't need**: GPU, database, message queue, web server.
 
 ---
 
-## 2. 安装
+## 2. Installation
 
-项目有两台机器：**本机**（开发，没装 Vitis）和**服务器 QFS-STATION**（装了 Vitis）。
+The project uses two machines: **local machine** (development, no Vitis installed) and **server QFS-STATION** (Vitis installed).
 
-### 2.1 本机：框架测试（无 Vitis，csim 会失败）
+### 2.1 Local machine: framework testing (no Vitis, csim will fail)
 
 ```bash
-# 本机操作
+# Local machine operations
 git clone git@gitee.com:QFcattail/fpga-agent.git
 cd fpga-agent
 
-# 创建 venv（需要 Python 3.11+）
+# Create venv (requires Python 3.11+)
 python3.12 -m venv .venv
-source .venv/bin/activate    # 激活后 python 指向 venv 里的 3.12
+source .venv/bin/activate    # After activation, python points to 3.12 in the venv
 
-# 无需 pip install -- harness 和 agent 都只用 Python 标准库
+# No pip install needed -- both harness and agent use only the Python standard library
 
-# 不装 Vitis 时跑会报错退出（driver 检测 vitis-run 不在 PATH）
+# Without Vitis installed, running will exit with an error (driver detects vitis-run is not in PATH)
 python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
 # -> ERROR: vitis-run not found
 
-# 如果只想测框架链路（csim 会 compile_error），加 --force
+# If you just want to test the framework pipeline (csim will compile_error), add --force
 python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --force
 ```
 
-### 2.2 服务器：真 Vitis + 真 LLM（完整端到端）
+### 2.2 Server: real Vitis + real LLM (full end-to-end)
 
-服务器 QFS-STATION 已装好 Vitis 2025.2 和 venv，这是**实际跑 agent 的地方**。
+Server QFS-STATION already has Vitis 2025.2 and venv installed; this is **where the agent actually runs**.
 
 ```bash
-# 本机 SSH 进服务器
+# SSH into the server from the local machine
 ssh QFS-STATION
 cd /home/admin/fpga-agent
 
-# 每次开新终端都要做这三步：
-source /home/admin/Xilinx/2025.2/Vitis/settings64.sh   # Vitis 工具链
+# Do these three steps every time you open a new terminal:
+source /home/admin/Xilinx/2025.2/Vitis/settings64.sh   # Vitis toolchain
 source .env                                              # DeepSeek API key
 source /home/admin/venv-fpga/bin/activate               # Python 3.12 venv
 
-# 现在可以跑了（csim 真编译执行，约 10 秒）
+# Now you can run (csim actually compiles and runs, ~10 seconds)
 python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
 
-# 用 DeepSeek 做 LLM 修复（完整端到端）
+# Use DeepSeek for LLM repair (full end-to-end)
 python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 ```
 
-> **提示**：每次开新终端都要 source 这三行。嫌麻烦可以写进 `~/.bashrc`，
-> 但 Vitis 的 settings64.sh 会改 PATH，写进 bashrc 可能影响其他程序。
+> **Tip**: You must source these three lines every time you open a new terminal. If it's annoying, you can write them into `~/.bashrc`,
+> but Vitis's settings64.sh modifies PATH; putting it in bashrc may affect other programs.
 
 ---
 
-## 3. CLI 用法
+## 3. CLI Usage
 
-### 3.1 命令格式
+### 3.1 Command format
 
 ```bash
-python3 scripts/run_agent.py <task_dir> [选项]
+python3 scripts/run_agent.py <task_dir> [options]
 ```
 
-### 3.2 选项
+### 3.2 Options
 
-| 选项 | 默认值 | 说明 |
+| Option | Default | Description |
 |---|---|---|
-| `--backend` | `scripted` | LLM 后端：`scripted`（预设答案）/ `deepseek`（真 LLM）/ `openrouter`（官方） |
-| `--budget` | 题目自带 | 覆盖 credit 预算（如 `--budget 10`） |
-| `--work` | `runs/<task_id>` | 工作目录（存 build 产物 + 日志） |
-| `--force` | 关 | 没装 Vitis 时强制运行（csim 会 compile_error，仅用于框架测试） |
+| `--backend` | `scripted` | LLM backend: `scripted` (preset answers) / `deepseek` (real LLM) / `openrouter` (official) |
+| `--budget` | Task default | Override credit budget (e.g. `--budget 10`) |
+| `--work` | `runs/<task_id>` | Working directory (stores build artifacts + logs) |
+| `--force` | off | Force run without Vitis installed (csim will compile_error; only for framework testing) |
 
-### 3.3 常用命令
+### 3.3 Common commands
 
-以下命令在**服务器 QFS-STATION**上跑（已 source Vitis + .env + venv）：
+The following commands run on **server QFS-STATION** (Vitis + .env + venv already sourced):
 
 ```bash
-# 真 Vitis + ScriptedClient（验证工具链，不花 token）
+# Real Vitis + ScriptedClient (verify the toolchain, no token cost)
 python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
 
-# 真 Vitis + DeepSeek（完整端到端，花 token）
+# Real Vitis + DeepSeek (full end-to-end, costs tokens)
 python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 
-# 限制 budget（小预算测试）
+# Limit budget (small-budget test)
 python3 scripts/run_agent.py contest/fpt26-harness/tasks/dotProduct_optimize --backend deepseek --budget 10
 
-# 三道题都跑
+# Run all three tasks
 for t in projection_bugfix dotProduct_optimize residual_stream_deadlock; do
     python3 scripts/run_agent.py contest/fpt26-harness/tasks/$t --backend deepseek
 done
 ```
 
-本机只有 `--force` 能跑（无 Vitis，csim 会 compile_error）：
+On the local machine, only `--force` works (no Vitis, csim will compile_error):
 
 ```bash
-# 本机，框架测试用
+# Local machine, for framework testing
 python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --force
 ```
 
-### 3.4 输出怎么读
+### 3.4 How to read the output
 
-每次运行产出三块输出：
+Each run produces three blocks of output:
 
-**① 运行日志（stderr，实时）**：
+**① Run log (stderr, real-time)**:
 ```
 [log] route {'task_type': 'repair', 'correctness_stages': ['csim'], ...}
 [log] tool_result {'kind': 'csim', 'phase': 'runtime_fail', 'credit_spent': 1}
@@ -125,7 +127,7 @@ python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --for
 [log] checkpoint {'old': 0, 'new': 1, 'reason': 'correctness_gate'}
 ```
 
-**② Transcript（stdout，跑完打印）**：
+**② Transcript (stdout, printed after run completes)**:
 ```
 --- metered tool transcript ---
   #1  [csim] runtime_fail (rc=1, 9.7s)   [spent 1/10]
@@ -134,7 +136,7 @@ python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --for
   budget 6/10 credits spent (csimx2, synthx1)
 ```
 
-**③ 评分卡（stdout，跑完打印）**：
+**③ Scorecard (stdout, printed after run completes)**:
 ```
 === Scorecard: projection_bugfix (difficulty 2) ===
   functional (hidden TB): PASS
@@ -142,164 +144,164 @@ python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --for
   SCORE                 : 1.400
 ```
 
-**④ JSONL 日志文件**（`runs/<task_id>/<task_id>.jsonl`）：结构化事件，事后用 `jq` 分析。
+**④ JSONL log file** (`runs/<task_id>/<task_id>.jsonl`): structured events, analyzed afterward with `jq`.
 
 ---
 
-## 4. 代码怎么读
+## 4. How to read the code
 
-代码导览（模块职责、调用关系、阅读五遍法、函数清单）在 **[agent/README.md](agent/README.md)**，和代码放一起。
+The code walkthrough (module responsibilities, call relationships, the five-pass reading method, function inventory) is in **[agent/README.md](agent/README.md)**, kept together with the code.
 
-快速一句话理解每个模块：
+A quick one-line understanding of each module:
 
-| 比喻 | 文件 | 职责 |
+| Metaphor | File | Responsibility |
 |---|---|---|
-| **大脑** | `agent/main_loop.py` | 主循环：correctness → synth → optimize |
-| **决策** | `agent/router.py` | 读题目类型，选关卡路径 |
-| **记忆** | `agent/checkpoint.py` | 存档：哪个版本最好 |
-| **感知** | `agent/feedback.py` | 从工具日志提取错误信息 |
-| **手** | `agent/llm_client.py` | 调 LLM 改代码 |
-| **眼** | `agent/mechanical_checks.py` | 机械检查（不靠 LLM） |
-| **嘴** | `agent/deepseek_client.py` | DeepSeek API 对接 |
-| **日记** | `agent/observability.py` | 日志 + 心跳 |
-| **字典** | `agent/knowledge_base/` | bug→修法知识库 |
-| **工具** | `contest/fpt26-harness/` | 官方 harness（csim/synth/cosim） |
-- **main_loop**："把上面所有模块串起来，修到 csim 过，再 synth，再 optimize。"
+| **Brain** | `agent/main_loop.py` | Main loop: correctness -> synth -> optimize |
+| **Decision** | `agent/router.py` | Reads task type, selects the stage path |
+| **Memory** | `agent/checkpoint.py` | Checkpointing: which version is best |
+| **Perception** | `agent/feedback.py` | Extracts error info from tool logs |
+| **Hands** | `agent/llm_client.py` | Calls LLM to modify code |
+| **Eyes** | `agent/mechanical_checks.py` | Mechanical checks (not relying on LLM) |
+| **Mouth** | `agent/deepseek_client.py` | DeepSeek API integration |
+| **Diary** | `agent/observability.py` | Logging + heartbeat |
+| **Dictionary** | `agent/knowledge_base/` | bug->fix knowledge base |
+| **Tools** | `contest/fpt26-harness/` | Official harness (csim/synth/cosim) |
+- **main_loop**: "Strings all the above modules together, repairs until csim passes, then synth, then optimize."
 
 ---
 
-## 5. 常见问题
+## 5. FAQ
 
-### Q: 报错 "vitis-run not found" 怎么办？
+### Q: What to do about the "vitis-run not found" error?
 
-A: 没装 Vitis 或没 source settings64.sh。driver 现在会拒绝运行并给出提示，避免输出误导性的 SCORE 0.000。装好 Vitis 并 source 后即可。如果只想测框架链路（csim 会 compile_error），加 `--force`。
+A: Vitis is not installed or settings64.sh was not sourced. The driver now refuses to run and gives a hint, avoiding misleading SCORE 0.000 output. Install Vitis and source it, then it works. If you just want to test the framework pipeline (csim will compile_error), add `--force`.
 
-### Q: DeepSeek 返回空 content 怎么办？
+### Q: What to do when DeepSeek returns empty content?
 
-A: deepseek-v4-pro 是推理模型。max_tokens 默认不设（不限制，让模型想够）。如果手动设了 max_tokens 且太小，reasoning 会把预算吃光，content 为空。保持默认（None）即可。
+A: deepseek-v4-pro is a reasoning model. max_tokens is not set by default (no limit, letting the model think enough). If you manually set max_tokens too small, reasoning will consume the entire budget and content will be empty. Keep the default (None).
 
-### Q: review 全 reject 怎么办？
+### Q: What to do when review rejects everything?
 
-A: ScriptedClient 不懂 review 语义，返回的代码不以 PASS 开头，所以判 reject。这是预期的——用真 LLM（deepseek backend）就不会。
+A: ScriptedClient doesn't understand review semantics; the returned code doesn't start with PASS, so it's judged as reject. This is expected -- use a real LLM (deepseek backend) and it won't happen.
 
-### Q: SCORE 是 0 怎么办？
+### Q: What to do when SCORE is 0?
 
-A: 检查：(1) csim 过了没？(2) hidden testbench 过了没？correctness 不过直接 0 分。先确保 csim 过，再查 synth。
+A: Check: (1) Did csim pass? (2) Did the hidden testbench pass? If correctness doesn't pass, it's 0 points directly. First ensure csim passes, then check synth.
 
-### Q: 怎么加知识库条目？
+### Q: How to add a knowledge base entry?
 
-A: 编辑 `agent/knowledge_base/entries.json`（JSON 语料，22 条，字段：id/symptom/root_cause/fix/example/signatures）。保存即生效——`seed_entries()` 启动时从该文件加载。signatures 用小写错误码/关键词短串（检索是大小写不敏感子串匹配）。
+A: Edit `agent/knowledge_base/entries.json` (JSON corpus, 22 entries, fields: id/symptom/root_cause/fix/example/signatures). Takes effect on save -- `seed_entries()` loads from this file at startup. signatures uses short lowercase error codes/keyword strings (retrieval is case-insensitive substring matching).
 
 ---
 
-## 6. 开发环境配置
+## 6. Development Environment Configuration
 
-### 6.1 本地（开发机）
+### 6.1 Local (development machine)
 
 ```bash
 # .venv
 python3.12 -m venv .venv
 source .venv/bin/activate
 
-# 环境变量（.env，已 gitignore）
+# Environment variables (.env, already gitignored)
 echo 'export DEEPSEEK_API_KEY=sk-xxx' > .env
 
-# IDE：VS Code / PyCharm 均可
-# 推荐：开 agent-architecture.md 的 Mermaid 图对照读代码
+# IDE: VS Code / PyCharm both work
+# Recommended: open the Mermaid diagram in agent-architecture.md and read the code alongside it
 ```
 
-### 6.2 服务器 QFS-STATION（真 Vitis，实际跑 agent 的地方）
+### 6.2 Server QFS-STATION (real Vitis, where the agent actually runs)
 
 ```bash
-# 本机 SSH 进服务器
+# SSH into the server from the local machine
 ssh QFS-STATION
 cd /home/admin/fpga-agent
 
-# 每次开新终端都要 source 这三行：
-source /home/admin/Xilinx/2025.2/Vitis/settings64.sh   # Vitis 工具链
+# Source these three lines every time you open a new terminal:
+source /home/admin/Xilinx/2025.2/Vitis/settings64.sh   # Vitis toolchain
 source .env                                              # DeepSeek API key
 source /home/admin/venv-fpga/bin/activate               # Python 3.12 venv
 
-# 现在可以直接用 python（指向 venv 里的 3.12）
+# Now you can use python directly (points to 3.12 in the venv)
 python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 ```
 
-### 6.3 代码同步到服务器
+### 6.3 Syncing code to the server
 
 ```bash
-# 从本地推到服务器（不经过 git）
+# Push from local to the server (not via git)
 rsync -az --exclude='.git' --exclude='runs/' --exclude='__pycache__' --exclude='.env' \
   agent/ scripts/ QFS-STATION:/home/admin/fpga-agent/
 ```
 
 ---
 
-## 7. Docker 部署（提交评测用）
+## 7. Docker Deployment (for submission/evaluation)
 
-> 赛题（FPT'26 Track A）要求"提交物能在 Docker 环境中 build 和 run"。本节说明如何构建镜像、在容器内跑 agent。Vitis 2025.2 不打进镜像（~92G，license 绑定），而是从宿主机只读挂载--这正是官方 `run-vitis.sh` 的模型。
+> The competition (FPT'26 Track A) requires that "the submission can be built and run in a Docker environment." This section explains how to build the image and run the agent inside a container. Vitis 2025.2 is not baked into the image (~92G, license-bound); instead it is bind-mounted read-only from the host -- this is exactly the model of the official `run-vitis.sh`.
 
-### 7.1 前提
+### 7.1 Prerequisites
 
-- 宿主机已装 Docker，且已装 Vitis 2025.2（默认路径 `/home/admin/Xilinx/2025.2/Vitis`，可用 `VITIS_ROOT` 环境变量覆盖）。
-- DeepSeek API key（`DEEPSEEK_API_KEY` 环境变量，或仓库根 `.env` 文件）--仅 `--backend deepseek` 需要。
+- Docker is installed on the host, and Vitis 2025.2 is installed (default path `/home/admin/Xilinx/2025.2/Vitis`, overridable with the `VITIS_ROOT` environment variable).
+- DeepSeek API key (`DEEPSEEK_API_KEY` environment variable, or a `.env` file in the repo root) -- only needed for `--backend deepseek`.
 
-### 7.2 构建镜像
+### 7.2 Build the image
 
 ```bash
 cd fpga-agent
 docker build -t fpga-agent:0.7.4 .
 ```
 
-镜像包含：Ubuntu 22.04 + Vitis 依赖库（镜像官方 `vitis.dockerfile`）+ Python 3.12 + textual/rich（TUI）+ agent 源码 + harness。不含 Vitis 本体（运行时挂载）。
+The image contains: Ubuntu 22.04 + Vitis dependency libraries (the official `vitis.dockerfile`) + Python 3.12 + textual/rich (TUI) + agent source code + harness. It does NOT contain Vitis itself (mounted at runtime).
 
-### 7.3 运行（CLI 模式）
+### 7.3 Run (CLI mode)
 
 ```bash
-# 跑一道题（scripted 后端，不花 token，验证链路）
+# Run one task (scripted backend, no token cost, verify the pipeline)
 ./docker-run.sh contest/fpt26-harness/tasks/projection_bugfix
 
-# DeepSeek 真修复（花 token）
+# Real DeepSeek repair (costs tokens)
 ./docker-run.sh contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 ```
 
-`docker-run.sh` 自动完成：挂载**整个 Xilinx 目录树**到容器内相同路径（只读，Vitis settings64.sh 硬编码兄弟目录绝对路径，必须保持路径一致）-> 传 `DEEPSEEK_API_KEY` -> 挂载 `runs/` 输出目录 -> 调用 `scripts/run_agent.py`。
+`docker-run.sh` automatically: bind-mounts the **entire Xilinx directory tree** to the same path inside the container (read-only; Vitis's settings64.sh hard-codes absolute paths to sibling directories, so the paths must stay consistent) -> passes `DEEPSEEK_API_KEY` -> mounts the `runs/` output directory -> invokes `scripts/run_agent.py`.
 
-> **实测验证（2026-07-22）**：QFS-STATION 上 build 成功，容器内跑通 projection_bugfix（SCORE 1.400）+ dotProduct_optimize（SCORE 3.000 满分），csim/synth 真跑非 mock，SCORE 与宿主机一致。
+> **Verified in practice (2026-07-22)**: Build succeeded on QFS-STATION; inside the container, projection_bugfix (SCORE 1.400) + dotProduct_optimize (SCORE 3.000 full score) ran successfully, with csim/synth running for real (not mocked); SCORE matches the host.
 
-### 7.4 运行（TUI 模式）
+### 7.4 Run (TUI mode)
 
 ```bash
 ./docker-run.sh --tui contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 ```
 
-TUI 需要终端（`-it`），`docker-run.sh --tui` 已处理。
+TUI requires a terminal (`-it`); `docker-run.sh --tui` handles this.
 
-### 7.5 镜像结构
+### 7.5 Image structure
 
-| 路径（容器内） | 说明 |
+| Path (inside container) | Description |
 |---|---|
-| `/opt/fpga-agent/` | 项目根（agent/ + tui/ + scripts/ + contest/fpt26-harness/） |
-| `/home/admin/Xilinx/` | 宿主机整个 Xilinx 树挂载点（只读，运行时注入；保持宿主机路径因 settings64.sh 硬编码兄弟目录） |
-| `/opt/fpga-agent/runs/` | 运行产物输出（挂载到宿主机，持久化） |
-| `LLM4HLS_VITIS_HLS_ROOT` | 环境变量 = `/home/admin/Xilinx/2025.2/Vitis`（harness config.py 定位 Vitis） |
+| `/opt/fpga-agent/` | Project root (agent/ + tui/ + scripts/ + contest/fpt26-harness/) |
+| `/home/admin/Xilinx/` | Host's entire Xilinx tree mount point (read-only, injected at runtime; host path preserved because settings64.sh hard-codes sibling directory paths) |
+| `/opt/fpga-agent/runs/` | Run artifact output (mounted to the host, persisted) |
+| `LLM4HLS_VITIS_HLS_ROOT` | Environment variable = `/home/admin/Xilinx/2025.2/Vitis` (harness config.py locates Vitis) |
 
-### 7.6 在 QFS-STATION 服务器上构建
+### 7.6 Building on the QFS-STATION server
 
-服务器有 Vitis + 466G 数据盘，是实际 build 镜像的地方：
+The server has Vitis + a 466G data disk; this is where the image is actually built:
 
 ```bash
 ssh QFS-STATION
 cd /home/admin/fpga-agent
-git pull   # 拉取 Dockerfile + docker-run.sh
+git pull   # Pull the Dockerfile + docker-run.sh
 docker build -t fpga-agent:0.7.4 .
-# 服务器默认 VITIS_ROOT=/home/admin/Xilinx/2025.2/Vitis，无需额外设置
+# Server default VITIS_ROOT=/home/admin/Xilinx/2025.2/Vitis, no extra setup needed
 ./docker-run.sh contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 ```
 
 ---
 
-## 变更记录
+## Change Log
 
-| 日期 | 变更 | 变更人 |
+| Date | Change | Author |
 |---|---|---|
-| 2026-07-15 | v1 初稿。 | Agent 主 |
+| 2026-07-15 | v1 initial draft. | Agent 主 |

@@ -1,178 +1,180 @@
-# 运行产物 (Run Outputs)
+> [中文](README.cn.md)
 
-> 本目录存放 agent 运行产生的产物。**已 gitignore，不入库**。每次运行覆盖同名子目录。
+# Run Outputs
 
-## 目录结构
+> This directory holds the artifacts produced by agent runs. **It is gitignored and not committed.** Each run overwrites the same-named subdirectory.
 
-每次运行 `scripts/run_agent.py` 或 `./run.sh`，会在 `runs/<task_id>/` 下生成：
+## Directory Structure
+
+Each run of `scripts/run_agent.py` or `./run.sh` generates the following under `runs/<task_id>/`:
 
 ```
 runs/
-└── <task_id>/                  如 projection_bugfix
-    ├── final_<kernel>.cpp      agent 最终输出的 kernel 代码
-    ├── <task_id>.jsonl         事件日志（JSONL，每行一个事件：route/tool_result/kb_search/checkpoint 等）
-    ├── <task_id>_prompts.jsonl  LLM 提示词全记录（v0.7.2：每次调用的 purpose/system/user/response 原文）
-    ├── scores.jsonl            得分历史（每次评分追加一行：ts/score/latency/credits/tokens）
-    ├── agent/                  agent 工作区
-    │   ├── csim_1/             第 1 次 csim 的工作目录（kernel.cpp/.h/_tb.cpp/run_hls.tcl）
-    │   ├── csim_2/             第 2 次 csim（修复后重跑）
-    │   ├── synth_3/            第 3 次工具调用是 synth
-    │   └── ...                 按工具调用序号排列
-    └── grade/                  评分区
+└── <task_id>/                  e.g. projection_bugfix
+    ├── final_<kernel>.cpp      the kernel code the agent finally outputs
+    ├── <task_id>.jsonl         event log (JSONL, one event per line: route/tool_result/kb_search/checkpoint, etc.)
+    ├── <task_id>_prompts.jsonl  full LLM prompt record (v0.7.2: the purpose/system/user/response of each call)
+    ├── scores.jsonl            score history (one row appended per scoring: ts/score/latency/credits/tokens)
+    ├── agent/                  agent workspace
+    │   ├── csim_1/             working dir for the 1st csim (kernel.cpp/.h/_tb.cpp/run_hls.tcl)
+    │   ├── csim_2/             2nd csim (rerun after repair)
+    │   ├── synth_3/            the 3rd tool call is synth
+    │   └── ...                 ordered by tool-call number
+    └── grade/                  grading area
         ├── grade_csim/         hidden testbench csim
-        ├── grade_synth_base/   baseline 综合
-        └── grade_synth_cand/   candidate 综合（PPA 对比）
+        ├── grade_synth_base/   baseline synthesis
+        └── grade_synth_cand/   candidate synthesis (PPA comparison)
 ```
 
-## 与 harness 自带 runs/ 的区分
+## Distinguishing From the Harness's Own runs/
 
-| 目录 | 来源 | 用途 |
+| Directory | Source | Purpose |
 |---|---|---|
-| `runs/`（项目根） | 本项目的 `agent.main_loop.Agent` 跑出来 | 验证我们的 agent |
-| `contest/fpt26-harness/runs/` | harness 自带的 `ReferenceAgent` 跑出来 | 官方参考实现的基线对比 |
+| `runs/` (project root) | produced by this project's `agent.main_loop.Agent` | validating our agent |
+| `contest/fpt26-harness/runs/` | produced by the harness's built-in `ReferenceAgent` | baseline comparison against the official reference implementation |
 
-两者结构相似（都用 harness 的 ToolServer），但 agent 实现不同。做性能对比时注意区分来源。
+The two have similar structures (both use the harness's ToolServer), but the agent implementations differ. When doing performance comparisons, be careful to distinguish the source.
 
 ---
 
-## 日志阅读指南（怎么读一次运行）
+## Log-Reading Guide (how to read a run)
 
-### 一、先分清三种"日志"
+### 1. First, tell the three kinds of "logs" apart
 
-| 日志 | 在哪 | 记什么 | 什么时候看 |
+| Log | Where | What it records | When to look |
 |---|---|---|---|
-| **开发日志 dev-log** | `docs-development/dev-log/` | 每次开发会话做了什么、为什么、遇到什么问题 | 想知道"项目为什么长这样" |
-| **事件日志 JSONL** | `runs/<task>/<task>.jsonl` | agent 一次运行里每个决策点的事件（**读运行的主日志**） | 想知道"这次跑得好不好、卡在哪" |
-| **harness transcript** | 终端输出末尾 / `server.transcript` | 每次工具调用的计费流水（csim/synth/cosim + 花了多少 credit） | 想知道"预算花哪了" |
+| **dev-log** | `docs-development/dev-log/` | what each dev session did, why, and what problems it hit | when you want to know "why the project is shaped this way" |
+| **event log JSONL** | `runs/<task>/<task>.jsonl` | the events at each decision point during one agent run (**the main log for reading a run**) | when you want to know "how well this run went, where it got stuck" |
+| **harness transcript** | end of terminal output / `server.transcript` | the billing stream for each tool call (csim/synth/cosim + how many credits spent) | when you want to know "where the budget went" |
 
-平时说"看日志"，90% 指第二种：事件日志 JSONL。下面讲的都是它。
+When people say "read the log" day-to-day, 90% of the time they mean the second kind: the event-log JSONL. Everything below is about it.
 
-### 二、JSONL 怎么读：事件类型速查（v0.7.0）
+### 2. How to read the JSONL: event-type quick reference (v0.7.0)
 
-每行一个 JSON：`{"ts": 时间戳, "task": 题目id, "event": 事件名, ...}`。按一次完整运行的事件顺序：
+Each line is one JSON object: `{"ts": timestamp, "task": task_id, "event": event_name, ...}`. In the order of events in a complete run:
 
-| 顺序 | 事件 | 看什么 |
+| Order | Event | What to look at |
 |---|---|---|
-| 1 | `route` | 路由判定：task_type、correctness 关卡、initial_level、budget、**token_mode**（v0.7.0：full/balanced/aggressive） |
-| 2 | `pre_csim_review` → `mechanical_review`/`review` → `pre_csim_fix_applied` 或 `pre_csim_no_change` | 免费静态体检：LLM 有没有在花 credit 前就发现问题 |
-| 3 | `tool_result` (csim) | 第一次 csim：`ok` 过没过；没过看 `phase`（compile_error/runtime_fail）和 `log`（报错原文） |
-| 4 | （失败时）`kb_search` → `mechanical_review` → `review` → 回到 3 | 修复循环：KB 有没有命中（`hits>0`，v0.7.0 起带 `hit_ids` 看具体哪条）、双闸门过没过 |
-| 5 | `checkpoint` (reason=correctness_gate) | **存档 Lv1**：correctness 达标，correct 分到手 |
-| 6 | `phase_exit` (correctness, result=ok) | 阶段 1 结束 |
-| 7 | `tool_result` (synth) + `checkpoint` (reason=synth_ok) | **存档 Lv2**：synth 分到手 + baseline latency |
-| 8 | `phase_enter` (optimize) → `design_brief` | 优化开始：设计摘要提取（chars 长度） |
-| 9 | `llm_call` (propose_strategies, count=N) → `llm_call` (select_strategies) → `strategy_select` | **策略决策**：提了几个策略、评审选了哪几个（`indices`/`picked`）、否决了谁（`rejected`）、是不是回退（`fallback`） |
-| 10 | `llm_call` (apply_strategies) → `mechanical_review` → `review` | 生成 + 双闸门；`review verdict=reject` 说明 LLM 犯了 pragma 错被拦 |
-| 11 | `tool_result` (csim+synth) | 候选重验 |
-| 12 | `checkpoint` (reason=optimize_improve) | **变好**：`old_latency→new_latency`；连起来就是优化轨迹 |
-| 13 | `optimize_discard` / `optimize_fallback` / `optimize_stop` | 候选丢弃原因 / 组合失败回退 / 收敛停止原因 |
-| 14 | `cosim_recheck` | 最终 RTL 体检（best 变过且预算够才出现） |
-| 15 | `submit` | 终态：`final_level`、`final_latency`、`credit_spent` |
+| 1 | `route` | routing decision: task_type, correctness gate, initial_level, budget, **token_mode** (v0.7.0: full/balanced/aggressive) |
+| 2 | `pre_csim_review` -> `mechanical_review`/`review` -> `pre_csim_fix_applied` or `pre_csim_no_change` | free static checkup: did the LLM spot a problem before spending any credit |
+| 3 | `tool_result` (csim) | first csim: did `ok` pass; if not, look at `phase` (compile_error/runtime_fail) and `log` (the raw error) |
+| 4 | (on failure) `kb_search` -> `mechanical_review` -> `review` -> back to 3 | repair loop: did the KB hit anything (`hits>0`; from v0.7.0 `hit_ids` shows exactly which entry), and did the two gates pass |
+| 5 | `checkpoint` (reason=correctness_gate) | **archive Lv1**: correctness met, the correct points are secured |
+| 6 | `phase_exit` (correctness, result=ok) | stage 1 ends |
+| 7 | `tool_result` (synth) + `checkpoint` (reason=synth_ok) | **archive Lv2**: synth points secured + baseline latency |
+| 8 | `phase_enter` (optimize) -> `design_brief` | optimization begins: design-brief extraction (chars length) |
+| 9 | `llm_call` (propose_strategies, count=N) -> `llm_call` (select_strategies) -> `strategy_select` | **strategy decision**: how many strategies were proposed, which the reviewer picked (`indices`/`picked`), which it rejected (`rejected`), and whether it was a fallback (`fallback`) |
+| 10 | `llm_call` (apply_strategies) -> `mechanical_review` -> `review` | generation + two gates; `review verdict=reject` means the LLM made a pragma error and was blocked |
+| 11 | `tool_result` (csim+synth) | candidate re-verification |
+| 12 | `checkpoint` (reason=optimize_improve) | **got better**: `old_latency->new_latency`; stringing these together gives the optimization trajectory |
+| 13 | `optimize_discard` / `optimize_fallback` / `optimize_stop` | reason a candidate was discarded / combo-failed fallback / convergence-stop reason |
+| 14 | `cosim_recheck` | final RTL checkup (only appears if best changed and budget allows) |
+| 15 | `submit` | terminal state: `final_level`, `final_latency`, `credit_spent` |
 
-**v0.7.0 起 `llm_call` 事件带 token 字段**（DeepSeek 后端）：`model` / `prompt_tokens` / `completion_tokens` / `reasoning_tokens`——可做 per-call-site 的 token 归因分析（P4-03）。
+**From v0.7.0 the `llm_call` event carries token fields** (DeepSeek backend): `model` / `prompt_tokens` / `completion_tokens` / `reasoning_tokens` -- enables per-call-site token attribution analysis (P4-03).
 
-其他可能出现：`budget_exhausted`（预算尽）、`rollback`（快照回滚，reason 看原因）、`repair_failed`（LLM 没产出可解析代码）、`env_error`（vitis-run 没找到）、`heartbeat`（10s 一条活性心跳，分析时可过滤掉）。
+Others that may appear: `budget_exhausted` (budget used up), `rollback` (snapshot rollback; check `reason` for why), `repair_failed` (the LLM produced no parseable code), `env_error` (vitis-run not found), `heartbeat` (a liveness heartbeat every 10s; can be filtered out during analysis).
 
-### 三、一个真实片段（dotProduct 满分 run，逐行注释）
+### 3. A real snippet (the dotProduct full-score run, annotated line by line)
 
 ```
-route            task_type=optimize, budget=40          ← 路由：优化题，40 credits
-pre_csim_fix_applied                                 ← 免费体检：LLM 直接优化了代码
-tool_result      csim pass (10.1s)  [spent 1]         ← 第 1 个 credit
-checkpoint       0→1 correctness_gate                  ← Lv1：correct 1.5 分到手
-tool_result      synth pass latency=38 [spent 5]      ← Lv2：baseline 38 周期
-phase_enter      optimize                              ← 优化开始
-design_brief     chars=1386                            ← LLM 读懂了设计：串行累加是瓶颈
-llm_call         propose_strategies count=3            ← 提了 3 个策略
-strategy_select  indices=[0,1,2] picked=[三个全选]      ← 评审 AI 判断三策略可组合
-mechanical_review passed=True                        ← 硬门过
-review           verdict=pass                          ← LLM 复审过
+route            task_type=optimize, budget=40          ← routing: optimization task, 40 credits
+pre_csim_fix_applied                                 ← free checkup: the LLM optimized the code directly
+tool_result      csim pass (10.1s)  [spent 1]         ← the 1st credit
+checkpoint       0->1 correctness_gate                  ← Lv1: the 1.5 correct points secured
+tool_result      synth pass latency=38 [spent 5]      ← Lv2: baseline 38 cycles
+phase_enter      optimize                              ← optimization begins
+design_brief     chars=1386                            ← the LLM understood the design: serial accumulation is the bottleneck
+llm_call         propose_strategies count=3            ← proposed 3 strategies
+strategy_select  indices=[0,1,2] picked=[all three]    ← the review AI judged the 3 strategies combinable
+mechanical_review passed=True                        ← hard gate passed
+review           verdict=pass                          ← LLM re-review passed
 tool_result      csim pass [spent 6]
 tool_result      synth pass latency=37 [spent 10]
-checkpoint       38→37 optimize_improve                ← 变好一点点，继续
-strategy_select  indices=[0,2]（排除了策略1）            ← 第 2 轮：评审排除冲突策略
-checkpoint       37→22 optimize_improve                ← 大幅变好
-strategy_select  indices=[0]（保守单选）                 ← 第 3 轮：评审判断组合风险大
-checkpoint       22→14 optimize_improve                ← 再变好
-optimize_stop    reason=no_improvement                 ← 第 4 轮没变快，收敛停止
-submit           final_level=2 final_latency=14         ← 交 14 周期的版本
+checkpoint       38->37 optimize_improve                ← a little better, continue
+strategy_select  indices=[0,2] (excluded strategy 1)   ← round 2: the review excluded a conflicting strategy
+checkpoint       37->22 optimize_improve                ← big improvement
+strategy_select  indices=[0] (conservative single pick)← round 3: the review judged the combo too risky
+checkpoint       22->14 optimize_improve                ← better again
+optimize_stop    reason=no_improvement                 ← round 4 didn't get faster, converged and stopped
+submit           final_level=2 final_latency=14         ← submit the 14-cycle version
 ```
 
-读完能复述：免费体检先优化了一轮 → 基线 38 → 三轮三种选择（三组合/排他二组合/保守单选）→ 38→37→22→14 → 收敛。
+After reading you can retell it: the free checkup optimized one round first -> baseline 38 -> three rounds, three choices (three-combo / exclusive two-combo / conservative single) -> 38->37->22->14 -> converged.
 
-### 四、实用命令（服务器上）
+### 4. Practical commands (on the server)
 
 ```bash
 cd /home/admin/fpga-agent
 
-# 实时跟踪一次运行（去掉 10s 一条的心跳）
+# Follow a run in real time (drop the 10s heartbeats)
 tail -f runs/dotProduct_optimize/dotProduct_optimize.jsonl | grep -v heartbeat
 
-# 只看决策类事件（一次运行的"故事线"）
+# Show only decision events (the "story line" of a run)
 grep -v heartbeat runs/dotProduct_optimize/dotProduct_optimize.jsonl | \
   grep -E 'route|checkpoint|strategy_select|optimize_|rollback|submit'
 
-# 用 jq 提取优化轨迹（old→new latency）
+# Extract the optimization trajectory (old->new latency) with jq
 grep checkpoint runs/dotProduct_optimize/dotProduct_optimize.jsonl | \
-  jq -r 'select(.reason=="optimize_improve") | "\(.old_latency)→\(.new_latency)"'
+  jq -r 'select(.reason=="optimize_improve") | "\(.old_latency)->\(.new_latency)"'
 
-# 看评审 AI 每次怎么选的（含否决理由）
+# See how the review AI chose each round (including rejection reasons)
 grep strategy_select runs/dotProduct_optimize/dotProduct_optimize.jsonl | \
   jq -c '{round, indices, rejected: [.rejected[]?.name], fallback}'
 
-# 看这次运行报了哪些错（含工具报错原文）
+# See what errors this run reported (including the raw tool error text)
 grep tool_result runs/dotProduct_optimize/dotProduct_optimize.jsonl | \
   jq -r 'select(.ok==false) | "\(.kind) \(.phase): \(.log[:200])"'
 
-# per-call-site token 归因（v0.7.0 起，DeepSeek 后端）
+# per-call-site token attribution (from v0.7.0, DeepSeek backend)
 grep llm_call runs/<task>/<task>.jsonl | \
   jq -r '[.purpose, .prompt_tokens, .completion_tokens, .reasoning_tokens] | @tsv'
 
-# ── 看 LLM 实际拿到了什么提示词（v0.7.2 起，prompts.jsonl）──
+# ── See what prompts the LLM actually received (from v0.7.2, prompts.jsonl) ──
 
-# 列出这次运行每次调用的目的和时间
+# List the purpose and time of each call in this run
 jq -r '[.ts, .purpose] | @tsv' runs/<task>/<task>_prompts.jsonl
 
-# 看某次调用的完整 user prompt（比如评审 AI 那次怎么问的）
+# See the full user prompt of a given call (e.g. how the review AI was asked)
 jq -r 'select(.purpose=="select_strategies") | .user' \
   runs/<task>/<task>_prompts.jsonl | less -S
 
-# 看某次调用的 system prompt（角色设定）
+# See the system prompt of a given call (the role setup)
 jq -r 'select(.purpose=="select_strategies") | .system' \
   runs/<task>/<task>_prompts.jsonl | head -3
 
-# 看某次调用的完整回复（含被否决策略的理由）
+# See the full response of a given call (including reasons for rejected strategies)
 jq -r 'select(.purpose=="select_strategies") | .response' \
   runs/<task>/<task>_prompts.jsonl | jq .
 
-# 对照事件日志：prompts.jsonl 与 <task>.jsonl 用 ts（时间戳）关联
+# Cross-reference the event log: prompts.jsonl and <task>.jsonl are linked by ts (timestamp)
 ```
 
-### 五、30 秒判断一次运行好不好
+### 5. Judge whether a run went well in 30 seconds
 
-1. **checkpoint 序列**：0→1→2 都有吗？缺 1 = correctness 没过；缺 2 = synth 没过
-2. **latency 轨迹**：`optimize_improve` 事件的 new_latency 在降吗？一次都没有 = 优化没产出
-3. **credit 花费 vs 预算**：`submit.credit_spent` 接近预算 = 挣扎；远小于 = 顺利
-4. **strategy_select 的 fallback**：出现 `fallback=true` = 评审 AI 输出没解析出来（要查）
-5. **rollback 事件**：出现了说明优化引入了真问题被回滚（机制在工作，但要查为什么）
+1. **checkpoint sequence**: are 0->1->2 all present? Missing 1 = correctness didn't pass; missing 2 = synth didn't pass
+2. **latency trajectory**: is the `new_latency` of `optimize_improve` events going down? Not a single one = optimization produced nothing
+3. **credit spent vs budget**: `submit.credit_spent` close to the budget = a struggle; far below = smooth
+4. **strategy_select fallback**: `fallback=true` means the review AI's output couldn't be parsed (investigate)
+5. **rollback events**: if one appears, optimization introduced a real problem that was rolled back (the mechanism is working, but investigate why)
 
-## 事件日志字段（简表，详细见上方指南）
+## Event-Log Fields (summary table; see the guide above for details)
 
-| 事件类型 | 含义 |
+| Event type | Meaning |
 |---|---|
-| `route` | 路由结果（task_type -> 关卡路径） |
-| `tool_result` | 工具调用结果（kind=csim/synth/cosim, phase, credit_spent） |
-| `kb_search` | 知识库检索（query, hits, **hit_ids** v0.7.0 起） |
-| `review` / `mechanical_review` | LLM 复审 / 机械硬门 |
-| `llm_call` | LLM 调用（purpose=extract_brief/propose_strategies/select_strategies/apply_strategies；v0.7.0 起带 model/prompt_tokens/completion_tokens/reasoning_tokens） |
-| `strategy_select` | 评审 AI 选择（indices/picked/rejected/fallback） |
-| `checkpoint` | 存档变更（level, latency） |
-| `submit` | 最终提交 |
+| `route` | routing result (task_type -> level path) |
+| `tool_result` | tool-call result (kind=csim/synth/cosim, phase, credit_spent) |
+| `kb_search` | knowledge-base retrieval (query, hits, **hit_ids** from v0.7.0) |
+| `review` / `mechanical_review` | LLM re-review / hard mechanical gate |
+| `llm_call` | LLM call (purpose=extract_brief/propose_strategies/select_strategies/apply_strategies; from v0.7.0 carries model/prompt_tokens/completion_tokens/reasoning_tokens) |
+| `strategy_select` | review-AI selection (indices/picked/rejected/fallback) |
+| `checkpoint` | archive change (level, latency) |
+| `submit` | final submission |
 
-## 状态
+## Status
 
-- `runs/projection_bugfix/`：projection 题端到端真修复（SCORE 1.400）
-- `runs/dotProduct_optimize/`：optimize 循环满分（SCORE 3.000，73.36×）
-- `runs/residual_stream_deadlock/`：structural 题（最高 SCORE 4.000，lat=6）
-- `runs/vecadd_optimize/`：新题（2026-07-20）DeepSeek 满分（SCORE 1.000，lat=20，68k tokens）
-- `runs/fir_optimize/`、`runs/matmul_optimize/`：新题（2026-07-20）scripted 验证满分（2.000/3.000）
+- `runs/projection_bugfix/`: the projection task, a real end-to-end repair (SCORE 1.400)
+- `runs/dotProduct_optimize/`: the optimize loop, full score (SCORE 3.000, 73.36x)
+- `runs/residual_stream_deadlock/`: a structural task (max SCORE 4.000, lat=6)
+- `runs/vecadd_optimize/`: a new task (2026-07-20), DeepSeek full score (SCORE 1.000, lat=20, 68k tokens)
+- `runs/fir_optimize/`, `runs/matmul_optimize/`: new tasks (2026-07-20), full score verified with scripted (2.000/3.000)

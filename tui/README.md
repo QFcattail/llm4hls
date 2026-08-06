@@ -1,21 +1,22 @@
-# TUI 仪表盘 (TUI Dashboard)
+> [中文](README.cn.md)
 
-> Textual + Rich 实现的交互式终端仪表盘，实时展示 agent 运行状态。设计文档见
-> [`docs-development/design/tui-design.md`](../docs-development/design/tui-design.md)。
+# TUI Dashboard
 
-## 文件结构
+> An interactive terminal dashboard built with Textual + Rich that shows the agent's run status in real time. For the design doc, see [`docs-development/design/tui-design.md`](../docs-development/design/tui-design.md).
 
-| 文件 | 职责 |
+## File Structure
+
+| File | Responsibility |
 |---|---|
-| `app.py` | `AgentDashboard(App)`：主应用，组装四区域 + 后台线程跑 agent + 事件队列桥接 |
-| `flow_chart.py` | `FlowChart(Static)`：Area A，顶部。5 阶段流水线（route->correctness->synth->optimize->submit），状态符号 + 耗时 + 统计 |
-| `tool_error_bar.py` | `ToolErrorBar(Static)`：flow chart 与 activity panel 之间的独立区。固定高 7 行，解析 gcc/Vitis/testcase 错误行，工具运行时显示"正在跑... 已耗时 Xs" |
-| `activity_panel.py` | `ActivityPanel(Static)`：Area B，中部主体。单一 `RichLog` 流式输出，LLM thinking（dim italic）+ code（cpp 高亮）交织流式，或工具日志 |
-| `status_bar.py` | `StatusBar(Static)`：Area C，底部。credit 进度条 + token 统计（含 reasoning）+ 本环节调用次数 + review 意见 |
-| `task_picker.py` | `TaskPickerScreen(Screen)` + `scan_tasks(root)`：交互式任务选择屏，扫描 harness `tasks/` 目录，支持自定义路径 |
-| `__init__.py` | 包入口，导出 `FlowChart`/`ActivityPanel`/`StatusBar`（原设计三件套） |
+| `app.py` | `AgentDashboard(App)`: the main app, assembles the four regions + runs the agent in a background thread + bridges the event queue |
+| `flow_chart.py` | `FlowChart(Static)`: Area A, at the top. The 5-stage pipeline (route->correctness->synth->optimize->submit), with status symbols + elapsed time + stats |
+| `tool_error_bar.py` | `ToolErrorBar(Static)`: an independent region between the flow chart and the activity panel. Fixed height of 7 lines, parses gcc/Vitis/testcase error lines, and shows "running... elapsed Xs" while a tool is running |
+| `activity_panel.py` | `ActivityPanel(Static)`: Area B, the main middle body. A single `RichLog` for streaming output, interleaving LLM thinking (dim italic) + code (cpp highlighting), or tool logs |
+| `status_bar.py` | `StatusBar(Static)`: Area C, at the bottom. Credit progress bar + token stats (including reasoning) + call count for the current stage + review opinions |
+| `task_picker.py` | `TaskPickerScreen(Screen)` + `scan_tasks(root)`: an interactive task-selection screen that scans the harness `tasks/` directory and supports custom paths |
+| `__init__.py` | Package entry, exports `FlowChart`/`ActivityPanel`/`StatusBar` (the original three-piece set) |
 
-## 调用链
+## Call Chain
 
 ```mermaid
 flowchart TB
@@ -27,41 +28,41 @@ flowchart TB
     APP -->|"compose()"| SB[StatusBar]
     APP -->|"on_mount()"| THREAD["_run_agent (daemon thread)"]
     THREAD -->|"import"| AGENT["agent.main_loop.Agent"]
-    THREAD -->|"monkey-patch"| BRIDGE["queue.Queue 事件桥"]
-    BRIDGE -->|"每150ms poll"| POLL["_poll_events()"]
+    THREAD -->|"monkey-patch"| BRIDGE["queue.Queue event bridge"]
+    BRIDGE -->|"poll every 150ms"| POLL["_poll_events()"]
     POLL --> FC & TEB & AP & SB
 ```
 
-**线程模型**：`on_mount()` 起守护线程 `_run_agent()` 跑 agent，主线程每 150ms `_poll_events()` 从 `queue.Queue` 取事件刷新 UI。线程桥接用 monkey-patch 包装 `agent.log.event` 和 `agent.hb.set_stage`，把 agent 内部调用转发成队列事件（`init`/`event`/`stream`/`heartbeat`/`done`/`error`）。
+**Threading model**: `on_mount()` starts a daemon thread `_run_agent()` to run the agent, while the main thread calls `_poll_events()` every 150ms to pull events from the `queue.Queue` and refresh the UI. The thread bridge uses monkey-patching to wrap `agent.log.event` and `agent.hb.set_stage`, forwarding the agent's internal calls into queue events (`init`/`event`/`stream`/`heartbeat`/`done`/`error`).
 
-**`__init__.py` 导出说明**：只 re-export 了原设计的三件套（`FlowChart`/`ActivityPanel`/`StatusBar`）。后加的 `ToolErrorBar` 和 `TaskPickerScreen`/`scan_tasks` 走 `app.py` 直接导入，不经 `__init__`。
+**`__init__.py` export note**: it only re-exports the original three-piece set (`FlowChart`/`ActivityPanel`/`StatusBar`). The later-added `ToolErrorBar` and `TaskPickerScreen`/`scan_tasks` are imported directly via `app.py`, not through `__init__`.
 
-## 知识点
+## Knowledge Points
 
-- **主题配色（v3 起）**：自定义 Textual 主题 `fpga-light`（定义在 `app.py`，规格见设计文档 §3.5）——primary `#587559`（灰绿）、accent/装饰 `#FDD100`（金黄，四区域边框/当前阶段高亮/credit 进度条）、白底黑字，CoT 思维链保持灰色（dim italic）。代码高亮主题用 `github-light`（配合白底）。界面文案全英文。
-- **Textual App 生命周期**：`compose()` 布局 -> `on_mount()` 启动后台线程 -> `poll` 刷新 -> `q` 弹 `QuitConfirmScreen` 确认退出。
-- **线程桥接**：Textual 是单线程事件循环，agent 跑在子线程。用 `queue.Queue` 做线程安全通信，主线程 poll 取事件后调 widget 方法（widget 方法本身不是线程安全的，必须在主线程调）。
-- **RichLog 流式输出**：thinking 逐 token 用 `Static` 覆盖式刷新（dim italic），完整行写入 `RichLog`；code 行缓冲 + cpp 语法高亮（`Syntax` widget）。两者在同一区域连续输出。
-- **DeepSeek stream 模式**：`deepseek_client.py` 加 `stream=True` + `on_stream` 回调。`reasoning_content` -> thinking，`content` -> code。
+- **Theme/color scheme (from v3)**: a custom Textual theme `fpga-light` (defined in `app.py`, spec in design doc §3.5) -- primary `#587559` (grey-green), accent/decoration `#FDD100` (golden yellow, used for the four-region borders / current-stage highlight / credit progress bar), white background with black text, and the CoT reasoning chain kept grey (dim italic). The code-highlighting theme is `github-light` (to match the white background). All UI copy is in English.
+- **Textual App lifecycle**: `compose()` lays out -> `on_mount()` starts the background thread -> `poll` refreshes -> `q` pops a `QuitConfirmScreen` to confirm quitting.
+- **Thread bridging**: Textual is a single-threaded event loop, and the agent runs in a sub-thread. A `queue.Queue` is used for thread-safe communication; the main thread polls for events and then calls widget methods (widget methods are not themselves thread-safe and must be called on the main thread).
+- **RichLog streaming output**: thinking is refreshed token-by-token with an overwriting `Static` (dim italic), and complete lines are written to the `RichLog`; code lines are buffered + cpp-syntax-highlighted (the `Syntax` widget). Both stream out continuously in the same region.
+- **DeepSeek stream mode**: `deepseek_client.py` adds `stream=True` + an `on_stream` callback. `reasoning_content` -> thinking, `content` -> code.
 
-## 构建方法
+## Build Method
 
 ```bash
-# 依赖：textual + rich（需 pip install）
+# Dependencies: textual + rich (pip install required)
 pip install textual rich
 
-# 启动（自动 source Vitis + .env + venv）
+# Launch (auto sources Vitis + .env + venv)
 ./run.sh
 ./run.sh --task contest/fpt26-harness/tasks/projection_bugfix
-./run.sh --backend deepseek   # 真 LLM
+./run.sh --backend deepseek   # real LLM
 ```
 
-## 已知坑点
+## Known Pitfalls
 
-- **两个 App 冲突黑屏**：早期用 Textual 的 `TaskPickerScreen` + `AgentDashboard` 两个 App，切换时黑屏。改为纯 `print+input` 做选题（不用 Textual），只有 `AgentDashboard` 一个 App。
-- **widget 方法非线程安全**：agent 子线程不能直接调 widget 方法，必须经 `queue.Queue` 转发到主线程。
-- **ToolErrorBar 噪声过滤**：Vitis 日志含大量 INFO/WARNING 行，需过滤只留 error 行，否则 7 行不够用。HLS 错误码（如 `@E`）需排除误报。
-- **Header 不显示 name 参数**：`Header(name=...)` 只是 DOM 节点名，标题栏显示的是 `app.title`。版本号要用 `self.title = ...` 设置，否则标题栏只显示类名。
-- **关闭时 NoMatches 竞态**：150ms 轮询定时器在关闭卸载 widget 后可能再触发一拍，`query_one` 抛 `NoMatches`。`_poll_events` 已包兜底丢弃该拍（v0.1.1 修复）。
-- **心跳覆盖分区内容**：`_refresh_ui` 每 150ms 调 `ToolErrorBar.show_running`——若 bar 用一次性 `update()` 写内容，心跳会把其他分区（如 v0.3.0 的 optimize 策略面板）擦掉。ToolErrorBar 已改**状态驱动渲染**（内部分区状态 + `_rebuild()` 拼接，v0.3.0）：新增分区信息时务必走 `show_*` 方法改状态，不要直接 `update()`。
-- **自定义方法名撞 Textual 内部方法**：v0.3.0 把组合方法命名 `_compose()`，与 `Widget._compose()`（框架挂载时调用，期望组件生成器）撞名，真终端启动即崩 `TypeError: object Text can't be used in 'await' expression`（v0.3.1 修为 `_build_render`）。给 widget 加方法避开 `compose`/`_compose`/`render`/`_render` 等框架保留名；**TUI 改动必须过一次 `run_test()` 真挂载冒烟**，只测组合方法不够。
+- **Two apps conflicting -> black screen**: early on, using Textual's `TaskPickerScreen` + `AgentDashboard` as two apps caused a black screen on switching. Switched to plain `print+input` for task selection (no Textual), leaving only `AgentDashboard` as the single app.
+- **Widget methods are not thread-safe**: the agent sub-thread cannot call widget methods directly; they must be forwarded to the main thread via the `queue.Queue`.
+- **ToolErrorBar noise filtering**: Vitis logs contain many INFO/WARNING lines; they must be filtered to keep only error lines, otherwise 7 lines isn't enough. HLS error codes (e.g. `@E`) need false-positive exclusion.
+- **Header doesn't show the name parameter**: `Header(name=...)` is only the DOM node name; the title bar shows `app.title`. The version number must be set with `self.title = ...`, otherwise the title bar only shows the class name.
+- **NoMatches race on close**: the 150ms polling timer can fire one more tick after the widgets have been unloaded on close, and `query_one` raises `NoMatches`. `_poll_events` already wraps this with a fallback that drops that tick (fixed in v0.1.1).
+- **Heartbeat overwriting region content**: `_refresh_ui` calls `ToolErrorBar.show_running` every 150ms -- if the bar writes content with a one-shot `update()`, the heartbeat wipes out the other regions (e.g. the v0.3.0 optimize-strategy panel). ToolErrorBar has been changed to **state-driven rendering** (internal region state + `_rebuild()` assembly, v0.3.0): when adding region info, always go through the `show_*` methods to change state; do not call `update()` directly.
+- **Custom method names colliding with Textual internals**: in v0.3.0 a combination method was named `_compose()`, colliding with `Widget._compose()` (called by the framework on mount, expected to be a component generator); launching in a real terminal crashed immediately with `TypeError: object Text can't be used in 'await' expression` (fixed to `_build_render` in v0.3.1). When adding methods to widgets, avoid framework-reserved names like `compose`/`_compose`/`render`/`_render`; **any TUI change must pass a real-mount smoke test via `run_test()` once** -- testing only the combination method is not enough.

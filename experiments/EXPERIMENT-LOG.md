@@ -1,92 +1,64 @@
-# 实验日志（EXPERIMENT-LOG）
+> [中文](EXPERIMENT-LOG.cn.md)
 
-按时间倒序记录。每次正式测试一节。
+# Experiment Log (EXPERIMENT-LOG)
+
+Recorded in reverse chronological order. One section per formal test.
 
 ---
 
-## 2026-07-25 多模型对比测试（FPT'26 规则 6 合规）
+## 2026-07-25 Multi-Model Comparison Test (FPT'26 Rule 6 Compliance)
 
-**目的**：比赛规则 6 要求用三个推荐模型评估并报告结果。此前仅完成
-DeepSeek V4 Pro（见报告 Table VI），本次补充阿里云 MaaS 上的
-`qwen3.5-122b-a10b`（AWQ-4bit）与 `qwen3.6-27b`（FP8）。
+**Goal**: Competition rule 6 requires evaluating and reporting results with three recommended models. Previously only DeepSeek V4 Pro had been completed (see report Table VI); this round adds `qwen3.5-122b-a10b` (AWQ-4bit) and `qwen3.6-27b` (FP8) from Alibaba Cloud MaaS.
 
-**环境**：
-- 服务器：QFS-STATION（8 核 / 32GB），Vitis 2025.2，目标 U55C @ 200MHz
-- 端点：阿里云 MaaS OpenAI 兼容模式（cn-beijing）
-- 接入方式：`agent/deepseek_client.py` 环境变量覆盖
-  （`LLM_BASE_URL`/`LLM_MODEL`/`LLM_API_KEY`/`LLM_THINKING=enable_thinking`）
-- 端点探测结论（2026-07-25）：
-  - 两模型均为推理模型，默认输出 reasoning_content；
-  - `enable_thinking:false` 受支持（可关推理，用于 token-mode 的廉价判定调用）；
-  - usage 含 `completion_tokens_details.reasoning_tokens`，token 统计兼容。
+**Environment**:
+- Server: QFS-STATION (8 cores / 32GB), Vitis 2025.2, target U55C @ 200MHz
+- Endpoint: Alibaba Cloud MaaS OpenAI-compatible mode (cn-beijing)
+- Integration: `agent/deepseek_client.py` via environment variable overrides (`LLM_BASE_URL`/`LLM_MODEL`/`LLM_API_KEY`/`LLM_THINKING=enable_thinking`)
+- Endpoint probing conclusions (2026-07-25):
+  - Both models are reasoning models that output reasoning_content by default;
+  - `enable_thinking:false` is supported (can disable reasoning, used for the cheap judgment calls in token-mode);
+  - usage contains `completion_tokens_details.reasoning_tokens`; token accounting is compatible.
 
-**配置**：token-mode=full（与 DeepSeek 主实验一致，保证可比性）。
+**Configuration**: token-mode=full (consistent with the DeepSeek main experiment, to ensure comparability).
 
-### 冒烟测试：projection_bugfix × qwen3.6-27b（2026-07-25 21:37）
+### Smoke Test: projection_bugfix × qwen3.6-27b (2026-07-25 21:37)
 
-- 归档目录：`experiments/2026-07-25_qwen3.6-27b_projection_bugfix/`
-- 结果：**SCORE 1.400**（满分 1.400），credits 5/20，tokens 13,896
-- 对比 DeepSeek V4 Pro 同题：SCORE 1.400 / credits 5 / tokens 3,629
-  → 分数相同，qwen3.6-27b token 约 3.8×（小模型推理更长）
-- 时序：estimated clock 2.538 ns（target 5.0，uncertainty 1.35）→ 满足，
-  保守 Fmax 257 MHz ≥ 100 MHz（规则 4 达标）
-- 踩坑记录：
-  1. `set -u` 与 Vitis settings64.sh 冲突（PYTHONPATH unbound）→ runner 改用 `set -o pipefail`
-  2. `--work` 传相对路径会被 harness 拼错（cd 进 build 目录后路径翻倍，
-     csim.exe No such file）→ runner 改用 `$PWD/runs/...` 绝对路径
-  3. 首次冒烟因 bug #2 浪费约 3 credits + ~13k tokens，已终止重跑，
-     作废数据未归档
+- Archive directory: `experiments/2026-07-25_qwen3.6-27b_projection_bugfix/`
+- Result: **SCORE 1.400** (full marks 1.400), credits 5/20, tokens 13,896
+- Compared with DeepSeek V4 Pro on the same task: SCORE 1.400 / credits 5 / tokens 3,629 -> same score, qwen3.6-27b uses ~3.8× the tokens (smaller model, longer reasoning)
+- Timing: estimated clock 2.538 ns (target 5.0, uncertainty 1.35) -> met; conservative Fmax 257 MHz >= 100 MHz (rule 4 satisfied)
+- Pitfall notes:
+  1. `set -u` conflicts with Vitis settings64.sh (PYTHONPATH unbound) -> runner switched to `set -o pipefail`
+  2. Passing a relative path to `--work` gets mangled by the harness (after cd into the build directory the path doubles, csim.exe No such file) -> runner switched to absolute paths `$PWD/runs/...`
+  3. The first smoke run wasted ~3 credits + ~13k tokens due to bug #2; it was aborted and rerun, and the invalidated data was not archived
 
-### 正式矩阵结果（2026-07-25 21:40 ~ 2026-07-26 凌晨）
+### Formal Matrix Results (2026-07-25 21:40 ~ early morning 2026-07-26)
 
-token-mode=full，每 (模型,任务) 跑一次。qwen 两矩阵并行 + DeepSeek vecadd 补跑。
+token-mode=full, one run per (model, task). The two qwen matrices ran in parallel + DeepSeek vecadd rerun.
 
-| 任务 | qwen3.6-27b (score/cr/tok) | qwen3.5-122b (score/cr/tok) |
+| Task | qwen3.6-27b (score/cr/tok) | qwen3.5-122b (score/cr/tok) |
 |---|---|---|
 | projection | 1.400 / 5 / 13,896 | 1.400 / 5 / 15,077 |
 | vecadd | 0.738 / 20 / 37,699 | 0.500 / 20 / 59,725 |
 | dotProduct | 2.325 / 10 / 38,458 | **3.000** / 15 / 72,763 |
 | fir | 1.476 / 25 / 64,349 | **2.000** / 30 / 152,157 |
-| matmul | **3.000** / 30 / 54,526 | 2.156 / 10 / 67,484（重跑） |
+| matmul | **3.000** / 30 / 54,526 | 2.156 / 10 / 67,484 (rerun) |
 | residual | 3.396 / 60 / 68,365 | 3.098 / 30 / 41,959 |
-| **合计** | 12.335 / — / 277,293 | 12.154 / — / 409,165 |
+| **Total** | 12.335 / - / 277,293 | 12.154 / - / 409,165 |
 
-DeepSeek 对照合计：14.091 / — / 373,451。
-三模型 csim 正确性门全部 18/18 通过；synth：DS 6/6、qwen3.6 6/6、
-qwen3.5 5/6。全部 17 个可综合候选时序达标（保守 Fmax 200–353 MHz）。
-所有运行（含崩溃现场）已归档至本目录（qwen3.6-27b/、qwen3.5-122b-a10b/、
-deepseek-v4-pro/、deepseek-v4-pro-main/），每个任务目录含 transcript、
-事件 jsonl、prompts jsonl、scores、final kernel、grade/csynth.xml、ppa.json。
-报告数字已全部回填（Table IV/V/VI/VIII/IX，2026-07-26 01:15 编译通过）。
+DeepSeek control total: 14.091 / - / 373,451.
+All three models passed the csim correctness gate 18/18; synth: DS 6/6, qwen3.6 6/6, qwen3.5 5/6. All 17 synthesizable candidates met timing (conservative Fmax 200-353 MHz).
+All runs (including crash scenes) have been archived in this directory (qwen3.6-27b/, qwen3.5-122b-a10b/, deepseek-v4-pro/, deepseek-v4-pro-main/); each task directory contains transcript, event jsonl, prompts jsonl, scores, final kernel, grade/csynth.xml, ppa.json.
+Report figures have all been backfilled (Table IV/V/VI/VIII/IX, compiled successfully 2026-07-26 01:15).
 
-DeepSeek vecadd 补跑（PPA 数据清洁化）：1.000 / 20 / 51,519，lat 262
-（归档 `deepseek-v4-pro/vecadd_optimize/`）。
+DeepSeek vecadd rerun (PPA data cleanup): 1.000 / 20 / 51,519, lat 262 (archived at `deepseek-v4-pro/vecadd_optimize/`).
 
-**关键事件与发现**：
-1. **qwen3.5 vecadd 仅 0.5**：csim 全过但 4 次 synth 全部 timeout（>600s），
-   20 credits 耗尽。终版 kernel 用 VEC_UNROLL=8 循环分区，设计合法但综合超时；
-   同期 DeepSeek/qwen3.6 的 synth 均正常通过 → 非机器争抢问题，是候选设计
-   规模问题 + agent 未能在 timeout 后退到更保守设计。值得报告案例分析。
-2. **qwen3.6 vecadd 0.738**：正确性+synth 全过但优化完全无效（lat 4102 = 基线），
-   小模型优化能力弱。
-3. **qwen3.6 matmul 满分 3.000**（lat 78，210×）：DeepSeek 同题只有 2.691。
-   优化能力与模型规模非单调，任务相关。
-4. **qwen3.5 matmul 首跑崩溃**（00:37）：LLM API 读取超时（urllib read timeout,
-   默认 300s），agent 无 HTTP 层重试逻辑 → 整跑报废、无 scores.jsonl。
-   是 agent 鲁棒性缺陷（值得报告 limitation），非智力失败。
-   以 LLM_TIMEOUT=600 重跑（目录 matmul_optimize_r2），崩溃现场保留归档。
-   **重跑结果 2.156**：qwen3.5 的 reviewer 在 pre_csim_review 阶段两次拒掉
-   未修改的正确基线（"pragma placement"、"interface error" 等可疑理由），
-   并应用了让 matmul 变慢 2 倍的"修复"（lat 32827 vs 基线 16422），
-   archive 在受污染代码上锚定 → 暴露出"reviewer 可在锚定前破坏好基线"的
-   真实设计缺陷（报告 §VI-C 失败模式分析 + limitation #2，修复方向：
-   archive 先在原始基线上锚定）。
-5. qwen3.5 122B 生成慢：fir 用了 152k tokens / 30 credits；单题最长 ~50 min。
-6. 并发注意：最多 3 个 Vitis 作业并行（8 核服务器），synth 变慢但未引起
-   误判（DeepSeek 同期通过）。qwen3.5 vecadd 的 synth timeout 若需铁证可
-   后续单独重跑（成本低 ~60k tokens）。
+**Key Events and Findings**:
+1. **qwen3.5 vecadd only 0.5**: csim fully passed but all 4 synth runs timed out (>600s), exhausting 20 credits. The final kernel used VEC_UNROLL=8 loop partitioning; the design was legal but synth timed out. DeepSeek/qwen3.6 synth ran normally over the same period -> not a machine contention issue, but a candidate design scale issue + the agent failing to fall back to a more conservative design after the timeout. Worth a case-study analysis in the report.
+2. **qwen3.6 vecadd 0.738**: correctness + synth all passed but optimization was completely ineffective (lat 4102 = baseline); the smaller model is weak at optimization.
+3. **qwen3.6 matmul full marks 3.000** (lat 78, 210x): DeepSeek on the same task only reached 2.691. Optimization ability is non-monotonic with model size and is task-dependent.
+4. **qwen3.5 matmul first run crashed** (00:37): LLM API read timeout (urllib read timeout, default 300s), and the agent has no HTTP-layer retry logic -> the whole run was scrapped with no scores.jsonl. This is an agent robustness defect (worth a report limitation), not an intellectual failure. Reran with LLM_TIMEOUT=600 (directory matmul_optimize_r2); the crash scene was preserved in the archive. **Rerun result 2.156**: qwen3.5's reviewer twice rejected the unmodified correct baseline at the pre_csim_review stage (with suspicious reasons like "pragma placement", "interface error"), and applied a "fix" that made matmul 2x slower (lat 32827 vs baseline 16422). The archive anchored on the contaminated code -> exposing the real design defect that "the reviewer can corrupt a good baseline before anchoring" (report §VI-C failure-mode analysis + limitation #2; fix direction: archive should anchor on the original baseline first).
+5. qwen3.5 122B generates slowly: fir used 152k tokens / 30 credits; a single task took ~50 min at most.
+6. Concurrency notes: at most 3 Vitis jobs ran in parallel (8-core server); synth slowed down but caused no misjudgment (DeepSeek passed over the same period). The qwen3.5 vecadd synth timeout can be rerun alone later for hard evidence if needed (low cost, ~60k tokens).
 
-**收尾**：全部完成。报告 v2 重写（report/report.tex + report.bib），
-新增：多模型主表（规则 6）、全 PPA 表（规则 4 时序证据 + 资源利用率）、
-规则合规自查表（附录 A）、Related Work + 13 篇参考文献、失败模式分析、
-PPA 权重讨论（latency-first 的评分最优性论证）。TUI/版本历史移出正文。
+**Wrap-up**: all complete. Report v2 rewritten (report/report.tex + report.bib), adding: multi-model main table (rule 6), full PPA table (rule 4 timing evidence + resource utilization), rule-compliance self-check table (Appendix A), Related Work + 13 references, failure-mode analysis, and PPA weight discussion (proof of optimality of the latency-first scoring). TUI/version history moved out of the main text.

@@ -1,35 +1,37 @@
-# 辅助工具 (Tools)
+> [中文](README.cn.md)
 
-辅助脚本，非 agent 本体。用于开发/部署/调试。
+# Tools
 
-## 工具清单
+Helper scripts, not part of the agent core. Used for development/deployment/debugging.
 
-| 工具 | 用途 | 使用方法 | 状态 |
+## Tool List
+
+| Tool | Purpose | Usage | Status |
 |---|---|---|---|
-| `web_fetch.py` | 绕过 harness 内置 WebFetch 的域名验证限制，自由访问任意 URL（fetch/search/raw 三模式） | `python3 tools/web_fetch.py fetch <url> [--prompt "..."] [--out FILE]` | ✅ 已实现 |
+| `web_fetch.py` | Bypasses the harness's built-in WebFetch domain-verification restriction, freely accessing any URL (fetch/search/raw modes) | `python3 tools/web_fetch.py fetch <url> [--prompt "..."] [--out FILE]` | ✅ Implemented |
 
-### web_fetch.py 详细用法
+### web_fetch.py Detailed Usage
 
 ```bash
-# 抓取 URL，转 markdown 到 stdout
-python3 tools/web_fetch.py fetch <url> [--prompt "抽取提示"] [--out FILE] [--max-chars N]
+# Fetch a URL, convert to markdown, print to stdout
+python3 tools/web_fetch.py fetch <url> [--prompt "extraction prompt"] [--out FILE] [--max-chars N]
 
-# 搜索（Bing / DuckDuckGo），返回 JSON 结果列表
+# Search (Bing / DuckDuckGo), return a JSON list of results
 python3 tools/web_fetch.py search <query> --engine bing --n 10
 
-# 抓原文不转 markdown
+# Fetch raw content without markdown conversion
 python3 tools/web_fetch.py raw <url> [--out FILE]
 ```
 
-依赖：`requests` + `html2text`（已装入 conda `python3`）。
+Dependencies: `requests` + `html2text` (already installed in the conda `python3`).
 
-设计原则：fetch 模式做 html->markdown 后输出，**不调 LLM 做抽取**--抽取留给调用方（agent / 人）读完后自己判断。带 User-Agent、超时、重试、跟随重定向、相对链接绝对化。
+Design principle: the fetch mode converts html -> markdown and outputs it, and **does not call an LLM for extraction** -- extraction is left to the caller (agent / human), who reads the result and judges it themselves. It sets a User-Agent, timeout, retries, follows redirects, and absolutizes relative links.
 
-## 计划脚本
+## Planned Scripts
 
-| 工具 | 用途 | 状态 |
+| Tool | Purpose | Status |
 |---|---|---|
-| `log_parser.py` | Vitis HLS 日志/报告解析器（抽错误行/II/latency/资源） | ✅ 不需要（harness `report.py` 已实现 csynth.xml/cosim.rpt 解析） |
-| `eval_mock.py` | 评估接口 mock | ✅ 不需要（harness ToolServer 即真接口） |
-| `make_task.py` | 本地题集生成器（把官方 example 改坏） | ⚪ 待 P3 阶段实现 |
-| `bench.py` | 本地评测脚本（跑 success rate / 预算消耗） | ⚪ 待 P3 阶段实现 |
+| `log_parser.py` | Vitis HLS log/report parser (extract error lines/II/latency/resources) | ✅ Not needed (the harness `report.py` already implements csynth.xml/cosim.rpt parsing) |
+| `eval_mock.py` | Evaluation interface mock | ✅ Not needed (the harness ToolServer is the real interface) |
+| `make_task.py` | Local task-set generator (corrupts the official examples) | ⚪ Pending, to be implemented in the P3 phase |
+| `bench.py` | Local benchmarking script (run success rate / budget consumption) | ⚪ Pending, to be implemented in the P3 phase |

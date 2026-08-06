@@ -1,65 +1,67 @@
-# Agent 本体
+> [中文](README.cn.md)
 
-Budgeted End-to-End LLM4HLS Agent 的 Python 实现。在有限 credit 预算内自动修复和优化 Vitis HLS C/C++ 代码。
+# Agent Core
 
-架构设计见 [`docs-development/design/agent-architecture.md`](../docs-development/design/agent-architecture.md)（Mermaid 流程图 + 存档逻辑 + 可观测性）。本文档是**代码导览**——读代码时从这里开始。
+The Python implementation of the Budgeted End-to-End LLM4HLS Agent. It automatically repairs and optimizes Vitis HLS C/C++ code within a limited credit budget.
+
+For the architectural design, see [`docs-development/design/agent-architecture.md`](../docs-development/design/agent-architecture.md) (Mermaid flowcharts + archive logic + observability). This document is a **code tour** -- start here when reading the code.
 
 ---
 
-## 快速启动
+## Quick Start
 
 ```bash
-# 离线跑（不需 Vitis、不需 API key，用 ScriptedClient 喂预设答案）
+# Offline run (no Vitis, no API key; uses ScriptedClient to feed preset answers)
 python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
 
-# 真 Vitis + 真 DeepSeek（完整端到端）
+# Real Vitis + real DeepSeek (full end-to-end)
 export LLM4HLS_VITIS_HLS_ROOT=/home/admin/Xilinx/2025.2/Vitis
 source $LLM4HLS_VITIS_HLS_ROOT/settings64.sh
 source .env   # DEEPSEEK_API_KEY
 python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 ```
 
-CLI 选项：`--backend {scripted,deepseek,openrouter}`、`--budget N`、`--work DIR`
+CLI options: `--backend {scripted,deepseek,openrouter}`, `--budget N`, `--work DIR`
 
 ---
 
-## 模块职责（一句话）
+## Module Responsibilities (in one sentence)
 
-| 文件 | 比喻 | 职责 |
+| File | Metaphor | Responsibility |
 |---|---|---|
-| `main_loop.py` | **大脑** | 主循环：correctness → synth → optimize，串起所有模块 |
-| `router.py` | **决策** | 读 task.toml，选关卡路径（repair→[csim]、structural→[csim,cosim]） |
-| `checkpoint.py` | **记忆** | 存档：哪个版本最好（三规则：等级更高→存；同级→比 latency；更低→拒） |
-| `feedback.py` | **感知** | 从 csim/synth/cosim 日志提取错误码+关键词，构建 LLM 友好反馈 |
-| `llm_client.py` | **手** | 调 LLM 改代码（repair/review/propose_strategies/apply_strategy） |
-| `mechanical_checks.py` | **眼** | 硬性检查：签名变没变、include 在不在（不信任 LLM 的地方） |
-| `deepseek_client.py` | **嘴** | DeepSeek V4 Pro API 对接（OpenAI 兼容，推理模型，记 token） |
-| `observability.py` | **日记** | JSONL 结构化日志 + 心跳线程（卡死检测） |
-| `score_history.py` | **成绩单** | 每题 scores.jsonl：record/recent/format，CLI 与 TUI 双入口共享（v0.4.0） |
-| `knowledge_base/` | **字典** | bug→修法知识库，按错误码/关键词检索注入 prompt；`entries.py` 含 7 条种子条目 |
-| `__init__.py` | | 包入口，导出 route/RunPlan/Checkpoint/Level |
+| `main_loop.py` | **Brain** | Main loop: correctness -> synth -> optimize, wires all modules together |
+| `router.py` | **Decision** | Reads task.toml, chooses the level path (repair->[csim], structural->[csim,cosim]) |
+| `checkpoint.py` | **Memory** | Archive: which version is best (three rules: higher level -> accept; same level -> compare latency; lower -> reject) |
+| `feedback.py` | **Senses** | Extracts error codes + keywords from csim/synth/cosim logs, builds LLM-friendly feedback |
+| `llm_client.py` | **Hand** | Calls the LLM to modify code (repair/review/propose_strategies/apply_strategy) |
+| `mechanical_checks.py` | **Eye** | Hard checks: did the signature change, is the include present (the parts where the LLM is not trusted) |
+| `deepseek_client.py` | **Mouth** | DeepSeek V4 Pro API integration (OpenAI-compatible, reasoning model, records tokens) |
+| `observability.py` | **Diary** | JSONL structured logging + heartbeat thread (stuck-detection) |
+| `score_history.py` | **Report card** | Per-task scores.jsonl: record/recent/format, shared by both CLI and TUI entry points (v0.4.0) |
+| `knowledge_base/` | **Dictionary** | bug->fix knowledge base, retrieved by error code/keyword and injected into the prompt; `entries.py` contains 7 seed entries |
+| `__init__.py` | | Package entry, exports route/RunPlan/Checkpoint/Level |
 
 ---
 
-## 模块调用关系
+## Module Call Graph
 
 ```
 run_agent.py (driver/CLI)
   │
   ├── agent.main_loop.Agent ──────────────────────────────────────┐
   │       │                                                        │
-  │       ├── agent.router.route(task) → RunPlan                   │
-  │       ├── agent.checkpoint.Checkpoint (存档判定)                │
-  │       ├── agent.feedback.build_feedback(results) → Feedback    │
+  │       ├── agent.router.route(task) -> RunPlan                   │
+  │       ├── agent.checkpoint.Checkpoint (archive decisions)       │
+  │       ├── agent.feedback.build_feedback(results) -> Feedback    │
 │       ├── agent.llm_client.HLSLLMClient                        │
 │       │       ├── .repair(task, code, feedback, kb_text)       │
 │       │       ├── .review(task, code, focus)                   │
 │       │       ├── .extract_design_brief(task, code)            │
 │       │       ├── .propose_strategies(task, code, synth, brief)│
-│       │       ├── .select_strategies(...)  [v2.4 评审 AI]      │
-│       │       └── .apply_strategies(subset, brief) [v2.4 组合] │
+│       │       ├── .select_strategies(...)  [v2.4 review AI]    │
+│       │       └── .apply_strategies(subset, brief) [v2.4 combo]│
   │       │       │                                                │
-  │       │       └── 注入 backend (DeepSeekClient / ScriptedClient)│
+  │       │       └── inject backend (DeepSeekClient / ScriptedClient)│
   │       │                                                        │
   │       ├── agent.mechanical_checks.mechanical_review(...)       │
   │       ├── agent.observability.Logger + Heartbeat              │
@@ -67,208 +69,208 @@ run_agent.py (driver/CLI)
   │                                                                │
   └── llm4hls.* (harness: ToolServer/Budget/Task/grade) ◄──────────┘
           │
-          └── ToolServer.csim/synth/cosim(code) → ToolResult
+          └── ToolServer.csim/synth/cosim(code) -> ToolResult
 ```
 
-**依赖方向**：main_loop 依赖所有 agent 模块 + harness。agent 模块之间尽量不互相依赖（checkpoint/router/feedback/observability/knowledge_base 都是独立的）。唯一的双向耦合是 llm_client 依赖 feedback 的输出格式（但通过参数传递，不直接 import）。
+**Dependency direction**: main_loop depends on all agent modules + the harness. Agent modules avoid depending on each other where possible (checkpoint/router/feedback/observability/knowledge_base are all independent). The only bidirectional coupling is that llm_client depends on feedback's output format (but it is passed via parameters, not imported directly).
 
 ---
 
-## 代码阅读顺序
+## Code Reading Order
 
-按**从外到内、从简单到核心**读：
+Read **from the outside in, from simple to core**:
 
-### 第一遍：了解全貌（30 分钟）
+### First pass: get the big picture (30 minutes)
 
-1. **`__init__.py`**（22 行）— 看这个包导出什么
-2. **`router.py`**（70 行）— 最简单的模块，纯数据。理解 RunPlan 是什么
-3. **`checkpoint.py`**（68 行）— 核心数据结构。理解 Level 和三规则
-4. **`scripts/run_agent.py`**（82 行）— 入口，看怎么组装 agent
-5. **`main_loop.py` 的 `run()` 方法**（约 20 行）— 主循环骨架，不读细节
+1. **`__init__.py`** (22 lines) - see what this package exports
+2. **`router.py`** (70 lines) - the simplest module, pure data. Understand what a RunPlan is
+3. **`checkpoint.py`** (68 lines) - the core data structure. Understand Level and the three rules
+4. **`scripts/run_agent.py`** (82 lines) - the entry point, see how the agent is assembled
+5. **`main_loop.py`'s `run()` method** (~20 lines) - the main loop skeleton, ignore the details
 
-### 第二遍：看数据流（40 分钟）
+### Second pass: follow the data flow (40 minutes)
 
-6. **`feedback.py`**（102 行）— ToolResult 怎么变成 LLM 能看懂的反馈
-7. **`main_loop.py` 的 `_reach_correctness()`**（约 60 行）— 修复循环，核心中的核心
-8. **`main_loop.py` 的 `_repair_with_review()`**（约 30 行）— 双层 review 怎么工作
+6. **`feedback.py`** (102 lines) - how a ToolResult becomes LLM-readable feedback
+7. **`main_loop.py`'s `_reach_correctness()`** (~60 lines) - the repair loop, the core of the core
+8. **`main_loop.py`'s `_repair_with_review()`** (~30 lines) - how the two-layer review works
 
-### 第三遍：看适配层（30 分钟）
+### Third pass: the adapter layer (30 minutes)
 
-9. **`mechanical_checks.py`**（96 行）— 签名/include 检查，简单但重要
-10. **`llm_client.py`**（219 行）— 四个领域方法 + prompt 模板
-11. **`deepseek_client.py`**（126 行）— API 对接 + token 统计
+9. **`mechanical_checks.py`** (96 lines) - signature/include checks, simple but important
+10. **`llm_client.py`** (219 lines) - four domain methods + prompt templates
+11. **`deepseek_client.py`** (126 lines) - API integration + token accounting
 
-### 第四遍：看基建（15 分钟）
+### Fourth pass: the infrastructure (15 minutes)
 
-12. **`observability.py`**（121 行）— 日志 + 心跳
-13. **`knowledge_base/retriever.py`**（61 行）— RAG 检索
+12. **`observability.py`** (121 lines) - logging + heartbeat
+13. **`knowledge_base/retriever.py`** (61 lines) - RAG retrieval
 
-### 第五遍：看外部依赖（按需）
+### Fifth pass: external dependencies (as needed)
 
-14. `contest/fpt26-harness/llm4hls/harness.py` — ToolServer（agent 调的工具接口）
-15. `contest/fpt26-harness/llm4hls/tools.py` — CSimTool/SynthTool/CoSimTool
-16. `contest/fpt26-harness/llm4hls/scoring.py` — 评分公式
+14. `contest/fpt26-harness/llm4hls/harness.py` - ToolServer (the tool interface the agent calls)
+15. `contest/fpt26-harness/llm4hls/tools.py` - CSimTool/SynthTool/CoSimTool
+16. `contest/fpt26-harness/llm4hls/scoring.py` - the scoring formula
 
 ---
 
-## 核心数据流（projection 题实测 + v0.2.0 补全的 synth/optimize 段）
+## Core Data Flow (measured on the projection task + the synth/optimize segments completed in v0.2.0)
 
 ```
-route(task) → RunPlan{repair, [csim], init_level=0}
+route(task) -> RunPlan{repair, [csim], init_level=0}
   │
   ▼ _reach_correctness:
-  csim(code) → runtime_fail         ← Vitis 真跑出来 (9.7s)
-  build_feedback(csim_r) → Feedback{runtime_fail, signatures=[]}
-  _kb_lookup(fb) → ""               ← 无命中则空串
+  csim(code) -> runtime_fail         ← actually run by Vitis (9.7s)
+  build_feedback(csim_r) -> Feedback{runtime_fail, signatures=[]}
+  _kb_lookup(fb) -> ""               ← empty string if no hit
   _repair_with_review:
-    llm.repair(task, code, fb_text, "") → new_code     ← DeepSeek 修复
-    mechanical_review(orig, new_code, task) → (True)    ← 签名未变
-    llm.review(task, new_code, focus) → (True, "PASS")   ← LLM 审查通过
-  csim(new_code) → pass             ← 修复真的过了 (9.7s)
-  ckpt.should_accept(CORRECT, None) → True
-  ckpt.accept(new_code, CORRECT)    ← 存档 0→1
+    llm.repair(task, code, fb_text, "") -> new_code     ← DeepSeek repairs
+    mechanical_review(orig, new_code, task) -> (True)    ← signature unchanged
+    llm.review(task, new_code, focus) -> (True, "PASS")   ← LLM review passes
+  csim(new_code) -> pass             ← the repair actually passes (9.7s)
+  ckpt.should_accept(CORRECT, None) -> True
+  ckpt.accept(new_code, CORRECT)    ← archive 0->1
   │
-  ▼ _do_synth (v0.2.0: 修复循环):
-  synth(ckpt.code) → synth_error?
-    ├─ 是 → build_feedback → _kb_lookup(命中种子条目) → _repair_with_review
-    │       → 重验 csim(1 credit) → 过才再 synth(4 credits)   [§4.3]
-    └─ 否 → ckpt.accept(ckpt.code, SYNTH, latency)  ← 存档 1→2 + 记 synth_summary
+  ▼ _do_synth (v0.2.0: repair loop):
+  synth(ckpt.code) -> synth_error?
+    ├─ yes -> build_feedback -> _kb_lookup(hits a seed entry) -> _repair_with_review
+    │       -> re-verify csim (1 credit) -> only then synth again (4 credits)   [§4.3]
+    └─ no  -> ckpt.accept(ckpt.code, SYNTH, latency)  ← archive 1->2 + record synth_summary
   │
-  ▼ _optimize (v0.3.0: 策略组合 + 评审 AI):
-  快照 ckpt（§4.5 回滚点）
-  extract_design_brief(task, code) → 设计摘要（一次缓存）     [AMD Phase 1]
-  每轮: propose_strategies(设计文档+摘要+最新 synth 报告)     [AMD Phase 2a]
-        → 每策略标 combinable_with 兼容性
-        → select_strategies 评审 AI 复核+选兼容子集           [Phase 2b 双重确认]
-        → apply_strategies(子集合并) → _apply_with_review     [AMD Phase 3]
-        → 重验 csim + synth → should_accept(SYNTH, lat) 同级择优
-        → 组合失败 → 回退子集首策略单试一次（归因），仍失败才停
+  ▼ _optimize (v0.3.0: strategy combination + review AI):
+  snapshot ckpt (§4.5 rollback point)
+  extract_design_brief(task, code) -> design brief (cached once)     [AMD Phase 1]
+  each round: propose_strategies(design doc + brief + latest synth report)     [AMD Phase 2a]
+        -> tag each strategy with combinable_with compatibility
+        -> select_strategies review AI double-checks + picks a compatible subset           [Phase 2b double confirmation]
+        -> apply_strategies(merge subset) -> _apply_with_review     [AMD Phase 3]
+        -> re-verify csim + synth -> should_accept(SYNTH, lat) same-level best-of
+        -> combo fails -> fall back to trying the subset's first strategy alone (attribution), stop only if still fails
   │
-  ▼ (需要 cosim 的题) _post_opt_cosim_recheck:
-  best 变过才回验；cosim 失败 → 真回滚到优化前快照            [§4.5]
+  ▼ (tasks requiring cosim) _post_opt_cosim_recheck:
+  re-verify only if best changed; cosim fails -> truly roll back to the pre-optimization snapshot            [§4.5]
   │
-  ▼ return ckpt.code → grade() → SCORE 1.400
+  ▼ return ckpt.code -> grade() -> SCORE 1.400
 ```
 
 ---
 
-## 函数清单
+## Function List
 
 ### main_loop.Agent
 
-| 方法 | 可见性 | 职责 |
+| Method | Visibility | Responsibility |
 |---|---|---|
-| `__init__(task, server, llm, kb, max_rounds, max_synth_rounds, max_optimize_rounds, run_dir)` | public | 注入依赖 + 跨阶段状态（synth_summary/design_brief/快照） |
-| `run() -> str` | public | 入口：路由 → correctness → synth → optimize → 返回 best code |
-| `_run_plan(plan, ckpt) -> str` | private | 按 RunPlan 执行三阶段 |
-| `_reach_correctness(plan, ckpt) -> bool` | private | 阶段1：csim（+cosim）修复循环 |
-| `_repair_with_review(code, feedback, kb_text) -> str\|None` | private | 生成修复 + 机械检查 + LLM review 双层验证 |
-| `_do_synth(plan, ckpt) -> int\|None` | private | 阶段2：synth 修复循环（RAG+重验 csim 再 synth），拿 baseline latency |
-| `_valid_latency(report) -> int\|None` | private(static) | latency<=0 视为缺失（latency=0 解析异常防御） |
-| `_optimize(plan, ckpt)` | private | 阶段3：PPA 优化循环（Phase 1-3 + 评审 AI 选子集 + 组合生成 + 失败回退） |
-| `_try_opt_candidate(ckpt, strategies, round_n) -> str` | private | 单候选流水线：生成→重验→同级择优，返回 improved/no_improvement/failed |
-| `_apply_with_review(code, strategies) -> str\|None` | private | Phase 3 生成 + 双层验证（apply_strategies 组合变体） |
-| `_post_opt_cosim_recheck(ckpt)` | private | 需 cosim 题优化后回验，失败真回滚快照 |
-| `_restore_snapshot(ckpt, snap)` | private(static) | 快照整体恢复（§4.5） |
-| `_kb_lookup(fb) -> str` | private | 查知识库，返回命中条目文本 |
+| `__init__(task, server, llm, kb, max_rounds, max_synth_rounds, max_optimize_rounds, run_dir)` | public | Inject dependencies + cross-stage state (synth_summary/design_brief/snapshots) |
+| `run() -> str` | public | Entry: route -> correctness -> synth -> optimize -> return best code |
+| `_run_plan(plan, ckpt) -> str` | private | Execute the three stages per the RunPlan |
+| `_reach_correctness(plan, ckpt) -> bool` | private | Stage 1: csim (+cosim) repair loop |
+| `_repair_with_review(code, feedback, kb_text) -> str\|None` | private | Generate a repair + mechanical check + LLM review two-layer verification |
+| `_do_synth(plan, ckpt) -> int\|None` | private | Stage 2: synth repair loop (RAG + re-verify csim before synth), obtain baseline latency |
+| `_valid_latency(report) -> int\|None` | private(static) | latency<=0 treated as missing (defense against latency=0 parse anomaly) |
+| `_optimize(plan, ckpt)` | private | Stage 3: PPA optimization loop (Phase 1-3 + review AI selects subset + combination generation + failure fallback) |
+| `_try_opt_candidate(ckpt, strategies, round_n) -> str` | private | Single-candidate pipeline: generate -> re-verify -> same-level best-of, returns improved/no_improvement/failed |
+| `_apply_with_review(code, strategies) -> str\|None` | private | Phase 3 generation + two-layer verification (apply_strategies combination variant) |
+| `_post_opt_cosim_recheck(ckpt)` | private | Post-optimization re-verification for cosim-requiring tasks; truly rolls back the snapshot on failure |
+| `_restore_snapshot(ckpt, snap)` | private(static) | Full snapshot restore (§4.5) |
+| `_kb_lookup(fb) -> str` | private | Query the knowledge base, return the matched entry text |
 
 ### router
 
-| 函数 | 职责 |
+| Function | Responsibility |
 |---|---|
-| `route(task) -> RunPlan` | task.type + requires_cosim → 关卡路径 |
+| `route(task) -> RunPlan` | task.type + requires_cosim -> level path |
 
 ### checkpoint.Checkpoint
 
-| 方法 | 职责 |
+| Method | Responsibility |
 |---|---|
-| `should_accept(cand_level, cand_latency) -> bool` | 三规则判定 |
-| `accept(code, level, latency, cosim_ok)` | 提交为新 best |
+| `should_accept(cand_level, cand_latency) -> bool` | Three-rule decision |
+| `accept(code, level, latency, cosim_ok)` | Commit as the new best |
 
 ### feedback
 
-| 函数/方法 | 职责 |
+| Function/Method | Responsibility |
 |---|---|
-| `build_feedback(*results) -> Feedback` | 从 ToolResult 蒸馏错误签名+反馈文本 |
-| `Feedback.as_prompt_block() -> str` | 渲染为 repair prompt 的反馈块 |
+| `build_feedback(*results) -> Feedback` | Distill error signatures + feedback text from a ToolResult |
+| `Feedback.as_prompt_block() -> str` | Render the feedback block for the repair prompt |
 
 ### llm_client.HLSLLMClient
 
-| 方法 | 职责 |
+| Method | Responsibility |
 |---|---|
-| `repair(task, code, feedback, kb_text) -> str\|None` | 让 LLM 修复代码 |
-| `review(task, code, focus) -> (bool, str)` | 交叉验证候选代码 |
-| `extract_design_brief(task, code) -> str` | AMD Phase 1：提炼设计摘要（功能/循环/数据流/瓶颈），optimize 前调一次缓存 |
-| `propose_strategies(task, code, synth_summary, design_brief) -> list[Strategy]` | AMD Phase 2a：注入设计文档+摘要+报告，提策略（标 combinable_with） |
-| `select_strategies(task, code, strategies, synth_summary, design_brief) -> (list[int], str)` | Phase 2b 评审 AI：复核兼容性选子集；解析失败回退 [0] |
-| `apply_strategies(task, code, strategies, design_brief) -> str\|None` | AMD Phase 3：兼容子集合并生成（双重确认） |
+| `repair(task, code, feedback, kb_text) -> str\|None` | Have the LLM repair the code |
+| `review(task, code, focus) -> (bool, str)` | Cross-validate the candidate code |
+| `extract_design_brief(task, code) -> str` | AMD Phase 1: distill a design brief (functionality/loops/dataflow/bottlenecks); called once and cached before optimize |
+| `propose_strategies(task, code, synth_summary, design_brief) -> list[Strategy]` | AMD Phase 2a: inject the design doc + brief + report, propose strategies (tagging combinable_with) |
+| `select_strategies(task, code, strategies, synth_summary, design_brief) -> (list[int], str)` | Phase 2b review AI: double-check compatibility and pick a subset; falls back to [0] on parse failure |
+| `apply_strategies(task, code, strategies, design_brief) -> str\|None` | AMD Phase 3: merge a compatible subset and generate (double confirmation) |
 
 ### mechanical_checks
 
-| 函数 | 职责 |
+| Function | Responsibility |
 |---|---|
-| `mechanical_review(original, candidate, task) -> (bool, list[str])` | 签名+include 硬性检查 |
+| `mechanical_review(original, candidate, task) -> (bool, list[str])` | Hard signature + include checks |
 
 ### deepseek_client.DeepSeekClient
 
-| 方法 | 职责 |
+| Method | Responsibility |
 |---|---|
-| `complete(system, user) -> str` | 调 DeepSeek API |
-| `usage_summary() -> str` | token 用量摘要 |
+| `complete(system, user) -> str` | Call the DeepSeek API |
+| `usage_summary() -> str` | Token usage summary |
 
 ### observability
 
-| 类.方法 | 职责 |
+| Class.Method | Responsibility |
 |---|---|
-| `Logger.event(event, **fields)` | 写一条 JSONL 事件 |
-| `Heartbeat.set_stage(stage, credit)` | 更新当前阶段（卡死检测） |
+| `Logger.event(event, **fields)` | Write one JSONL event |
+| `Heartbeat.set_stage(stage, credit)` | Update the current stage (stuck-detection) |
 
 ### knowledge_base
 
-| 方法 | 职责 |
+| Method | Responsibility |
 |---|---|
-| `KnowledgeBase.search(signatures) -> list[KBEntry]` | 按错误码/关键词检索条目 |
-| `seed_entries() -> list[KBEntry]` | 7 条种子条目（synth 4 + cosim 1 + csim 2），入口默认装载 |
+| `KnowledgeBase.search(signatures) -> list[KBEntry]` | Retrieve entries by error code/keyword |
+| `seed_entries() -> list[KBEntry]` | 7 seed entries (synth 4 + cosim 1 + csim 2), loaded by default at the entry points |
 
 ---
 
-## 外部依赖（harness，只读复用）
+## External Dependencies (harness, read-only reuse)
 
-agent 通过 import 复用官方 harness 的以下类，定义在 `contest/fpt26-harness/llm4hls/`：
+The agent reuses the following classes from the official harness via import, defined in `contest/fpt26-harness/llm4hls/`:
 
-| harness 类 | 用途 | agent 在哪用 |
+| harness class | Purpose | Where the agent uses it |
 |---|---|---|
-| `Task` / `load_task()` | 题目加载 | run_agent.py |
-| `Budget` / `BudgetExceeded` | credit 计费 | run_agent.py / main_loop.py |
-| `ToolServer` | csim/synth/cosim 工具接口 | main_loop.py |
-| `ToolResult` | 工具返回（kind/ok/phase/log/report） | feedback.py / main_loop.py |
-| `grade()` / `Scorecard` | 评分 | run_agent.py |
-| `ScriptedClient` / `OpenRouterClient` | LLM 后端 | run_agent.py |
+| `Task` / `load_task()` | Task loading | run_agent.py |
+| `Budget` / `BudgetExceeded` | Credit billing | run_agent.py / main_loop.py |
+| `ToolServer` | csim/synth/cosim tool interface | main_loop.py |
+| `ToolResult` | Tool return (kind/ok/phase/log/report) | feedback.py / main_loop.py |
+| `grade()` / `Scorecard` | Scoring | run_agent.py |
+| `ScriptedClient` / `OpenRouterClient` | LLM backend | run_agent.py |
 
 ---
 
-## 设计决策速查
+## Design Decisions Quick Reference
 
-| 决策 | 理由 |
+| Decision | Rationale |
 |---|---|
-| fork harness 不重写 | 评估接口被官方锁死为进程内函数调用 |
-| 单进程不做 RPC | subprocess 跑 vitis 已有进程隔离 |
-| 双层 review（机械+LLM） | 实测 LLM self-check 漏签名变更，机械检查兜底 |
-| 存档 level 单调不减 | 评分分层（correct 门 > synth > PPA），天然映射 |
-| DeepSeek max_tokens=16384 | 推理模型 reasoning_tokens 占 max_tokens |
-| optimize 先提取设计摘要再改 | AMD Phase 1：不给设计上下文，LLM 只给泛泛建议（v0.2.0） |
-| 策略组合需双重确认才合并 | pragma 交互是 LLM 高错点；提出者+评审者都认互不干扰才组合（v0.3.0，用户决策） |
-| 组合失败回退首策略一次 | 组合候选失败无法归因到单个策略，缩小集合重试（v0.3.0） |
-| synth 修复先重验 csim 再 synth | 1 credit 比 4 credits 便宜；改 synth 可能破坏正确性（§5） |
-| 优化后 cosim 失败真回滚快照 | 曾只记日志不恢复，会带着死锁提交（§4.5，v0.2.0 修） |
+| Fork the harness instead of rewriting | The evaluation interface is locked by the official spec to in-process function calls |
+| Single process, no RPC | Running vitis via subprocess already provides process isolation |
+| Two-layer review (mechanical + LLM) | In practice the LLM self-check misses signature changes; the mechanical check is the backstop |
+| Archive level monotonically non-decreasing | Scoring is tiered (correct gate > synth > PPA), a natural mapping |
+| DeepSeek max_tokens=16384 | For reasoning models, reasoning_tokens consumes the max_tokens budget |
+| optimize extracts a design brief before modifying | AMD Phase 1: without design context the LLM only gives generic advice (v0.2.0) |
+| Strategy combinations require double confirmation before merging | pragma interaction is a high-error area for the LLM; the proposer + reviewer must both agree the strategies don't interfere before combining (v0.3.0, user decision) |
+| On combo failure, fall back to the first strategy once | A failed combo candidate can't be attributed to a single strategy, so shrink the set and retry (v0.3.0) |
+| Synth repair re-verifies csim before synth | 1 credit is cheaper than 4 credits; changing for synth could break correctness (§5) |
+| Truly roll back the snapshot when cosim fails after optimization | Previously it only logged without restoring, which could submit with a deadlock (§4.5, fixed in v0.2.0) |
 
 ---
 
-## 已知坑点 (Known Pitfalls)
+## Known Pitfalls
 
-- **`knowledge-base/`（连字符）vs `knowledge_base/`（下划线）**：前者是 spec 文档目录（只有 README），后者是 Python 包（`retriever.py` + `entries.py`，可 import）。命名差异源于"文档目录用连字符、Python 包用下划线（合法标识符）"。两者都活跃，不要删任何一个。
-- **harness import 路径**：agent 模块 import `llm4hls.*` 时，需要 `contest/fpt26-harness` 在 `sys.path` 中。`scripts/run_agent.py`、`scripts/test_main_loop.py` 和 `tui/app.py` 都做了 `sys.path.insert`，直接在别的目录跑 agent 模块会 ImportError。
-- **DeepSeek reasoning_tokens**：推理模型的 reasoning 过程消耗 max_tokens 额度，如果设太小会截断 content。当前设 16384。
-- **KB 检索签名必须是短串**：检索器做整串子串匹配，`build_feedback` 产出的是错误码（`[XFORM 203-313]`）+ 关键词（`deadlock`）级短签名；整句查询永远不中。条目 signatures 同样只放短串（见 entries.py 注释）。
-- **种子 KB 默认装载**：`run_agent.py` 与 `tui/app.py` 都用 `KnowledgeBase(seed_entries())`（7 条）。P2-12 扩充时直接往 `entries.py` 加，别改两处入口。
-- **synth latency=0 解析异常**：真机出现过 synth 过但 latency=0。`Agent._valid_latency` 把 <=0 当缺失——若拿掉这层防御，"0 周期"会在同级 latency 比较中永远获胜并污染存档。根因待真机排查（dev-log 2026-07-17-01 遗留）。
+- **`knowledge-base/` (hyphen) vs `knowledge_base/` (underscore)**: the former is the spec docs directory (only a README), the latter is the Python package (`retriever.py` + `entries.py`, importable). The naming difference stems from "doc directories use hyphens, Python packages use underscores (valid identifiers)". Both are active; do not delete either.
+- **harness import path**: when agent modules import `llm4hls.*`, `contest/fpt26-harness` must be on `sys.path`. `scripts/run_agent.py`, `scripts/test_main_loop.py`, and `tui/app.py` all do `sys.path.insert`; running agent modules directly from another directory will raise ImportError.
+- **DeepSeek reasoning_tokens**: the reasoning process of a reasoning model consumes the max_tokens budget; if set too small the content gets truncated. Currently set to 16384.
+- **KB retrieval signatures must be short strings**: the retriever does whole-string substring matching, and `build_feedback` produces short signatures at the error-code (`[XFORM 203-313]`) + keyword (`deadlock`) level; a full-sentence query will never hit. Entry signatures likewise only hold short strings (see the comments in entries.py).
+- **The seed KB is loaded by default**: both `run_agent.py` and `tui/app.py` use `KnowledgeBase(seed_entries())` (7 entries). When expanding in P2-12, just add to `entries.py`; don't modify the two entry points.
+- **synth latency=0 parse anomaly**: on real hardware we've seen synth pass but latency=0. `Agent._valid_latency` treats <=0 as missing -- if you remove this defense, a "0-cycle" result would always win same-level latency comparisons and contaminate the archive. Root cause pending real-machine investigation (left over from dev-log 2026-07-17-01).

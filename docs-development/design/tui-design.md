@@ -1,46 +1,49 @@
-# TUI 交互式仪表盘设计 (TUI Design)
+> [中文](tui-design.cn.md)
 
-> 状态：v5（2026-07-19，submit 得分区 + 最近 5 次得分历史 + 区域 B 阶段感知规则）
-> 框架：Textual + Rich
-> 数据源：agent/observability.py 的 Logger 事件流 + harness transcript + grade() Scorecard
+# TUI Interactive Dashboard Design (TUI Design)
 
----
-
-## 1. 设计目标
-
-实时显示 agent 运行状态，回答四个问题：
-1. **现在走到哪了**（流程图 + 高亮当前阶段）
-2. **上次工具报了什么错**（独立区域，显示 gcc 风格错误行号 + 内容）
-3. **现在在干什么**（LLM 流式思维链 + 代码 / 工具调用状态）
-4. **花了多少资源**（credit / token / 调用次数 / review 意见）
+> Status: v5 (2026-07-19, submit scoring panel + last-5-scores history + zone-B stage-aware rules)
+> Framework: Textual + Rich
+> Data source: agent/observability.py Logger event stream + harness transcript + grade() Scorecard
 
 ---
 
-## 2. 布局（从上到下四个区域）
+## 1. Design Goals
+
+Display the agent's running status in real time, answering four questions:
+1. **Where is it now** (flow chart + highlight current stage)
+2. **What did the last tool report** (a dedicated zone, showing gcc-style error line numbers + content)
+3. **What is it doing now** (LLM streaming chain-of-thought + code / tool-call status)
+4. **How many resources have been spent** (credit / token / call count / review opinions)
+
+---
+
+## 2. Layout (four zones, top to bottom)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  区域 A：流程图（顶部，固定高度）                                       │
+│  Zone A: flow chart (top, fixed height)                              │
 │  ┌──────┐    ┌────────────┐    ┌──────┐    ┌────────┐    ┌────────┐ │
 │  │route │───►│ correctness │───►│ synth │───►│optimize│───►│ submit │ │
 │  │ ✅ 2s │    │  ✅ 45s     │    │ 🔄 NOW│    │  ⚪    │    │  ⚪    │ │
 │  └──────┘    └────────────┘    └──────┘    └────────┘    └────────┘ │
 │                csim×3 2218tok        ↑ CURRENT                        │
 ├─────────────────────────────────────────────────────────────────────┤
-│  区域 B：上次工具报错（固定高度，独立一栏；v4 起 optimize 阶段复用为策略面板）│
+│  Zone B: last tool error (fixed height, dedicated bar; from v4 reused │
+│  as the strategy panel during the optimize stage)                    │
 │                                                                       │
-│  (非 optimize 阶段, 工具失败时):                                        │
+│  (non-optimize stage, on tool failure):                              │
 │  📋 [csim] compile_error  (3 errors)                                  │
 │    1. projection.cpp:1:2: error: invalid preprocessing directive      │
 │    2. projection.cpp:4:17: error: unknown type name 'Triangle_3D'    │
 │    ...and 1 more errors                                               │
 │                                                                       │
-│  (optimize 阶段: 策略面板 ≤2 行 + 工具区 ≤3 行共存, §3.2)                │
+│  (optimize stage: strategy panel ≤2 lines + tool area ≤3 lines coexist, §3.2)│
 │  🎯 3 strategies: 1.pipeline acc  2.array partition  3.unroll x4      │
 │  ▶ selector picked 1+2: confirmed compatible, biggest combined gain   │
 │  ✅ [csim] pass (9.7s)                                                │
 ├─────────────────────────────────────────────────────────────────────┤
-│  区域 C：当前活动（中部，自适应高度，主视觉区）                            │
+│  Zone C: current activity (middle, adaptive height, main visual area) │
 │                                                                       │
 │  ▸ repair LLM call... elapsed 8.2s                                    │
 │  💭 The csim failed because z is missing the third term...           │
@@ -49,52 +52,52 @@
 │  │     + triangle_3d.z1 / 3 + triangle_3d.z2 / 3;                 │ │
 │  └─────────────────────────────────────────────────────────────────┘ │
 │                                                                       │
-│  (工具调用时: ▸ [synth] running synthesis... elapsed 12.3s)            │
+│  (during a tool call: ▸ [synth] running synthesis... elapsed 12.3s)   │
 ├─────────────────────────────────────────────────────────────────────┤
-│  区域 D：资源面板（底部，固定 2 行）                                     │
+│  Zone D: resource panel (bottom, fixed 2 lines)                       │
 │                                                                       │
 │  credits: 6/10 left 4  ████████░░░░░░  │  tokens: 3453 (reasoning 1007) │
 │  stage: tools 1, reviews 0  │  total LLM: 2 calls  │  last review: PASS │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**v2 布局变更说明**（基于实际使用反馈）：
-- **新增区域 B**：上次工具报错单开一栏。之前塞在状态栏第 3 行，空间不够，只能显示笼统的 `runtime_fail`。现在独立一栏，能显示 gcc 风格的行号 + 错误内容。
-- **区域 D 精简为 2 行**：把"上次工具报错"移到区域 B 后，状态栏不再需要第 3 行。只保留 credit/token 和调用次数/review。
-- **区域 C 的 thinking 和 code 合并**：不再分两个 panel，在同一个流里连续输出。thinking 实时刷新（逐 token），code 行缓冲 + 语法高亮。
+**v2 layout change notes** (based on real usage feedback):
+- **Added Zone B**: the last tool error gets its own bar. Previously it was crammed into the third line of the status bar, where there wasn't enough space and only the generic `runtime_fail` could be shown. Now, as a dedicated bar, it can show gcc-style line numbers + error content.
+- **Zone D slimmed to 2 lines**: after moving "last tool error" to Zone B, the status bar no longer needs a third line. Only credit/token and call count/review are kept.
+- **Zone C's thinking and code merged**: no longer two separate panels; output continuously in the same stream. Thinking refreshes in real time (token by token); code is line-buffered + syntax-highlighted.
 
 ---
 
-## 3. 三个区域详解
+## 3. The Three Zones in Detail
 
-### 3.1 区域 A：流程图（顶部）
+### 3.1 Zone A: flow chart (top)
 
-**显示内容**：agent 的 5 个阶段，横向排列，标注状态和耗时。
+**Displayed content**: the agent's 5 stages, arranged horizontally, annotated with status and elapsed time.
 
-| 阶段 | 状态符号 | 含义 |
+| Stage | Status symbol | Meaning |
 |---|---|---|
-| `⚪` | 未开始 | 还没到这步 |
-| `🔄` | 进行中 | 当前正在跑（高亮闪烁） |
-| `✅` | 已完成 | 通过了，标注耗时 |
-| `❌` | 失败 | 没通过，标注失败原因 |
-| `⏭️` | 跳过 | budget 不够或其他原因跳过 |
+| `⚪` | Not started | Haven't reached this step yet |
+| `🔄` | In progress | Currently running (highlighted, blinking) |
+| `✅` | Done | Passed; annotate with elapsed time |
+| `❌` | Failed | Did not pass; annotate with failure reason |
+| `⏭️` | Skipped | Skipped due to insufficient budget or other reasons |
 
-每个阶段下方标注**本阶段统计**：
-- route：`2s`（耗时）
-- correctness：`csim×3 2218tok`（工具调用次数 + LLM token）
-- synth：`synth×1 4cr`（工具调用次数 + credit）
-- optimize：`opt×2 1500tok`
-- submit：`SCORE 1.400`（v5 起为真实分数，来自 grade()；评分中显示 `grading...`）
+Below each stage, annotate the **per-stage stats**:
+- route: `2s` (elapsed time)
+- correctness: `csim×3 2218tok` (tool-call count + LLM tokens)
+- synth: `synth×1 4cr` (tool-call count + credits)
+- optimize: `opt×2 1500tok`
+- submit: `SCORE 1.400` (from v5 a real score, from grade(); shows `grading...` while grading)
 
-**阶段标签**：v3 起全部使用英文 stage 名（`route`/`correctness`/`synth`/`optimize`/`submit`），当前阶段标记为 `↑ CURRENT`。
+**Stage labels**: from v3 all use English stage names (`route`/`correctness`/`synth`/`optimize`/`submit`); the current stage is marked `↑ CURRENT`.
 
-**交互**：按 `1`-`5` 跳转到对应阶段的详细日志。
+**Interaction**: press `1`-`5` to jump to the corresponding stage's detailed log.
 
-### 3.2 区域 B：上次工具报错 + optimize 策略面板（固定高度，独立一栏）
+### 3.2 Zone B: last tool error + optimize strategy panel (fixed height, dedicated bar)
 
-**显示内容**：最近一次工具调用（csim/synth/cosim）的结果和错误详情；v4 起 optimize 阶段复用上部空间显示策略面板。
+**Displayed content**: the result and error details of the most recent tool call (csim/synth/cosim); from v4 the upper space is reused during the optimize stage to show the strategy panel.
 
-**工具失败时**（从日志提取 gcc 风格错误行）：
+**On tool failure** (extract gcc-style error lines from the log):
 ```
 📋 [csim] compile_error  (3 errors)
   1. projection.cpp:1:2: error: invalid preprocessing directive
@@ -103,67 +106,67 @@
   ...and 1 more errors
 ```
 
-**工具通过时**：
+**On tool pass**:
 ```
 ✅ [csim] pass (9.7s)
 ```
 
-**错误行提取逻辑**：
-- 匹配 `file:line:col: error: ...` 格式（gcc/clang 编译错误）
-- 匹配 `[XFORM 203-313]`、`[SIM 211-2]` 等 Vitis 错误码
-- 匹配含 `ERROR`/`error`/`fail`/`Failed` 的行
-- 最多显示 5 行（optimize 阶段有策略面板时收缩为 3 行），超出显示"...and N more errors"
-- runtime_fail（非编译错）时显示 test case 失败信息
+**Error-line extraction logic**:
+- Match the `file:line:col: error: ...` format (gcc/clang compile errors)
+- Match Vitis error codes like `[XFORM 203-313]`, `[SIM 211-2]`
+- Match lines containing `ERROR`/`error`/`fail`/`Failed`
+- Show at most 5 lines (shrinks to 3 when the optimize stage has the strategy panel); beyond that show "...and N more errors"
+- On runtime_fail (not a compile error), show the test-case failure message
 
-**为什么独立一栏**：gcc 编译错误通常很长（行号 + 错误类型 + 上下文），塞在状态栏一行里显示不了。独立一栏能让 LLM 和用户都清楚看到"上次工具报了什么错"。
+**Why a dedicated bar**: gcc compile errors are usually long (line number + error type + context) and cannot be shown in one status-bar line. A dedicated bar lets both the LLM and the user clearly see "what the last tool reported".
 
-#### 区域 B 的阶段感知规则（v5 新增）
+#### Zone B stage-aware rules (added v5)
 
-用户反馈的困惑："review 报签名不一致时，error tab 只显示等待文案，不知道当前在哪个阶段"。三条规则：
+User-reported confusion: "when review reports a signature mismatch, the error tab only shows a waiting message, and you can't tell which stage you're in". Three rules:
 
-1. **review 失败进工具区**：mechanical_review 不通过（如签名不一致）时，工具区立即显示 `🔍 [review] <第一条 issue>`（黄色标题），和工具报错同等可见——不再只藏在状态栏的 last review 字段里。后续 review 通过或下一个工具结果自然覆盖。
-2. **就绪行跟随子阶段**：optimize 阶段没有策略数据时，就绪行不再固定显示 "proposing strategies..."，而是跟随 `llm_call` 事件的 purpose 更新：`extracting design brief...` → `proposing strategies...` → `selector reviewing...` → `applying picked...`。用户随时知道 LLM 在干什么。
-3. **等待行带阶段标签**：工具区等待文案从 `(waiting for tool call...)` 变为 `(<stage>) waiting for tool call...`（由 `phase_enter` 驱动的 stage hint），非 optimize 阶段也一眼可知当前阶段。
+1. **Review failure enters the tool area**: when mechanical_review fails (e.g. signature mismatch), the tool area immediately shows `🔍 [review] <first issue>` (yellow title), as visible as a tool error -- no longer hidden only in the status bar's last-review field. A subsequent review pass or the next tool result naturally overwrites it.
+2. **Ready line follows the sub-stage**: when the optimize stage has no strategy data, the ready line no longer fixedly shows "proposing strategies..."; instead it follows the `llm_call` event's purpose: `extracting design brief...` -> `proposing strategies...` -> `selector reviewing...` -> `applying picked...`. The user always knows what the LLM is doing.
+3. **Waiting line carries a stage label**: the tool-area waiting message changes from `(waiting for tool call...)` to `(<stage>) waiting for tool call...` (driven by the stage hint from `phase_enter`); even in non-optimize stages you can see the current stage at a glance.
 
-#### optimize 阶段复用为策略面板（v4 新增）
+#### Reused as the strategy panel during the optimize stage (added v4)
 
-**复用理由**：optimize 循环里每次工具调用（csim/synth 重验）之前都经过 review 闸门，工具结果以 pass 为主——报错栏在 optimize 阶段大面积闲置。而 optimize 的"提了几个策略、评审 AI 选了哪几个、为什么"恰好是需要常驻显示的信息（区域 A stat 槽单行放不下 2-4 个策略名，流式输出滚过即失）。
+**Reason for reuse**: in the optimize loop, every tool call (csim/synth re-verify) is preceded by a review gate, and tool results are mostly pass -- the error bar is largely idle during the optimize stage. Meanwhile, optimize's "how many strategies were proposed, which ones the review AI picked, and why" is exactly the information that needs to be persistently displayed (Zone A's stat slot can't fit 2-4 strategy names in one line, and streaming output scrolls past and is lost).
 
-**共存布局**（区域总高 7 行不变 = 内容 5 行）：策略区 ≤2 行 + 工具区 ≤3 行。
+**Coexistence layout** (total zone height unchanged at 7 lines = 5 content lines): strategy area ≤2 lines + tool area ≤3 lines.
 ```
 🎯 3 strategies: 1.pipeline acc  2.array partition  3.unroll x4
 ▶ selector picked 1+2: confirmed compatible, biggest combined gain
 ✅ [csim] pass (9.7s)
 ```
-- **策略行 1（🎯）**：`strategy_select` 事件的 `all` 字段（全部候选策略名，编号 + 截断）
-- **策略行 2（▶）**：同事件的 `picked`（评审 AI 选中的子集，用 `+` 连接）+ `reason` 截断；组合失败回退时由 `optimize_fallback` 事件改写为 `▶ fallback: strategy 1 only (combo failed)`
-- **工具区**：照旧显示 running / pass / 错误详情；候选验证失败（optimize_discard）时错误照常显示——策略面板不遮盖真实报错
-- optimize 阶段结束（`phase_exit`）后清空策略区，工具区独占 5 行（恢复非 optimize 行为）
+- **Strategy line 1 (🎯)**: the `all` field of the `strategy_select` event (all candidate strategy names, numbered + truncated)
+- **Strategy line 2 (▶)**: the same event's `picked` (the subset the review AI selected, joined with `+`) + truncated `reason`; on combo-failure fallback, the `optimize_fallback` event rewrites it to `▶ fallback: strategy 1 only (combo failed)`
+- **Tool area**: as usual shows running / pass / error details; on candidate verification failure (optimize_discard) the error is shown normally -- the strategy panel does not cover real errors
+- After the optimize stage ends (`phase_exit`), the strategy area is cleared and the tool area takes all 5 lines (restoring non-optimize behavior)
 
-**状态驱动渲染（v4 实现要点）**：ToolErrorBar 从一次性 `update()` 改为内部状态（`_strategy_lines` + `_tool_parts`）+ `_rebuild()` 拼接渲染（同 StatusBar 的 render 模式）。否则 `_refresh_ui` 每 150ms 一次的 `show_running` 心跳会把策略行擦掉。公开方法签名不变（`show_result`/`show_running`/`clear_bar`），新增 `show_strategies(all_names, picked, reason)`。
+**State-driven rendering (v4 implementation note)**: ToolErrorBar changed from a one-shot `update()` to internal state (`_strategy_lines` + `_tool_parts`) + `_rebuild()` concatenation rendering (same render model as StatusBar). Otherwise the `show_running` heartbeat from `_refresh_ui` every 150ms would erase the strategy lines. Public method signatures unchanged (`show_result`/`show_running`/`clear_bar`); added `show_strategies(all_names, picked, reason)`.
 
-### 3.3 区域 C：当前活动（中部，自适应高度，主视觉）
+### 3.3 Zone C: current activity (middle, adaptive height, main visual)
 
-**这是最大的区域，根据当前在干什么显示不同内容：**
+**This is the largest zone; it shows different content depending on what is happening:**
 
-#### C-1. LLM 调用时（repair / review / propose_strategies）
+#### C-1. During an LLM call (repair / review / propose_strategies)
 
-**思维链 + 代码在同一区域连续输出**（不再分两个 panel）：
+**Chain-of-thought + code output continuously in the same zone** (no longer two separate panels):
 ```
 ▸ repair LLM call... elapsed 8.2s
-💭 The csim failed because z is missing the third term...    ← 实时刷新，逐 token
-triangle_2d->z = triangle_3d.z0 / 3                          ← 代码，语法高亮
+💭 The csim failed because z is missing the third term...    ← refreshes in real time, token by token
+triangle_2d->z = triangle_3d.z0 / 3                          ← code, syntax-highlighted
      + triangle_3d.z1 / 3 + triangle_3d.z2 / 3;
 ```
 
-**实现要点**：
-- thinking 用一个 Static（`ap-thinking-live`）实时覆盖显示，每个 token 都刷新（不换行）
-- 完整的 thinking 行（遇到 `\n`）写入 RichLog 保留
-- code 行缓冲 + cpp 语法高亮，写入同一个 RichLog
-- thinking 用 dim italic（灰色，v3 浅色主题下保持不变），code 用 `github-light` 高亮主题（v3 起从 monokai 换掉，monokai 是深色主题，白底下看不清）
-- 输出完后自动切换到"等待工具验证"状态
+**Implementation notes**:
+- thinking uses a Static (`ap-thinking-live`) for real-time overlay display, refreshing on every token (no line break)
+- complete thinking lines (on `\n`) are written to RichLog and retained
+- code is line-buffered + cpp syntax-highlighted, written to the same RichLog
+- thinking uses dim italic (gray, unchanged under the v3 light theme); code uses the `github-light` highlight theme (changed from monokai in v3, since monokai is a dark theme and hard to read on a white background)
+- after output completes, automatically switches to "waiting for tool verification" state
 
-#### C-2. 工具调用时（csim / synth / cosim）
+#### C-2. During a tool call (csim / synth / cosim)
 
 ```
 ▸ [synth] running synthesis... elapsed 14.7s
@@ -171,66 +174,66 @@ triangle_2d->z = triangle_3d.z0 / 3                          ← 代码，语法
   (waiting for result...)
 ```
 
-#### C-3. 空闲/等待时
+#### C-3. Idle / waiting
 
 ```
 ▸ idle, waiting for next step...
   last activity: 3.2s ago (csim pass)
 ```
 
-### 3.4 区域 D：资源面板（底部，固定 2 行）
+### 3.4 Zone D: resource panel (bottom, fixed 2 lines)
 
-**第 1 行：预算**
+**Line 1: budget**
 ```
 credits: 6/10 left 4  ████████░░░░░░  │  tokens: 3453 (reasoning 1007)
 ```
-- 左边：credit 使用条（已用/总量 + 可视化进度条）
-- 右边：累计 token（prompt + completion），括号里是 reasoning token
+- Left: credit usage bar (used/total + visualized progress bar)
+- Right: cumulative tokens (prompt + completion); in parentheses, reasoning tokens
 
-**第 2 行：调用统计 + review**
+**Line 2: call stats + review**
 ```
 stage: tools 1, reviews 0  │  total LLM: 2 calls  │  last review: PASS
 ```
-- "stage"指当前阶段内的统计
-- 三段用 `│` 分隔
-- 无错误/无 review 时的占位符为 `(none)`（v3 起从中文占位符改掉）
-- **阶段切换时 last review / last error 重置为 `(none)`**（v5 补充）：上一阶段的 review 结果不能挂到下一阶段，否则会被误读为当前失败
+- "stage" means stats within the current stage
+- The three segments are separated by `│`
+- Placeholder when there is no error/no review is `(none)` (changed from a Chinese placeholder in v3)
+- **On stage transition, last review / last error resets to `(none)`** (added v5): the previous stage's review result must not carry over to the next stage, or it would be misread as a current failure
 
 ---
 
-## 3.5 主题配色与界面语言（v3 新增）
+## 3.5 Theme Colors and UI Language (added v3)
 
-### 配色规格 (Theme: `fpga-light`)
+### Color spec (Theme: `fpga-light`)
 
-| 角色 | 色值 | 用途 |
+| Role | Color value | Usage |
 |---|---|---|
-| 主题色 (primary) | `#587559`（灰绿） | 标题栏、退出对话框边框、活动面板标题文字、credits 文字 |
-| 强调色/装饰色 (accent) | `#FDD100`（金黄） | 四个区域边框（装饰）、当前阶段高亮、running 状态、credit 进度条填充 |
-| 背景 (background/surface) | `#FFFFFF`（白） | 全局背景 |
-| 普通正文 (foreground) | `#000000`（黑） | 原来用白色的普通文字（状态栏统计、工具日志原文） |
-| CoT 思维链 | 灰色不变 | `dim italic` / `$text-muted`，白底下自然呈现灰色 |
-| 语义色 | 绿=pass、红=error 保留 | 表达语义，不属于装饰 |
+| Primary | `#587559` (gray-green) | Title bar, exit-dialog border, active-panel title text, credits text |
+| Accent / decorative | `#FDD100` (golden yellow) | The four zone borders (decorative), current-stage highlight, running status, credit progress-bar fill |
+| Background / surface | `#FFFFFF` (white) | Global background |
+| Foreground (normal text) | `#000000` (black) | Normal text previously using white (status-bar stats, tool-log raw text) |
+| CoT chain-of-thought | gray unchanged | `dim italic` / `$text-muted`, naturally gray on white |
+| Semantic colors | green=pass, red=error retained | Express semantics, not decorative |
 
-实现方式：Textual 8.x 自定义 `Theme`（`dark=False`），在 `AgentDashboard.__init__` 里 `register_theme()` + `self.theme = "fpga-light"`。Rich 内联样式中的 `"white"` 全部改 `"black"`，`"yellow"`/`"cyan"` 装饰性高亮分别换成 `#FDD100`/`#587559`。
+Implementation: Textual 8.x custom `Theme` (`dark=False`); in `AgentDashboard.__init__` call `register_theme()` + `self.theme = "fpga-light"`. All Rich inline styles using `"white"` are changed to `"black"`; `"yellow"`/`"cyan"` decorative highlights are replaced with `#FDD100`/`#587559` respectively.
 
-代码语法高亮主题从 `monokai`（深色）换成 `github-light`（浅色），配合白底。
+The code syntax-highlight theme is changed from `monokai` (dark) to `github-light` (light), to match the white background.
 
-### 界面文案语言
+### UI copy language
 
-v3 起**所有界面文案为英文**（stage 标签、状态行、错误汇总、idle 提示等）。文档语言不变（设计文档仍按规范中文为主）。
+From v3 **all UI copy is in English** (stage labels, status lines, error summaries, idle hints, etc.). Document language is unchanged (design documents remain primarily Chinese per convention).
 
 ---
 
-## 3.6 得分与收敛历史（v5 新增）
+## 3.6 Score and Convergence History (added v5)
 
-**问题**：agent 跑完后 TUI 只显示 DONE，不展示得分——用户看不到结果，也看不到多次运行的收敛过程。根源：TUI 只调 `agent.run()`，从不调 `grade()`（评分在 CLI driver 里）。
+**Problem**: after the agent finishes, the TUI only shows DONE and does not show the score -- the user can't see the result or the convergence across multiple runs. Root cause: the TUI only calls `agent.run()` and never calls `grade()` (scoring happens in the CLI driver).
 
-**设计**：
+**Design**:
 
-1. **评分时机**：agent 线程在 `agent.run()` 返回后、发 `done` 事件前，调用 harness `grade()`（hidden testbench + PPA，不占 budget，约 1-2 分钟）。期间区域 C 显示 `grading hidden testbench...`，流程图 submit 阶段 🔄。
-2. **得分展示**：grade 完成发 `score` 事件 → submit 阶段 stat 显示 `SCORE x.xxx`；区域 C 打印完整 Scorecard（functional/synth/cosim、baseline vs candidate latency、acceleration、资源、SCORE）。
-3. **收敛历史**：每次评分向 `runs/<task_id>/scores.jsonl` 追加一行（ts/score/latency/credits/tokens）；区域 C 在 Scorecard 后打印**最近 5 次得分表**（含本次），多次调参/重跑的收敛趋势一目了然。CLI driver（run_agent.py）评分后写同一文件，两个入口历史互通。
-4. **DONE 行**：显示总耗时（`time.monotonic() - _start_time`），修掉"elapsed 0.0s"。
+1. **Scoring timing**: the agent thread, after `agent.run()` returns and before emitting the `done` event, calls the harness `grade()` (hidden testbench + PPA, does not consume budget, about 1-2 minutes). During this, Zone C shows `grading hidden testbench...`, and the flow-chart submit stage shows 🔄.
+2. **Score display**: when grade completes, emit a `score` event -> the submit stage stat shows `SCORE x.xxx`; Zone C prints the full Scorecard (functional/synth/cosim, baseline vs candidate latency, acceleration, resources, SCORE).
+3. **Convergence history**: each scoring appends a line to `runs/<task_id>/scores.jsonl` (ts/score/latency/credits/tokens); Zone C prints the **last-5-scores table** (including this one) after the Scorecard, making the convergence trend across multiple tuning/rerun attempts clear at a glance. The CLI driver (run_agent.py) writes to the same file after scoring; the two entry points share history.
+4. **DONE line**: shows total elapsed time (`time.monotonic() - _start_time`), fixing "elapsed 0.0s".
 
 ```
 === Scorecard: dotProduct_optimize (difficulty 3) ===
@@ -245,115 +248,115 @@ recent scores (dotProduct_optimize):
 
 ---
 
-## 4. 数据源映射
+## 4. Data-Source Mapping
 
-TUI 的所有数据来自现有模块，不需要改 agent 逻辑：
+All TUI data comes from existing modules; no agent-logic changes are needed:
 
-| TUI 显示 | 数据源 | 现有/新增 |
+| TUI display | Data source | Existing/new |
 |---|---|---|
-| 流程图状态 + 耗时 | Logger 的 `phase_enter`/`phase_exit` 事件 | ✅ 已有 |
-| 当前活动（工具调用） | Logger 的 `tool_result` 事件 + heartbeat 的 `stage` | ✅ 已有 |
-| LLM 流式输出 | DeepSeek API `stream: true` + SSE 解析 | 🆕 需改 deepseek_client |
-| credit 使用量 | `Budget.spent` / `Budget.total` | ✅ 已有 |
-| token 统计 | `DeepSeekClient.total_prompt/completion/reasoning` | ✅ 已有 |
-| 本环节调用次数 | 从 transcript 按 kind 过滤计数 | ✅ 已有 |
-| 上次工具报错 | 最近一条 `tool_result` 的 `phase` + `log_tail` | ✅ 已有 |
-| 上次 review 意见 | 最近一条 `review` 事件的 `issues` | ✅ 已有 |
-| 策略面板（区域 B，optimize） | `strategy_select` 事件的 `all`/`picked`/`reason` + `optimize_fallback` 事件 | ✅ v4 已有 |
-| 就绪行子阶段（区域 B） | `llm_call` 事件的 `purpose` 字段 | 🆕 v5 新增 |
-| submit 得分 | agent 线程调 `grade()` 后发 `score` 事件 | 🆕 v5 新增 |
-| 最近 5 次得分 | `runs/<task_id>/scores.jsonl`（CLI/TUI 双入口追加） | 🆕 v5 新增 |
+| Flow-chart status + elapsed time | Logger's `phase_enter`/`phase_exit` events | ✅ existing |
+| Current activity (tool call) | Logger's `tool_result` event + heartbeat's `stage` | ✅ existing |
+| LLM streaming output | DeepSeek API `stream: true` + SSE parsing | 🆕 needs deepseek_client change |
+| Credit usage | `Budget.spent` / `Budget.total` | ✅ existing |
+| Token stats | `DeepSeekClient.total_prompt/completion/reasoning` | ✅ existing |
+| Call count this stage | Filter the transcript by kind and count | ✅ existing |
+| Last tool error | The most recent `tool_result`'s `phase` + `log_tail` | ✅ existing |
+| Last review opinion | The most recent `review` event's `issues` | ✅ existing |
+| Strategy panel (Zone B, optimize) | `strategy_select` event's `all`/`picked`/`reason` + `optimize_fallback` event | ✅ v4 existing |
+| Ready-line sub-stage (Zone B) | `llm_call` event's `purpose` field | 🆕 v5 new |
+| Submit score | `score` event emitted after the agent thread calls `grade()` | 🆕 v5 new |
+| Last 5 scores | `runs/<task_id>/scores.jsonl` (appended by both CLI/TUI entry points) | 🆕 v5 new |
 
-**唯一需要新增的**：DeepSeek API 改为 stream 模式（`stream: true`），逐 token 返回 reasoning_content 和 content。这是区域 B 流式输出的前提。
+**The only thing that needs adding**: change the DeepSeek API to stream mode (`stream: true`), returning reasoning_content and content token by token. This is the prerequisite for Zone B's streaming output.
 
 ---
 
-## 5. 交互设计
+## 5. Interaction Design
 
-| 按键 | 功能 |
+| Key | Function |
 |---|---|
-| `q` / `Ctrl+C` | 退出（agent 后台继续跑，退出 TUI 不中断 agent） |
-| `1`-`5` | 跳转到对应阶段的详细日志 |
-| `l` | 查看完整 JSONL 日志（翻页） |
-| `t` | 查看 transcript（工具调用历史） |
-| `r` | 刷新（手动触发，正常自动刷新） |
-| `↑`/`↓` | 滚动当前区域的输出 |
+| `q` / `Ctrl+C` | Quit (the agent keeps running in the background; quitting the TUI does not interrupt the agent) |
+| `1`-`5` | Jump to the corresponding stage's detailed log |
+| `l` | View the full JSONL log (paged) |
+| `t` | View the transcript (tool-call history) |
+| `r` | Refresh (manually triggered; normally auto-refreshes) |
+| `↑`/`↓` | Scroll the current zone's output |
 
 ---
 
-## 6. 技术方案
+## 6. Technical Plan
 
-### 6.1 框架
+### 6.1 Framework
 
-- **Textual**：TUI 框架，提供布局（Container/Widget）、事件循环、CSS 样式
-- **Rich**：渲染引擎（Textual 底层用 Rich），提供颜色、表格、进度条、语法高亮、Markdown
+- **Textual**: TUI framework, providing layout (Container/Widget), event loop, CSS styling
+- **Rich**: rendering engine (Textual uses Rich underneath), providing color, tables, progress bars, syntax highlighting, Markdown
 
-### 6.2 依赖
+### 6.2 Dependencies
 
 ```
 textual>=0.40.0
 rich>=13.0.0
 ```
 
-装到服务器 venv：`pip install textual rich`
+Install into the server venv: `pip install textual rich`
 
-### 6.3 架构
+### 6.3 Architecture
 
 ```
-agent 主循环（不变）
+agent main loop (unchanged)
   │
-  ├── Logger.event(...)  ──► JSONL 文件（不变，已有）
-  │                    ──► TUI 事件总线（新增，内存队列）
+  ├── Logger.event(...)  ──► JSONL file (unchanged, existing)
+  │                    ──► TUI event bus (new, in-memory queue)
   │
-  └── DeepSeekClient（改 stream 模式）
+  └── DeepSeekClient (switch to stream mode)
         │
-        ├── 每 token 产出 ──► TUI 流式输出区（新增回调）
-        └── 完整 response ──► Logger（不变）
+        ├── per-token output ──► TUI streaming-output area (new callback)
+        └── full response ──► Logger (unchanged)
 ```
 
-**关键设计**：TUI 不改 agent 逻辑，只消费 Logger 的事件流。agent 在后台跑，TUI 是一个"观察者"。
+**Key design**: the TUI does not change agent logic; it only consumes the Logger's event stream. The agent runs in the background; the TUI is an "observer".
 
-### 6.4 实现拆分
+### 6.4 Implementation Split
 
-| 模块 | 职责 | 估计工作量 |
+| Module | Responsibility | Estimated effort |
 |---|---|---|
-| `tui/app.py` | Textual App 主入口，布局组装 | 0.5 天 |
-| `tui/flow_chart.py` | 区域 A：流程图 widget | 0.5 天 |
-| `tui/activity_panel.py` | 区域 B：当前活动 + 流式输出 | 1 天 |
-| `tui/status_bar.py` | 区域 C：资源面板 | 0.5 天 |
-| `agent/deepseek_client.py` | 加 stream 模式 + 回调 | 0.5 天 |
-| `agent/observability.py` | 加 TUI 事件总线（内存队列） | 0.5 天 |
-| 集成 + 调试 | | 1 天 |
-| **合计** | | **约 4-5 天** |
+| `tui/app.py` | Textual App main entry, layout assembly | 0.5 day |
+| `tui/flow_chart.py` | Zone A: flow-chart widget | 0.5 day |
+| `tui/activity_panel.py` | Zone B: current activity + streaming output | 1 day |
+| `tui/status_bar.py` | Zone C: resource panel | 0.5 day |
+| `agent/deepseek_client.py` | Add stream mode + callback | 0.5 day |
+| `agent/observability.py` | Add TUI event bus (in-memory queue) | 0.5 day |
+| Integration + debugging | | 1 day |
+| **Total** | | **about 4-5 days** |
 
 ---
 
-## 7. 不做的事
+## 7. Things Not Done
 
-- ❌ Web 版（Textual 已经够好，Web 版开发量翻倍）
-- ❌ 远程访问（TUI 在服务器上跑，SSH 里看；不支持浏览器远程）
-- ❌ 历史回放（只看当前运行；历史看 JSONL 日志）
-- ❌ 编辑功能（TUI 只观察，不交互编辑代码）
-
----
-
-## 8. 实现时机
-
-**建议在 P2 末尾或 P3 初期实现**，前提：
-1. agent 核心功能稳定（dotProduct + residual 题跑通）
-2. 知识库有基本条目
-3. DeepSeek stream 模式验证可用
-
-TUI 是体验优化，不是功能必需。先用 `tail -f` JSONL 日志（已有）凑合，等 agent 稳定后再投入 TUI 开发。
+- ❌ Web version (Textual is good enough; a web version doubles dev effort)
+- ❌ Remote access (the TUI runs on the server, viewed over SSH; no browser remote)
+- ❌ History replay (only view the current run; view history via JSONL logs)
+- ❌ Editing features (the TUI only observes; no interactive code editing)
 
 ---
 
-## 变更记录
+## 8. Implementation Timing
 
-| 日期 | 变更 | 变更人 |
+**Recommended to implement at the end of P2 or the start of P3**, prerequisites:
+1. Core agent functionality is stable (dotProduct + residual tasks pass)
+2. The knowledge base has basic entries
+3. DeepSeek stream mode is verified usable
+
+The TUI is an experience optimization, not a functional necessity. First make do with `tail -f` on the JSONL log (already available); invest in TUI development after the agent is stable.
+
+---
+
+## Change Log
+
+| Date | Change | By |
 |---|---|---|
-| 2026-07-15 | v1 初稿。基于用户 UI 描述设计三区域布局（流程图/当前活动/资源面板）。 | Agent 主 |
-| 2026-07-17 | v2 四区域重设计：工具报错独立一栏（区域 B），thinking+code 合并流式输出，资源面板精简为 2 行。 | Agent 主 |
-| 2026-07-18 | v3 新增 §3.5 主题配色（`fpga-light`：primary `#587559` / accent `#FDD100` / 白底黑字 / CoT 灰色不变）；界面文案全部改英文；代码高亮主题 monokai -> `github-light`。 | Agent 主 |
-| 2026-07-18 | v4 区域 B 在 optimize 阶段复用为策略面板（用户决策：该阶段工具以 pass 为主，报错栏闲置；区域 A stat 槽放不下多策略名）：策略区 ≤2 行 + 工具区 ≤3 行共存，报错不被遮盖；ToolErrorBar 改状态驱动渲染（防 150ms 心跳 show_running 擦掉策略行）。数据源表加 `strategy_select`/`optimize_fallback`。配套 agent-architecture v2.4（策略组合 + 评审 AI）。 | Agent 主 |
-| 2026-07-19 | v5 两处（用户反馈）：① submit 得分区——agent 线程跑完后调 grade()，submit stat 显示 SCORE，区域 C 打印 Scorecard + 最近 5 次得分历史（runs/<task>/scores.jsonl 双入口互通），DONE 行加总耗时；② 区域 B 阶段感知三规则——mechanical review 失败进工具区、就绪行跟 llm_call 子阶段、等待行带阶段标签。 | Agent 主 |
+| 2026-07-15 | v1 initial draft. Designed a three-zone layout (flow chart / current activity / resource panel) based on the user's UI description. | Agent lead |
+| 2026-07-17 | v2 four-zone redesign: tool error gets its own bar (Zone B), thinking+code merged streaming output, resource panel slimmed to 2 lines. | Agent lead |
+| 2026-07-18 | v3 added §3.5 theme colors (`fpga-light`: primary `#587559` / accent `#FDD100` / white background black text / CoT gray unchanged); all UI copy changed to English; code-highlight theme monokai -> `github-light`. | Agent lead |
+| 2026-07-18 | v4 Zone B reused as the strategy panel during the optimize stage (user decision: that stage's tools are mostly pass, the error bar is idle; Zone A's stat slot can't fit multiple strategy names): strategy area ≤2 lines + tool area ≤3 lines coexist, errors not covered; ToolErrorBar changed to state-driven rendering (to prevent the 150ms heartbeat show_running from erasing strategy lines). Data-source table added `strategy_select`/`optimize_fallback`. Pairs with agent-architecture v2.4 (strategy combination + review AI). | Agent lead |
+| 2026-07-19 | v5 two items (user feedback): ① submit scoring panel -- the agent thread calls grade() after running, submit stat shows SCORE, Zone C prints the Scorecard + last-5-scores history (runs/<task>/scores.jsonl shared by both entry points), DONE line adds total elapsed time; ② Zone B three stage-aware rules -- mechanical review failure enters the tool area, the ready line follows the llm_call sub-stage, the waiting line carries a stage label. | Agent lead |

@@ -1,58 +1,60 @@
-# 脚本 (Scripts)
+> [中文](README.cn.md)
 
-CLI 入口与驱动脚本。非 TUI 模式的命令行 driver。
+# Scripts
 
-## 文件结构
+CLI entry points and driver scripts. The command-line driver for non-TUI mode.
 
-| 文件 | 职责 |
+## File Structure
+
+| File | Responsibility |
 |---|---|
-| `run_agent.py` | CLI driver：组装 agent 并跑端到端，输出转录 + 评分卡 |
-| `test_main_loop.py` | 主循环离线单元测试（TC-AGENT-001~015），无 Vitis/LLM 可跑 |
+| `run_agent.py` | CLI driver: assembles the agent and runs it end-to-end, outputting the transcript + scorecard |
+| `test_main_loop.py` | Offline unit tests for the main loop (TC-AGENT-001~015); runnable without Vitis/LLM |
 
 ## run_agent.py
 
-模仿 harness 自带的 `contest/fpt26-harness/scripts/run_poc.py`，但用项目自己的 `agent.main_loop.Agent` 替代 `ReferenceAgent`。无 TUI，直接 print 转录 + 评分卡。
+Modeled on the harness's built-in `contest/fpt26-harness/scripts/run_poc.py`, but uses the project's own `agent.main_loop.Agent` in place of `ReferenceAgent`. No TUI; it prints the transcript + scorecard directly.
 
-### 命令行参数
+### Command-Line Arguments
 
-| 参数 | 默认值 | 说明 |
+| Argument | Default | Description |
 |---|---|---|
-| `task_dir`（位置必填） | - | 任务包目录 |
-| `--backend` | `scripted` | LLM 后端：`scripted`（预设答案）/ `deepseek`（真 LLM）/ `openrouter`（官方） |
-| `--budget` | 题目自带 | 覆盖 credit 预算（如 `--budget 10`） |
-| `--work` | `runs/<task_id>` | 工作目录（存 build 产物 + 日志） |
-| `--force` | 关 | 没装 Vitis 时强制运行（csim 会 compile_error，仅用于框架测试） |
+| `task_dir` (required positional) | - | Task package directory |
+| `--backend` | `scripted` | LLM backend: `scripted` (preset answers) / `deepseek` (real LLM) / `openrouter` (official) |
+| `--budget` | from the task | Override the credit budget (e.g. `--budget 10`) |
+| `--work` | `runs/<task_id>` | Working directory (stores build artifacts + logs) |
+| `--force` | off | Force-run when Vitis is not installed (csim will return compile_error; only for framework testing) |
 
-### 组装 agent 的步骤
+### Steps to Assemble the Agent
 
-1. Vitis 守卫：检测 `vitis-run` 是否在 PATH，不在则尝试 source settings64.sh；仍不在且无 `--force` 则报错退出。
+1. Vitis guard: check whether `vitis-run` is on PATH; if not, try sourcing settings64.sh; if still missing and no `--force`, error out.
 2. `load_task(task_dir)` -> `Budget(total)` -> `ToolServer(task, budget, work_root)`
-3. backend 选择：`OpenRouterClient` / `DeepSeekClient` / `ScriptedClient`
-4. `HLSLLMClient(backend)` + `KnowledgeBase(seed_entries())`（7 条种子条目，P2-12 扩充）
+3. Backend selection: `OpenRouterClient` / `DeepSeekClient` / `ScriptedClient`
+4. `HLSLLMClient(backend)` + `KnowledgeBase(seed_entries())` (7 seed entries; expand in P2-12)
 5. `Agent(task, server, llm, kb, run_dir=work_root)` -> `final = agent.run()`
-6. 输出：`usage_summary()` -> transcript -> `budget.summary()` -> `grade(task, final)` 评分卡 -> 写 `final_<kernel_name>` 文件
+6. Output: `usage_summary()` -> transcript -> `budget.summary()` -> `grade(task, final)` scorecard -> write the `final_<kernel_name>` file
 
-### sys.path 注入
+### sys.path Injection
 
-`ROOT`（项目根，for `agent`）+ `ROOT/contest/fpt26-harness`（for `llm4hls`）。
+`ROOT` (project root, for `agent`) + `ROOT/contest/fpt26-harness` (for `llm4hls`).
 
-## 构建方法
+## Build Method
 
 ```bash
-# 真 Vitis + ScriptedClient（验证工具链，不花 token）
+# Real Vitis + ScriptedClient (verify the toolchain, no token cost)
 python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix
 
-# 真 Vitis + DeepSeek（完整端到端，花 token）
+# Real Vitis + DeepSeek (full end-to-end, costs tokens)
 python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --backend deepseek
 
-# 离线框架测试（csim 会 compile_error）
+# Offline framework test (csim will compile_error)
 python3 scripts/run_agent.py contest/fpt26-harness/tasks/projection_bugfix --force
 
-# 主循环离线单元测试（不需要 Vitis / LLM API，改主循环后必跑）
+# Main-loop offline unit tests (no Vitis / LLM API needed; mandatory after changing the main loop)
 python3 scripts/test_main_loop.py
 ```
 
-## 已知坑点
+## Known Pitfalls
 
-- **无 Vitis 时 SCORE 恒 0.000**：没有 Vitis 时所有 csim/synth/cosim 返回 `compile_error`，SCORE 0.000，输出有误导性。driver 会检测并建议加 `--force`。
-- **与 TUI 共享组装逻辑**：`run_agent.py` 和 `tui/app.py` 的 agent 组装步骤几乎相同（load_task->Budget->ToolServer->backend->HLSLLMClient->KnowledgeBase->Agent），差异仅在 TUI 用后台线程+事件队列，CLI 同步 print。
+- **SCORE is always 0.000 without Vitis**: without Vitis, all csim/synth/cosim calls return `compile_error`, SCORE is 0.000, and the output is misleading. The driver detects this and suggests adding `--force`.
+- **Assembly logic shared with the TUI**: `run_agent.py` and `tui/app.py` have nearly identical agent-assembly steps (load_task->Budget->ToolServer->backend->HLSLLMClient->KnowledgeBase->Agent); the only difference is that the TUI uses a background thread + event queue, while the CLI prints synchronously.

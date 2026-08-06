@@ -1,16 +1,18 @@
-# Agent 代码详细设计 (Code Design)
+> [中文](agent-code-design.cn.md)
 
-> 状态：v1（2026-07-15）
-> 对应代码版本：P2 里程碑
-> 架构设计依据：[agent-architecture.md](./agent-architecture.md)
+# Agent Code Detailed Design (Code Design)
+
+> Status: v1 (2026-07-15)
+> Corresponding code version: P2 milestone
+> Architecture design basis: [agent-architecture.md](./agent-architecture.md)
 >
-> **代码导览（模块职责一句话、阅读顺序、函数清单速查）已移至 [`agent/README.md`](../../agent/README.md)，和代码放一起，读代码时直接看。**
+> **The code guide (one-line module responsibilities, reading order, function-list quick reference) has been moved to [`agent/README.md`](../../agent/README.md), colocated with the code so you can read it directly while reading the code.**
 >
-> 本文档保留**设计层内容**：跨模块的详细依赖分析、数据流图、设计决策记录。
+> This document retains **design-level content**: cross-module detailed dependency analysis, data-flow diagrams, and design-decision records.
 
 ---
 
-## 1. 依赖关系图
+## 1. Dependency Graph
 
 ```
                     run_agent.py (driver)
@@ -24,43 +26,43 @@
                     │       ├── agent.observability (Logger, Heartbeat)
                     │       └── agent.knowledge_base (KnowledgeBase)
                     │
-                    ├── agent.deepseek_client.DeepSeekClient   (注入为 backend)
+                    ├── agent.deepseek_client.DeepSeekClient   (injected as backend)
                     │
                     └── llm4hls.* (harness: Task/Budget/ToolServer/grade/load_task)
 ```
 
-### 分层
+### Layering
 
-| 层 | 模块 | 职责 | 依赖 |
+| Layer | Module | Responsibility | Dependencies |
 |---|---|---|---|
-| **驱动层** | run_agent.py | CLI 入口，解析参数，组装 agent | agent + harness |
-| **核心层** | main_loop.py | 主循环：correctness/synth/optimize | router, checkpoint, feedback, llm_client, mechanical_checks, observability, knowledge_base |
-| **策略层** | router.py | 按 task_type 选关卡路径 | 无（纯数据） |
-| **数据结构** | checkpoint.py | 存档判定 | 无（纯数据） |
-| **适配层** | feedback.py, llm_client.py, mechanical_checks.py, deepseek_client.py | 格式转换 / 接口适配 | harness ToolResult |
-| **基建层** | observability.py, knowledge_base/ | 日志 / RAG | 无（独立） |
-| **外部** | harness (llm4hls.*) | 工具调用 / 计费 / 评分 | vitis-run |
+| **Driver layer** | run_agent.py | CLI entry, parse args, assemble agent | agent + harness |
+| **Core layer** | main_loop.py | Main loop: correctness/synth/optimize | router, checkpoint, feedback, llm_client, mechanical_checks, observability, knowledge_base |
+| **Strategy layer** | router.py | Pick gate path by task_type | none (pure data) |
+| **Data structure** | checkpoint.py | Checkpoint judgment | none (pure data) |
+| **Adapter layer** | feedback.py, llm_client.py, mechanical_checks.py, deepseek_client.py | Format conversion / interface adaptation | harness ToolResult |
+| **Infrastructure layer** | observability.py, knowledge_base/ | Logging / RAG | none (independent) |
+| **External** | harness (llm4hls.*) | Tool calls / billing / scoring | vitis-run |
 
-### 耦合要点
+### Coupling notes
 
-- main_loop 依赖所有 agent 模块 + harness。它是唯一的"中枢"。
-- agent 模块之间**尽量不互相依赖**：checkpoint/router/feedback/observability/knowledge_base 都是独立的，可单独测试。
-- 唯一的双向耦合：llm_client 消费 feedback 的输出格式，但通过参数传递（不直接 import feedback 模块）。
-- deepseek_client 是可替换的——实现和 ScriptedClient/OpenRouterClient 同样的 `complete(system, user) -> str` 接口。
+- main_loop depends on all agent modules + harness. It is the single "hub".
+- Agent modules **try not to depend on each other**: checkpoint/router/feedback/observability/knowledge_base are all independent and individually testable.
+- The only bidirectional coupling: llm_client consumes feedback's output format, but via parameter passing (does not directly import the feedback module).
+- deepseek_client is replaceable -- it implements the same `complete(system, user) -> str` interface as ScriptedClient/OpenRouterClient.
 
 ---
 
-## 2. 总览数据流
+## 2. Overview Data Flow
 
 ```
-题目标 (task.toml + .cpp + .h + _tb.cpp)
+Task package (task.toml + .cpp + .h + _tb.cpp)
     │
     ▼ load_task()
-Task 对象 ────────────────────────────────────────────┐
+Task object ────────────────────────────────────────────┐
     │                                                  │
     ▼ route()                    ToolServer ◄── Budget │
 RunPlan                            │  csim/synth/cosim │
-    │                              │  (花 credit)       │
+    │                              │  (spend credit)    │
     ▼                              ▼                    │
 Agent.run() ──► _reach_correctness ──► ToolServer.csim(code)
     │                                      │
@@ -81,16 +83,16 @@ Agent.run() ──► _reach_correctness ──► ToolServer.csim(code)
     │     ckpt.accept(code, level, latency)
     │                                  │
     ▼                                  │
-  (循环回 csim，直到过)                │
+  (loop back to csim until it passes)  │
     │                                  │
-    ▼ (correctness 达标)               │
+    ▼ (correctness met)                │
   _do_synth ──► ToolServer.synth(code)─┘
     │
-    ▼ (synth 过，修复循环保 correctness 重验)
-  _optimize ──► extract_design_brief(缓存) + propose_strategies + apply_strategy
-    │           + 双闸门 review + csim/synth 重验 + 同级 latency 择优
-    ▼ (需要 cosim 的题)
-  _post_opt_cosim_recheck ──► 失败真回滚到优化前快照
+    ▼ (synth passes; fix loop preserves correctness re-verification)
+  _optimize ──► extract_design_brief(cached) + propose_strategies + apply_strategy
+    │           + double-gate review + csim/synth re-verification + same-level latency best-pick
+    ▼ (tasks needing cosim)
+  _post_opt_cosim_recheck ──► on failure, real rollback to pre-optimization snapshot
     │
     ▼
   return ckpt.code ──► grade() ──► Scorecard
@@ -98,29 +100,29 @@ Agent.run() ──► _reach_correctness ──► ToolServer.csim(code)
 
 ---
 
-## 3. 关键设计决策记录
+## 3. Key Design-Decision Records
 
-| 决策 | 理由 | 来源 |
+| Decision | Rationale | Source |
 |---|---|---|
-| fork harness 不重写 | 官方 ToolServer 已是进程内函数调用，评估接口被锁死，重造无收益 | harness 分析 |
-| 单进程不做 RPC | subprocess 跑 vitis 已有进程隔离，agent 本身串行无并发需求 | 架构讨论 |
-| 双层 review（机械+LLM） | 实测 DeepSeek self-check 漏掉签名变更（加参数竟判 PASS），机械检查 100% 可靠兜底 | 实测发现 |
-| 存档 level 单调不减 | 评分公式分层（correct 门 0.5 > synth 0.2 > PPA 0.3），存档规则天然映射 | 用户推演 |
-| 线性+回溯重验 | 改代码修后面 bug 可能破坏前面关卡，必须重验；存档机制自动回滚 | 架构 §5 |
-| DeepSeek max_tokens=16384 | 推理模型 reasoning_tokens 占 max_tokens，太小会截断（17×23 就花 59 reasoning tokens） | 实测发现 |
-| 交叉验证暂不计 token | 第一次迭代只追正确性，token 优化是第二次迭代 | 用户决策 |
-| 功能 pattern 检索留到第二次迭代 | 实现复杂度高，先靠错误签名匹配跑通闭环 | 用户决策 |
-| optimize 先提取设计摘要再改（extract_design_brief） | AMD Phase 1：不给设计上下文，LLM 只给泛泛建议；"先提取设计文档，然后改进" | 用户决策 2026-07-18 |
-| synth 修复先重验 csim 再 synth | 1 credit 比 4 credits 便宜；改 synth 可能破坏 correctness（§5） | 架构 v2.3 |
-| 策略选择取第一个 | 第一次迭代固定启发式，LLM 倾向把最有把握的排最前；每轮重新 propose | 架构 v2.3 |
-| 优化后 cosim 失败真回滚快照 | 原实现只记日志不恢复，会带死锁提交；快照含 code/level/latency/cosim_ok | 实测发现（代码评审） |
+| Fork harness, don't rewrite | The official ToolServer is already an in-process function call; the evaluation interface is locked; rebuilding yields no benefit | harness analysis |
+| Single process, no RPC | subprocess running vitis already gives process isolation; the agent itself is serial with no concurrency need | architecture discussion |
+| Double-layer review (mechanical + LLM) | Measured: DeepSeek self-check missed signature changes (adding a param was judged PASS); mechanical check is 100% reliable backstop | measured finding |
+| Checkpoint level monotonically non-decreasing | The scoring formula is layered (correct gate 0.5 > synth 0.2 > PPA 0.3); the checkpoint rules map naturally | user reasoning |
+| Linear + backtracking re-verification | Changing code to fix a later bug may break earlier gates; must re-verify; the checkpoint mechanism auto-rolls-back | architecture §5 |
+| DeepSeek max_tokens=16384 | For reasoning models reasoning_tokens count against max_tokens; too small truncates (17×23 alone spent 59 reasoning tokens) | measured finding |
+| Cross-validation does not count tokens for now | First iteration only pursues correctness; token optimization is the second iteration | user decision |
+| Functional-pattern retrieval deferred to second iteration | High implementation complexity; first close the loop with error-signature matching | user decision |
+| optimize extracts design brief before changing (extract_design_brief) | AMD Phase 1: without design context the LLM only gives generic advice; "extract the design doc first, then improve" | user decision 2026-07-18 |
+| synth fix re-verifies csim before synth | 1 credit is cheaper than 4 credits; changing synth may break correctness (§5) | architecture v2.3 |
+| Strategy selection takes the first | First iteration fixed heuristic; the LLM tends to rank the most confident first; re-propose each round | architecture v2.3 |
+| Real rollback to snapshot on post-optimization cosim failure | The original implementation only logged and did not restore, would submit with deadlock; snapshot includes code/level/latency/cosim_ok | measured finding (code review) |
 
 ---
 
-## 变更记录
+## Change Log
 
-| 日期 | 变更 | 变更人 |
+| Date | Change | By |
 |---|---|---|
-| 2026-07-18 | v1.2。同步 v0.2.0 实现：§2 数据流的 optimize 段从"(P4)"改为真实链路（设计摘要缓存+策略+双闸门+重验+同级择优+真回滚）；§3 决策记录加 4 行（设计摘要提取/synth 先重验 csim/取首策略/真回滚）。对应 agent-architecture.md v2.3。 | Agent 主 |
-| 2026-07-15 | v1.1。代码导览部分移至 agent/README.md（和代码放一起）。本文档保留跨模块设计分析+数据流+决策记录。 | Agent 主 |
-| 2026-07-15 | v1 初稿。基于 P2 里程碑代码版本，详述所有模块的函数清单、耦合、数据流。 | Agent 主 |
+| 2026-07-18 | v1.2. Synced with v0.2.0 implementation: §2 data-flow optimize segment changed from "(P4)" to the real chain (design-brief cache + strategies + double gate + re-verification + same-level best-pick + real rollback); §3 decision record added 4 rows (design-brief extraction / synth re-verify csim first / take first strategy / real rollback). Corresponds to agent-architecture.md v2.3. | Agent lead |
+| 2026-07-15 | v1.1. Code-guide section moved to agent/README.md (colocated with code). This document retains cross-module design analysis + data flow + decision records. | Agent lead |
+| 2026-07-15 | v1 initial draft. Based on the P2 milestone code version; detailed all modules' function lists, coupling, and data flow. | Agent lead |
