@@ -19,7 +19,7 @@
 set -eo pipefail
 cd "$(dirname "$0")"
 
-IMAGE="${IMAGE:-fpga-agent:0.7.4}"
+IMAGE="${IMAGE:-fpga-agent:latest}"
 # Host Vitis root: default to the QFS-STATION install path. Override with
 # VITIS_ROOT env var if your Vitis lives elsewhere. The Vitis settings64.sh
 # sources sibling dirs (DocNav, Vivado, Model_Composer) via HARDCODED absolute
@@ -49,13 +49,36 @@ fi
 
 # ---- sanity checks ---------------------------------------------------------
 if [ ! -d "$VITIS_ROOT" ]; then
-    echo "ERROR: Vitis root not found at $VITIS_ROOT" >&2
-    echo "  Set VITIS_ROOT to the host path containing settings64.sh" >&2
-    echo "  (e.g. /home/admin/Xilinx/2025.2/Vitis)" >&2
+    echo "ERROR: Vitis 2025.2 not found at: $VITIS_ROOT" >&2
+    echo "" >&2
+    echo "  The agent needs Vitis HLS for csim/synth/cosim. It is NOT baked into" >&2
+    echo "  the Docker image (~92 GB, license-bound) -- it is mounted from the host." >&2
+    echo "" >&2
+    echo "  Fix: set VITIS_ROOT to the directory containing settings64.sh:" >&2
+    echo "    VITIS_ROOT=/opt/Xilinx/2025.2/Vitis $0 $*" >&2
+    echo "" >&2
+    echo "  If you don't have Vitis installed, download it from:" >&2
+    echo "    https://www.amd.com/en/products/software/adaptive-socs-and-fpgas/vitis.html" >&2
     exit 1
 fi
 if ! docker info >/dev/null 2>&1; then
-    echo "ERROR: docker daemon not available." >&2
+    echo "ERROR: Docker daemon not available." >&2
+    echo "" >&2
+    echo "  Make sure Docker is installed and running:" >&2
+    echo "    sudo systemctl start docker" >&2
+    echo "    sudo usermod -aG docker \$USER   # then log out and back in" >&2
+    exit 1
+fi
+# Check image exists
+if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+    echo "ERROR: Docker image '$IMAGE' not found." >&2
+    echo "" >&2
+    echo "  Build it first:" >&2
+    echo "    docker build -t $IMAGE ." >&2
+    echo "" >&2
+    echo "  If docker build fails due to network issues (Docker Hub unreachable):" >&2
+    echo "    - Try a registry mirror: https://docs.docker.com/docker-hub/mirror/" >&2
+    echo "    - Or set a proxy: docker build --build-arg http_proxy=... -t $IMAGE ." >&2
     exit 1
 fi
 
@@ -72,13 +95,27 @@ RUN_ARGS=(--rm -v "${XILINX_PARENT}:${XILINX_PARENT}:ro")
 RUN_ARGS+=(-e "LLM4HLS_VITIS_HLS_ROOT=${VITIS_ROOT}")
 
 # API key: pass via env so .env never needs to be in the image.
+# Also pass all LLM_* env vars for model endpoint/ID/thinking overrides.
 if [ -n "$DEEPSEEK_API_KEY" ]; then
     RUN_ARGS+=("-e" "DEEPSEEK_API_KEY=$DEEPSEEK_API_KEY")
-elif [ -f "$REPO_ROOT/.env" ]; then
-    # Source .env to extract the key, then pass it through.
+fi
+# Pass all LLM_* env vars (endpoint, model, thinking, timeout, etc.)
+for var in LLM_API_KEY LLM_BASE_URL LLM_MODEL LLM_THINKING LLM_TEMPERATURE LLM_TIMEOUT LLM_MAX_RETRIES LLM_RETRY_BASE_DELAY; do
+    if [ -n "${!var}" ]; then
+        RUN_ARGS+=("-e" "$var=${!var}")
+    fi
+done
+# If no keys in shell env, try .env file
+if [ -z "$DEEPSEEK_API_KEY" ] && [ -z "$LLM_API_KEY" ] && [ -f "$REPO_ROOT/.env" ]; then
+    # Source .env to extract all vars, then pass them through.
     # shellcheck disable=SC1090
     set -a; source "$REPO_ROOT/.env"; set +a
-    RUN_ARGS+=("-e" "DEEPSEEK_API_KEY=$DEEPSEEK_API_KEY")
+    [ -n "$DEEPSEEK_API_KEY" ] && RUN_ARGS+=("-e" "DEEPSEEK_API_KEY=$DEEPSEEK_API_KEY")
+    for var in LLM_API_KEY LLM_BASE_URL LLM_MODEL LLM_THINKING LLM_TEMPERATURE LLM_TIMEOUT LLM_MAX_RETRIES LLM_RETRY_BASE_DELAY; do
+        if [ -n "${!var}" ]; then
+            RUN_ARGS+=("-e" "$var=${!var}")
+        fi
+    done
 fi
 
 # Persist run outputs to the host so they survive container removal.

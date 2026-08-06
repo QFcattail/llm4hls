@@ -13,7 +13,7 @@
 # run-vitis.sh uses. See docker-run.sh for the mount wiring.
 #
 # Build:
-#   docker build -t fpga-agent:0.7.4 .
+#   docker build -t fpga-agent:latest .
 #
 # Run (mount host Vitis + tasks, then run one task):
 #   ./docker-run.sh contest/fpt26-harness/tasks/projection_bugfix
