@@ -1,6 +1,6 @@
 # 知识库 spec (Knowledge Base Spec)
 
-HLS “bug->修法”知识库的**规格文档**目录。方欣语维护条目内容，程千和的检索器消费。
+HLS “bug->修法”知识库的**规格文档**目录。HLS 域主维护条目内容，Agent 主的检索器消费。
 
 > **注意**：本目录（`knowledge-base/`，连字符）只有 spec 文档，无 Python 代码。实际的检索器实现在 `agent/knowledge_base/`（下划线，Python 包），包含 `retriever.py`（`KnowledgeBase` 类 + `KBEntry` dataclass）。
 >
@@ -23,5 +23,5 @@ HLS “bug->修法”知识库的**规格文档**目录。方欣语维护条目�
 | 阶段 | correctness / ppa |
 
 ## 状态
-- 待 P2 阶段 方欣语整理首批 ≥10 条（编译错 + csim 功能 bug）。
+- 待 P2 阶段 HLS 域主整理首批 ≥10 条（编译错 + csim 功能 bug）。
 - 草案 schema 见备赛学习手册附录 B。

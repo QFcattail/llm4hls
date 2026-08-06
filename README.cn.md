@@ -518,10 +518,10 @@ A: `docker-run.sh` 自动将宿主机的 `./runs/` 挂载到容器的 `/opt/fpga
 
 ## 分工
 
-| 姓名 | 角色 | 背景 | 负责 |
+| 角色 | 背景 | 负责 |
 |---|---|---|---|
-| **程千和** | Agent 主 | 机器人 / 大模型 Agent 落地经验 | `agent/`、`scripts/`、`tui/`、评估接口对接 |
-| **方欣语** | HLS 域主 | 信息工程 / 射频芯片 | `agent/knowledge-base/`、本地题集、correctness/PPA 验证 |
+| Agent 主 | 机器人 / 大模型 Agent 落地经验 | `agent/`、`scripts/`、`tui/`、评估接口对接 |
+| HLS 域主 | 信息工程 / 射频芯片 | `agent/knowledge-base/`、本地题集、correctness/PPA 验证 |
 
 ---
 
@@ -539,6 +539,6 @@ A: `docker-run.sh` 自动将宿主机的 `./runs/` 挂载到容器的 `/opt/fpga
 
 本项目采用 **MIT** 许可证，详见 [`LICENSE`](LICENSE)。
 
-- `agent/`、`tui/`、`scripts/`、`tools/` 目录下的代码为原创工作，版权归 Xinyu Fang 和 Qianhe Cheng 所有。
+- `agent/`、`tui/`、`scripts/`、`tools/` 目录下的代码为原创工作，版权归 FPGA Agent 贡献者所有。
 - `contest/fpt26-harness/` 是 FPT'26 竞赛官方提供的参考评估 harness，按竞赛要求原样复用，版权归竞赛组织方所有。
 - 第三方依赖的归属与许可（textual、rich、IEEEtran 等）见 [`NOTICE`](NOTICE)。

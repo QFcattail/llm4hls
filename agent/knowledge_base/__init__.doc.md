@@ -22,7 +22,7 @@ knowledge_base 包的初始化模块，对外导出知识库检索的三项核�
 ### 关键设计点
 1. **精简门面**：包级 `__init__.py` 只做重导出，使外部可直接 `from agent.knowledge_base import KnowledgeBase, seed_entries`。
 2. **分阶段路线**：模块 docstring 标明迭代规划——第一代做错误码/关键词匹配（架构 §6.3），第二代做功能模式/范例检索（§6.4）。
-3. **种子先行**：v0.2.0 起入口（run_agent.py / tui/app.py）默认装载 `seed_entries()`；P2-12（方欣语）在此基础上扩充到 >=10 条。
+3. **种子先行**：v0.2.0 起入口（run_agent.py / tui/app.py）默认装载 `seed_entries()`；P2-12（HLS 域主）在此基础上扩充到 >=10 条。
 
 ---
 

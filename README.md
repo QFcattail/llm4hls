@@ -521,10 +521,10 @@ See [`docs-development/PROJECT-CONVENTIONS.md`](docs-development/PROJECT-CONVENT
 
 ## Division of Labor
 
-| Name | Role | Background | Responsible For |
+| Role | Background | Responsible For |
 |---|---|---|---|
-| **Qianhe Cheng** | Agent Lead | Robotics / LLM Agent experience | `agent/`, `scripts/`, `tui/`, evaluation interface integration |
-| **Xinyu Fang** | HLS Domain Owner | Information Engineering / RF chips | `agent/knowledge-base/`, local task set, correctness/PPA validation |
+| Agent Lead | Robotics / LLM Agent experience | `agent/`, `scripts/`, `tui/`, evaluation interface integration |
+| HLS Domain Owner | Information Engineering / RF chips | `agent/knowledge-base/`, local task set, correctness/PPA validation |
 
 ---
 
@@ -542,6 +542,6 @@ See [`docs-development/PROJECT-CONVENTIONS.md`](docs-development/PROJECT-CONVENT
 
 This project is licensed under the **MIT** license; see [`LICENSE`](LICENSE).
 
-- Code in `agent/`, `tui/`, `scripts/`, `tools/` is original work, copyright Xinyu Fang and Qianhe Cheng.
+- Code in `agent/`, `tui/`, `scripts/`, `tools/` is original work, copyright the FPGA Agent contributors.
 - `contest/fpt26-harness/` is the official FPT'26 competition evaluation harness, reused verbatim per competition requirements; copyright belongs to the competition organizers.
 - Third-party dependency attributions and licenses (textual, rich, IEEEtran, etc.) are in [`NOTICE`](NOTICE).

@@ -354,8 +354,8 @@ TUI 是体验优化，不是功能必需。先用 `tail -f` JSONL 日志（已�
 
 | 日期 | 变更 | 变更人 |
 |---|---|---|
-| 2026-07-15 | v1 初稿。基于用户 UI 描述设计三区域布局（流程图/当前活动/资源面板）。 | 程千和 |
-| 2026-07-17 | v2 四区域重设计：工具报错独立一栏（区域 B），thinking+code 合并流式输出，资源面板精简为 2 行。 | 程千和 |
-| 2026-07-18 | v3 新增 §3.5 主题配色（`fpga-light`：primary `#587559` / accent `#FDD100` / 白底黑字 / CoT 灰色不变）；界面文案全部改英文；代码高亮主题 monokai -> `github-light`。 | 程千和 |
-| 2026-07-18 | v4 区域 B 在 optimize 阶段复用为策略面板（用户决策：该阶段工具以 pass 为主，报错栏闲置；区域 A stat 槽放不下多策略名）：策略区 ≤2 行 + 工具区 ≤3 行共存，报错不被遮盖；ToolErrorBar 改状态驱动渲染（防 150ms 心跳 show_running 擦掉策略行）。数据源表加 `strategy_select`/`optimize_fallback`。配套 agent-architecture v2.4（策略组合 + 评审 AI）。 | 程千和 |
-| 2026-07-19 | v5 两处（用户反馈）：① submit 得分区——agent 线程跑完后调 grade()，submit stat 显示 SCORE，区域 C 打印 Scorecard + 最近 5 次得分历史（runs/<task>/scores.jsonl 双入口互通），DONE 行加总耗时；② 区域 B 阶段感知三规则——mechanical review 失败进工具区、就绪行跟 llm_call 子阶段、等待行带阶段标签。 | 程千和 |
+| 2026-07-15 | v1 初稿。基于用户 UI 描述设计三区域布局（流程图/当前活动/资源面板）。 | Agent 主 |
+| 2026-07-17 | v2 四区域重设计：工具报错独立一栏（区域 B），thinking+code 合并流式输出，资源面板精简为 2 行。 | Agent 主 |
+| 2026-07-18 | v3 新增 §3.5 主题配色（`fpga-light`：primary `#587559` / accent `#FDD100` / 白底黑字 / CoT 灰色不变）；界面文案全部改英文；代码高亮主题 monokai -> `github-light`。 | Agent 主 |
+| 2026-07-18 | v4 区域 B 在 optimize 阶段复用为策略面板（用户决策：该阶段工具以 pass 为主，报错栏闲置；区域 A stat 槽放不下多策略名）：策略区 ≤2 行 + 工具区 ≤3 行共存，报错不被遮盖；ToolErrorBar 改状态驱动渲染（防 150ms 心跳 show_running 擦掉策略行）。数据源表加 `strategy_select`/`optimize_fallback`。配套 agent-architecture v2.4（策略组合 + 评审 AI）。 | Agent 主 |
+| 2026-07-19 | v5 两处（用户反馈）：① submit 得分区——agent 线程跑完后调 grade()，submit stat 显示 SCORE，区域 C 打印 Scorecard + 最近 5 次得分历史（runs/<task>/scores.jsonl 双入口互通），DONE 行加总耗时；② 区域 B 阶段感知三规则——mechanical review 失败进工具区、就绪行跟 llm_call 子阶段、等待行带阶段标签。 | Agent 主 |
