@@ -1,0 +1,171 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyperFirstAtBeginDocument{\AtBeginDocument}
+\HyperFirstAtBeginDocument{\ifx\hyper@anchor\@undefined
+\global\let\oldcontentsline\contentsline
+\gdef\contentsline#1#2#3#4{\oldcontentsline{#1}{#2}{#3}}
+\global\let\oldnewlabel\newlabel
+\gdef\newlabel#1#2{\newlabelxx{#1}#2}
+\gdef\newlabelxx#1#2#3#4#5#6{\oldnewlabel{#1}{{#2}{#3}}}
+\AtEndDocument{\ifx\hyper@anchor\@undefined
+\let\contentsline\oldcontentsline
+\let\newlabel\oldnewlabel
+\fi}
+\fi}
+\global\let\hyper@last\relax 
+\gdef\HyperFirstAtBeginDocument#1{#1}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{react}
+\citation{autochip}
+\citation{hlsrepair}
+\citation{fpt26rules}
+\citation{fpt26rules}
+\citation{amdllm4hls}
+\citation{fpt26rules}
+\@writefile{toc}{\contentsline {section}{\numberline {I}Introduction}{1}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {I-A}}Motivation}{1}{subsection.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {I-B}}Problem Statement}{1}{subsection.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {I-C}}Contributions}{1}{subsection.1.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {II}Evaluation Model and Contest Rules}{1}{section.2}\protected@file@percent }
+\newlabel{sec:eval}{{II}{1}{Evaluation Model and Contest Rules}{section.2}{}}
+\citation{react}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-A}}Metered Tool Interface}{2}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-B}}Scoring Formula}{2}{subsection.2.2}\protected@file@percent }
+\newlabel{eq:score}{{1}{2}{Scoring Formula}{equation.2.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-C}}Two Independent Budgets}{2}{subsection.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-D}}Task Types}{2}{subsection.2.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Task types and their correctness gates.\relax }}{2}{table.caption.1}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{tab:tasktypes}{{I}{2}{Task types and their correctness gates.\relax }{table.caption.1}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Agent architecture. Three stages run sequentially; every code edit (in any stage) passes a dual review gate before the checkpoint arbitrates whether it enters the archive. The checkpoint's monotone-level rule gives automatic rollback---a failed candidate simply never replaces the best.\relax }}{2}{figure.caption.2}\protected@file@percent }
+\newlabel{fig:overview}{{1}{2}{Agent architecture. Three stages run sequentially; every code edit (in any stage) passes a dual review gate before the checkpoint arbitrates whether it enters the archive. The checkpoint's monotone-level rule gives automatic rollback---a failed candidate simply never replaces the best.\relax }{figure.caption.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {III}System Architecture}{2}{section.3}\protected@file@percent }
+\newlabel{sec:arch}{{III}{2}{System Architecture}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-A}}Overview}{2}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-B}}Router}{2}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-C}}Checkpoint Logic}{2}{subsection.3.3}\protected@file@percent }
+\newlabel{sec:checkpoint}{{\mbox  {III-C}}{2}{Checkpoint Logic}{subsection.3.3}{}}
+\citation{amdllm4hls}
+\@writefile{toc}{\contentsline {section}{\numberline {IV}Core Algorithms}{3}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-A}}Stage 1: Correctness Repair Loop}{3}{subsection.4.1}\protected@file@percent }
+\newlabel{sec:correctness}{{\mbox  {IV-A}}{3}{Stage 1: Correctness Repair Loop}{subsection.4.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}Stage 2: Synthesis Verification}{3}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-C}}Stage 3: PPA Optimization --- AMD Four-Phase Workflow}{3}{subsection.4.3}\protected@file@percent }
+\newlabel{sec:optimize}{{\mbox  {IV-C}}{3}{Stage 3: PPA Optimization --- AMD Four-Phase Workflow}{subsection.4.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-C}0a}Phase 1 -- Context Loading.}{3}{paragraph.4.3.0.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-C}0b}Phase 2a -- Strategy Proposal (\texttt  {propose\_strategies}, LLM\#4).}{3}{paragraph.4.3.0.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-C}0c}Phase 2b -- Reviewer AI (\texttt  {select\_strategies}, LLM\#5).}{3}{paragraph.4.3.0.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-C}0d}Phase 3 -- Combined Application (\texttt  {apply\_strategies}, LLM\#6).}{3}{paragraph.4.3.0.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-D}}Post-Optimization Co-Simulation Re-check}{3}{subsection.4.4}\protected@file@percent }
+\newlabel{sec:cosim-recheck}{{\mbox  {IV-D}}{3}{Post-Optimization Co-Simulation Re-check}{subsection.4.4}{}}
+\citation{hlsrepair}
+\citation{autochip}
+\citation{rtlfixer}
+\citation{ug1399}
+\citation{fpt26rules}
+\citation{deepseek}
+\citation{qwen}
+\@writefile{toc}{\contentsline {section}{\numberline {V}Knowledge Base (RAG)}{4}{section.5}\protected@file@percent }
+\newlabel{sec:kb}{{V}{4}{Knowledge Base (RAG)}{section.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces Knowledge-base corpus breakdown (22 entries).\relax }}{4}{table.caption.3}\protected@file@percent }
+\newlabel{tab:kb}{{II}{4}{Knowledge-base corpus breakdown (22 entries).\relax }{table.caption.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VI}Experiments}{4}{section.6}\protected@file@percent }
+\newlabel{sec:results}{{VI}{4}{Experiments}{section.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-A}}Setup}{4}{subsection.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {VI-A}0a}Hardware and software.}{4}{paragraph.6.1.0.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {VI-A}0b}Models.}{4}{paragraph.6.1.0.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {VI-A}0c}Protocol.}{4}{paragraph.6.1.0.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {VI-A}0d}Task suite.}{4}{paragraph.6.1.0.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Task suite. First three are official public tasks; last three are self-built generalization tasks (official format + hidden testbench).\relax }}{4}{table.caption.4}\protected@file@percent }
+\newlabel{tab:tasks}{{III}{4}{Task suite. First three are official public tasks; last three are self-built generalization tasks (official format + hidden testbench).\relax }{table.caption.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}Main Results and Full-PPA Reporting (DeepSeek V4 Pro)}{4}{subsection.6.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-C}}Multi-Model Comparison (Contest Rule 6)}{4}{subsection.6.3}\protected@file@percent }
+\newlabel{sec:multimodel}{{\mbox  {VI-C}}{4}{Multi-Model Comparison (Contest Rule 6)}{subsection.6.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces End-to-end results on all six tasks (DeepSeek V4 Pro, best archived run per task). All correctness gates pass (6/6 = 100\%).\relax }}{5}{table.caption.5}\protected@file@percent }
+\newlabel{tab:results}{{IV}{5}{End-to-end results on all six tasks (DeepSeek V4 Pro, best archived run per task). All correctness gates pass (6/6 = 100\%).\relax }{table.caption.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces Full-PPA report of submitted candidates (DeepSeek V4 Pro), extracted from Vitis csynth reports. Timing target 5.0\,ns (200\,MHz) with 1.35\,ns uncertainty; conservative Fmax $=1000/(\text  {est}+\text  {unc})$; all candidates meet timing ($\geq $100\,MHz rule satisfied). Resource columns give used/available and utilization.\relax }}{5}{table.caption.6}\protected@file@percent }
+\newlabel{tab:ppa}{{V}{5}{Full-PPA report of submitted candidates (DeepSeek V4 Pro), extracted from Vitis csynth reports. Timing target 5.0\,ns (200\,MHz) with 1.35\,ns uncertainty; conservative Fmax $=1000/(\text {est}+\text {unc})$; all candidates meet timing ($\geq $100\,MHz rule satisfied). Resource columns give used/available and utilization.\relax }{table.caption.6}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces Multi-model comparison on the six-task suite (one run per model/task, token-mode \texttt  {full}). SCORE uses the official hidden-testbench grading; tokens count prompt+completion (incl.\ reasoning).\relax }}{5}{table.caption.7}\protected@file@percent }
+\newlabel{tab:multimodel}{{VI}{5}{Multi-model comparison on the six-task suite (one run per model/task, token-mode \texttt {full}). SCORE uses the official hidden-testbench grading; tokens count prompt+completion (incl.\ reasoning).\relax }{table.caption.7}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {VI-C}0a}Correctness transfers; optimization does not.}{5}{paragraph.6.3.0.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {VI-C}0b}Model behavior differs in failure mode, not just degree.}{5}{paragraph.6.3.0.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {VI-C}0c}Token cost is not monotone in model size.}{5}{paragraph.6.3.0.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-D}}Token Efficiency}{6}{subsection.6.4}\protected@file@percent }
+\newlabel{sec:tokens}{{\mbox  {VI-D}}{6}{Token Efficiency}{subsection.6.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {VII}{\ignorespaces Token-mode policy.\relax }}{6}{table.caption.8}\protected@file@percent }
+\newlabel{tab:tokenmode}{{VII}{6}{Token-mode policy.\relax }{table.caption.8}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {VI-D}0a}A/B study.}{6}{paragraph.6.4.0.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {VIII}{\ignorespaces Token-mode A/B study (full vs.\ balanced; archived runs).\relax }}{6}{table.caption.9}\protected@file@percent }
+\newlabel{tab:ab}{{VIII}{6}{Token-mode A/B study (full vs.\ balanced; archived runs).\relax }{table.caption.9}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {VI-D}0b}Score--token frontier.}{6}{paragraph.6.4.0.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-E}}Run-to-Run Variance and Failure Modes}{6}{subsection.6.5}\protected@file@percent }
+\newlabel{sec:variance}{{\mbox  {VI-E}}{6}{Run-to-Run Variance and Failure Modes}{subsection.6.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {IX}{\ignorespaces Archived repeat runs (DeepSeek V4 Pro). All runs passed all correctness gates; variance is in optimization quality, not correctness.\relax }}{6}{table.caption.10}\protected@file@percent }
+\newlabel{tab:variance}{{IX}{6}{Archived repeat runs (DeepSeek V4 Pro). All runs passed all correctness gates; variance is in optimization quality, not correctness.\relax }{table.caption.10}{}}
+\newlabel{lst:dotproduct}{{1}{6}{Optimized dotProduct kernel: cyclic array partition + pipelined tiled loop (51.35$\times $ acceleration)}{lstlisting.1}{}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {1}Optimized dotProduct kernel: cyclic array partition + pipelined tiled loop (51.35$\times $ acceleration).}{6}{lstlisting.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-F}}Case Study: dotProduct (Optimize, Perfect Score)}{6}{subsection.6.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {VI-F}0a}Transcript excerpt:}{6}{paragraph.6.6.0.1}\protected@file@percent }
+\citation{react}
+\citation{cot}
+\citation{sweagent}
+\citation{anthropicagents}
+\citation{autochip}
+\citation{rtlfixer}
+\citation{hlsrepair}
+\citation{hlspilot}
+\citation{hlsrepair}
+\citation{autochip}
+\citation{rtlfixer}
+\citation{amdllm4hls}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-G}}Case Study: residual (Structural, Cosim Deadlock Repair)}{7}{subsection.6.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-H}}Case Study: projection (Repair, Minimal Flow)}{7}{subsection.6.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {VII}Related Work}{7}{section.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {VII-}0a}LLM agents with tool feedback.}{7}{paragraph.7.0.0.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {VII-}0b}LLMs for hardware design.}{7}{paragraph.7.0.0.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {VII-}0c}Industrial methodology.}{7}{paragraph.7.0.0.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {VIII}Discussion}{7}{section.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-A}}Design Decisions and Rationale}{7}{subsection.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-B}}Why Latency-First PPA Is Score-Optimal (and Its Limits)}{7}{subsection.8.2}\protected@file@percent }
+\newlabel{sec:ppa-discussion}{{\mbox  {VIII-B}}{7}{Why Latency-First PPA Is Score-Optimal (and Its Limits)}{subsection.8.2}{}}
+\bibstyle{IEEEtran}
+\bibdata{report}
+\bibcite{react}{1}
+\bibcite{autochip}{2}
+\bibcite{hlsrepair}{3}
+\bibcite{fpt26rules}{4}
+\bibcite{amdllm4hls}{5}
+\bibcite{rtlfixer}{6}
+\bibcite{ug1399}{7}
+\bibcite{deepseek}{8}
+\bibcite{qwen}{9}
+\bibcite{cot}{10}
+\bibcite{sweagent}{11}
+\bibcite{anthropicagents}{12}
+\bibcite{hlspilot}{13}
+\citation{fpt26rules}
+\citation{fpt26rules}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-C}}A Harness Edge Case: Zero Latency}{8}{subsection.8.3}\protected@file@percent }
+\newlabel{sec:harness-quirk}{{\mbox  {VIII-C}}{8}{A Harness Edge Case: Zero Latency}{subsection.8.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-D}}Limitations}{8}{subsection.8.4}\protected@file@percent }
+\newlabel{sec:limitations}{{\mbox  {VIII-D}}{8}{Limitations}{subsection.8.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-E}}Future Work}{8}{subsection.8.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {IX}Conclusion}{8}{section.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{References}{8}{section*.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{Appendix}{8}{section*.14}\protected@file@percent }
+\newlabel{app:compliance}{{A}{8}{\appendixname }{section*.14}{}}
+\newlabel{app:prompts}{{A}{8}{\appendixname }{table.caption.15}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {0a}System prompt (all repair/review calls).}{8}{paragraph.Appendix.A.0.0.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {X}{\ignorespaces Mapping from the 10 submission rules\nobreakspace  {}\cite  {fpt26rules} to evidence.\relax }}{9}{table.caption.15}\protected@file@percent }
+\newlabel{tab:compliance}{{X}{9}{Mapping from the 10 submission rules~\cite {fpt26rules} to evidence.\relax }{table.caption.15}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {0b}Reviewer AI rejection (Qwen3.6 27B, projection task).}{9}{paragraph.Appendix.A.0.0.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {0c}Optimization trajectory (dotProduct, DeepSeek V4 Pro).}{9}{paragraph.Appendix.A.0.0.3}\protected@file@percent }
+\newlabel{app:repro}{{0c}{9}{Optimization trajectory (dotProduct, DeepSeek V4 Pro)}{paragraph.Appendix.A.0.0.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {0d}Docker.}{9}{paragraph.Appendix.A.0.0.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {0e}Commands.}{9}{paragraph.Appendix.A.0.0.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {0f}Observability.}{9}{paragraph.Appendix.A.0.0.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {0g}TUI dashboard.}{9}{paragraph.Appendix.A.0.0.7}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces TUI dashboard during a \texttt  {dotProduct\_optimize} run: flow chart (Stage 3 optimize active), strategy panel, streaming LLM output, and credit/token status bar.\relax }}{9}{figure.caption.16}\protected@file@percent }
+\newlabel{fig:tui}{{2}{9}{TUI dashboard during a \texttt {dotProduct\_optimize} run: flow chart (Stage 3 optimize active), strategy panel, streaming LLM output, and credit/token status bar.\relax }{figure.caption.16}{}}
+\gdef \@abspage@last{9}
