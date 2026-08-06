@@ -46,13 +46,8 @@ K.~Xu, G.~L. Zhang, X.~Yin \emph{et~al.}, ``Automated c/c++ program repair for
   \url{https://www.amd.com/en/developer-resources/llm-aided-hls-dataflow-optimization},
   aMD developer case study, accessed 2026-07.
 
-\bibitem{rtlfixer}
-Y.-D. Tsai, M.~Liu, and H.~Ren, ``Rtlfixer: Automatically fixing rtl syntax
-  errors with large language models,'' \emph{arXiv preprint arXiv:2311.16543},
-  2023.
-
 \bibitem{ug1399}
-{AMD}, ``Vitis high-level synthesis user guide (ug1399),''
+------, ``Vitis high-level synthesis user guide (ug1399),''
   \url{https://docs.amd.com/r/en-US/ug1399-vitis-hls}, version 2025.2, accessed
   2026-07.
 
@@ -61,6 +56,10 @@ Y.-D. Tsai, M.~Liu, and H.~Ren, ``Rtlfixer: Automatically fixing rtl syntax
 
 \bibitem{qwen}
 {Qwen Team}, ``Qwen3 technical report,'' 2025.
+
+\bibitem{hlspilot}
+C.~Xiong, C.~Liu, H.~Li \emph{et~al.}, ``Hlspilot: Llm-based high-level
+  synthesis,'' \emph{arXiv preprint arXiv:2408.06810}, 2024.
 
 \bibitem{sweagent}
 J.~Yang, C.~E. Jimenez, A.~Wettig \emph{et~al.}, ``Swe-agent: Agent-computer
@@ -72,8 +71,9 @@ J.~Yang, C.~E. Jimenez, A.~Wettig \emph{et~al.}, ``Swe-agent: Agent-computer
   \url{https://www.anthropic.com/research/building-effective-agents}, accessed
   2026-07.
 
-\bibitem{hlspilot}
-C.~Xiong, C.~Liu, H.~Li \emph{et~al.}, ``Hlspilot: Llm-based high-level
-  synthesis,'' \emph{arXiv preprint arXiv:2408.06810}, 2024.
+\bibitem{rtlfixer}
+Y.-D. Tsai, M.~Liu, and H.~Ren, ``Rtlfixer: Automatically fixing rtl syntax
+  errors with large language models,'' \emph{arXiv preprint arXiv:2311.16543},
+  2023.
 
 \end{thebibliography}
