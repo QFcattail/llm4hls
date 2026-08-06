@@ -28,7 +28,7 @@
     urlcolor=blue!60!black,
     bookmarks=true,
     pdftitle={Budgeted End-to-End LLM4HLS Agent},
-    pdfauthor={Anonymous},
+    pdfauthor={Xinyu Fang, Qianhe Cheng},
     pdfsubject={LLM4HLS Agent for Vitis HLS},
     pdfkeywords={HLS, LLM, FPGA, Vitis, Agent}
 }
@@ -71,7 +71,7 @@ Automated Repair and Optimization of Vitis HLS Code \\
 within Constrained Tool-Call Budgets}
 
 \author{
-\IEEEauthorblockN{Anonymous}
+\IEEEauthorblockN{Xinyu Fang, Qianhe Cheng}
 \IEEEauthorblockA{Submitted to FPT'26 Design Competition -- Track A: LLM4HLS Agent}
 }
 
@@ -89,24 +89,15 @@ High-Level Synthesis, LLM agents, Vitis HLS, FPGA, correctness-first optimizatio
 \section{Introduction}
 % ============================================================
 
-\subsection{Motivation}
+High-Level Synthesis (HLS) compiles C/C++ into FPGA RTL, but writing correct HLS code requires simultaneously managing algorithm correctness and hardware constraints: a misplaced \texttt{\#pragma} can cause synthesis failure, co-simulation deadlock, or resource explosion. One-shot LLM prompting rarely succeeds; an iterative loop with tool feedback is necessary~\cite{react,autochip,hlsrepair}. FPT'26 Track A formalizes this problem~\cite{fpt26rules}: under a bounded tool-call budget, the agent must interpret the task, generate/modify HLS C/C++ code with pragmas, invoke metered tool feedback (csim/synth/cosim), parse logs for diagnosis, prioritize correctness over PPA, and terminate within budget---targeting Alveo U55C on Vitis 2025.2 with open-source models, with \emph{token consumption an explicit evaluation factor}.
 
-High-Level Synthesis (HLS) compiles C/C++ into FPGA hardware RTL, letting developers describe hardware at a software level of abstraction. However, writing correct HLS code requires simultaneously managing algorithm correctness and hardware constraints: a misplaced \texttt{\#pragma} can cause synthesis failure, co-simulation deadlock, or resource explosion. Large Language Models (LLMs) can generate and diagnose code, but directly prompting an LLM to ``write correct HLS'' in one shot succeeds rarely; an iterative loop with tool feedback is necessary~\cite{react,autochip,hlsrepair}.
-
-FPT'26 Track A (LLM4HLS Agent) formalizes this problem: build an autonomous agent that, under a bounded tool-call budget, handles a range of HLS tasks---from repairing functional bugs to resolving structural deadlocks to optimizing PPA~\cite{fpt26rules}.
-
-\subsection{Problem Statement}
-
-Per the contest specification, the agent must perform a complete end-to-end workflow: (1) \emph{interpret} the task specification and initial code; (2) \emph{generate or modify} HLS C/C++ code including pragmas; (3) \emph{invoke} tool-feedback interfaces (csim, synth, cosim); (4) \emph{parse} logs and reports for diagnosis; (5) \emph{prioritize} correctness before PPA; and (6) \emph{terminate} within the budget. Hard requirements include: Alveo U55C target, Vitis 2025.2, pass csim/cosim/synth, $\geq$100\,MHz, open-source models, Docker packaging, evaluation with three recommended models, and---critically---\emph{token consumption is an important evaluation factor}~\cite{fpt26rules}.
-
-\subsection{Contributions}
-
+Our contributions (details in Appendices~\ref{app:algo}--\ref{app:discussion}):
 \begin{itemize}
     \item A \textbf{linear-with-backtracking three-stage architecture} (correctness $\rightarrow$ synth $\rightarrow$ optimize) where every edit re-verifies passed stages and a monotone checkpoint archive gives rollback for free (\S\ref{sec:arch}).
-    \item An \textbf{implementation of the AMD four-phase optimization workflow}---design-brief extraction, strategy proposal, reviewer-AI dual-confirmation, combined application---engineering the methodology from the AMD LLM4HLS case study~\cite{amdllm4hls} into a working system (\S\ref{sec:optimize}).
-    \item A \textbf{dual-gate review} mechanism: deterministic mechanical checks (signature/header) backed by LLM self-review, catching the signature-change blind spot we observed in LLM self-check (\S\ref{sec:correctness}).
-    \item A \textbf{graded token-saving switch} controlling reasoning effort, saving 8--31\% tokens without score loss in an A/B study (\S\ref{sec:tokens}).
-    \item \textbf{Multi-model, full-PPA validation} on six tasks with the three competition-recommended open-weight models, reporting latency, timing closure, and resource utilization for every candidate, plus a run-to-run variance analysis (\S\ref{sec:results}).
+    \item An \textbf{autonomous implementation of the AMD LLM4HLS four-phase optimization workflow}~\cite{amdllm4hls}---design-brief extraction, strategy proposal, reviewer-AI dual-confirmation, combined application (\S\ref{sec:algo}).
+    \item A \textbf{dual-gate review} pairing deterministic mechanical checks (signature/header) with LLM self-review, catching the signature-change blind spot of LLM self-check (\S\ref{sec:algo}).
+    \item A \textbf{graded token-saving switch} saving 8--31\% tokens without score loss in an A/B study (App.~\ref{sec:tokens}).
+    \item \textbf{Multi-model, full-PPA validation} on six tasks with the three competition-recommended open-weight models, plus a run-to-run variance analysis (\S\ref{sec:results}).
 \end{itemize}
 
 % ============================================================
@@ -114,23 +105,7 @@ Per the contest specification, the agent must perform a complete end-to-end work
 \label{sec:eval}
 % ============================================================
 
-Every design decision is grounded in the evaluation model defined by the official harness~\cite{fpt26rules}.
-
-\subsection{Metered Tool Interface}
-
-The harness provides an in-process Python \texttt{ToolServer} exposing three budget-charged calls. Each returns a structured result (phase $\in$ pass / compile\_error / runtime\_fail / synth\_error / cosim\_fail / timeout) and is appended to an audit transcript:
-
-\begin{center}
-\texttt{server.csim(code)} $\to$ 1 credit \quad
-\texttt{server.synth(code)} $\to$ 4 credits \quad
-\texttt{server.cosim(code)} $\to$ 20 credits
-\end{center}
-
-The agent supplies only the kernel source; headers and testbenches are fixed by the harness, so a submission is judged on the kernel alone.
-
-\subsection{Scoring Formula}
-
-Scoring uses a hidden testbench, run \emph{outside} the agent's budget, with a correctness gate:
+Every design decision is grounded in the evaluation model of the official harness~\cite{fpt26rules}, which exposes three budget-charged calls: \texttt{csim(code)} (1 credit), \texttt{synth(code)} (4 credits), \texttt{cosim(code)} (20 credits), each returning a structured pass/error phase and appended to an audit transcript. The agent supplies only the kernel source; headers and testbenches are fixed by the harness. Scoring uses a hidden testbench, run \emph{outside} the agent's budget, with a correctness gate:
 \begin{equation}
 \label{eq:score}
 \text{score} = \begin{cases}
@@ -138,48 +113,16 @@ Scoring uses a hidden testbench, run \emph{outside} the agent's budget, with a c
 \text{diff} \times (0.5\,c + 0.2\,s + 0.3\,p) & \text{otherwise}
 \end{cases}
 \end{equation}
-where $c=1$ if hidden csim (+ cosim if required) passes, $s=1$ if synthesizable, and $p = \min(\text{Accel}, 8)/8$ with $\text{Accel} = \text{baseline\_lat} / \text{cand\_lat}$.
+where $c=1$ if hidden csim (+ cosim if required) passes, $s=1$ if synthesizable, and $p = \min(\text{Accel}, 8)/8$ with $\text{Accel} = \text{baseline\_lat} / \text{cand\_lat}$. Correctness is a hard 0.5-weight gate, synthesis adds 0.2, and latency-only acceleration (capped at 8$\times$) adds 0.3---dictating a \emph{correctness-first} strategy (metric implications analyzed in App.~\ref{app:discussion}).
 
-Correctness carries 0.5 weight and is a hard gate (fail $\to$ 0); synthesis adds 0.2; PPA acceleration (capped at 8$\times$) adds 0.3. This structure dictates a \emph{correctness-first} strategy: secure the 0.5$\times$difficulty floor before chasing the remaining 0.5$\times$difficulty. Note that the scored PPA term $p$ is a function of \emph{latency only}; we analyze the implications of this metric design in \S\ref{sec:ppa-discussion}.
-
-\subsection{Two Independent Budgets}
-
-\begin{itemize}
-    \item \textbf{Credit} (tool calls): a \emph{hard} limit---exceeding it raises \texttt{BudgetExceeded} and stops the agent. Credits do not accumulate across tasks; the score depends only on which stages were reached. Therefore, ``go linearly, retry on failure, stop when exhausted'' is score-equivalent to any clever early-stopping strategy.
-    \item \textbf{Token} (LLM consumption): a \emph{soft} limit---it never stops the agent but is an explicit final-evaluation factor. Token savings have real value; credit savings do not.
-\end{itemize}
-
-This distinction is the core design driver: agent intelligence should focus on \emph{making each step more likely to pass on the first try} (reducing retries $\to$ fewer tokens), not on deciding \emph{when} to stop.
-
-\subsection{Task Types}
-
-\begin{table}[h]
-\centering
-\caption{Task types and their correctness gates.}
-\label{tab:tasktypes}
-\small
-\begin{tabular}{lll}
-\toprule
-\textbf{task\_type} & \textbf{Typical initial state} & \textbf{Correctness gate} \\
-\midrule
-repair & csim fails (functional bug) & csim \\
-optimize & csim passes, just slow & csim \\
-structural & csim passes, cosim deadlocks & csim + cosim \\
-generate & generate from scratch & csim (+cosim) \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Our task suite (Table~\ref{tab:tasks}) covers three of the four types; \texttt{generate} is not covered and is listed as future work.
+Two independent budgets matter. \textbf{Credit} (tool calls) is a \emph{hard} limit---exceeding it stops the agent---and does not accumulate across tasks, so ``go linearly, retry on failure, stop when exhausted'' is score-equivalent to any clever early-stopping strategy. \textbf{Token} (LLM consumption) is a \emph{soft} limit but an explicit final-evaluation factor, so token savings have real value while credit savings do not. Agent intelligence therefore focuses on \emph{making each step pass on the first try} (fewer retries $\to$ fewer tokens), not on deciding \emph{when} to stop. The harness defines four task types (repair, optimize, structural, generate); our suite covers the first three (App.~\ref{app:exp}).
 
 % ============================================================
 \section{System Architecture}
 \label{sec:arch}
 % ============================================================
 
-\subsection{Overview}
-
-The agent follows a \emph{linear flow with backtracking re-verification and checkpoint arbitration}. The main flow is linear (correctness $\rightarrow$ synth $\rightarrow$ optimize), but every code edit triggers re-verification of already-passed stages---because fixing a later bug can break an earlier one---and the checkpoint archive provides rollback for free (Fig.~\ref{fig:overview}). The architecture instantiates the reasoning--acting loop of ReAct~\cite{react} in the HLS domain: LLM calls produce reasoning + candidate code (acting), and metered tool calls return structured observations that condition the next reasoning step.
+The agent follows a \emph{linear flow with backtracking re-verification and checkpoint arbitration} (Fig.~\ref{fig:overview}): the main flow is correctness $\rightarrow$ synth $\rightarrow$ optimize, but every code edit re-verifies already-passed stages---fixing a later bug can break an earlier one---and a monotone checkpoint archive provides rollback for free. The design instantiates the ReAct reasoning--acting loop~\cite{react} in the HLS domain: LLM calls produce reasoning + candidate code, and metered tool calls return structured observations. A zero-cost router reads only \texttt{task.toml} to set the correctness gates (csim, or csim+cosim for structural tasks). The checkpoint maps stage completion to monotone levels (Lv1 = correctness passed, worth $0.5\times$diff; Lv2 = +synth, $+0.2\times$diff) and admits a candidate only if it levels up, or matches the level with strictly lower latency---the archive never regresses, so a failed candidate simply never replaces the best (full router/checkpoint rules: App.~\ref{app:algo}).
 
 \begin{figure}[t]
 \centering
@@ -226,6 +169,215 @@ The agent follows a \emph{linear flow with backtracking re-verification and chec
 \label{fig:overview}
 \end{figure}
 
+% ============================================================
+\section{Core Algorithms}
+\label{sec:algo}
+% ============================================================
+
+\textbf{Stage 1 (correctness repair)} runs a review--csim--repair loop: a pre-csim LLM review fixes obvious bugs before spending credits (on \texttt{residual}, it fixed the DATAFLOW deadlock \emph{before} any tool call); on failure, feedback is distilled, KB-matched, repaired, and passed through a \emph{dual gate}---deterministic signature/include checks plus LLM self-review---before retry. \textbf{Stage 2 (synthesis verification)} checks synthesizability and baseline latency; each synth-repair edit re-verifies csim (1 credit) before re-synthesizing (4 credits), and a latency-validity defense rejects 0-cycle parse anomalies. \textbf{Stage 3 (PPA optimization)} implements the AMD four-phase workflow~\cite{amdllm4hls}: design-brief extraction, strategy proposal with compatibility annotations, a reviewer-AI dual-confirmation gate, and combined application; a credit-driven stopping policy halts on convergence or budget exhaustion, reserving credits on structural tasks for a final cosim re-check that repairs, or rolls back, the optimized code (full stage details, stopping policy, and re-check rules: App.~\ref{app:algo}).
+
+% ============================================================
+\section{Knowledge Base (RAG)}
+\label{sec:kb}
+% ============================================================
+
+A 22-entry bug$\to$fix corpus (symptom/root-cause/fix/example/signatures), retrieved by keyword matching and distilled from the HLS-Repair, AutoChip, and RTLFixer literature~\cite{hlsrepair,autochip,rtlfixer}, supports all repair loops (corpus breakdown and design notes: App.~\ref{app:kb}).
+
+% ============================================================
+\section{Experiments}
+\label{sec:results}
+% ============================================================
+
+\subsection{Setup}
+
+All runs execute real (non-mocked) Vitis 2025.2 csim/synth/cosim~\cite{ug1399} on an Ubuntu 22.04 server, targeting Alveo U55C (\texttt{xcu55c-fsvh2892-2L-e}) at 200\,MHz (5\,ns), with SCOREs computed by the official \texttt{grade()} on hidden testbenches outside the agent budget. We evaluate the three contest-recommended open-weight models~\cite{fpt26rules,deepseek,qwen}---DeepSeek V4 Pro (official API), Qwen3.5 122B A10B, and Qwen3.6 27B---at temperature 0.2 with token-mode \texttt{full} unless stated. The suite spans six tasks: three official public tasks (projection/repair/diff.\ 2, residual/structural/4, dotProduct/optimize/3) and three self-built optimize tasks in official format with hidden testbenches (matmul/3, fir/2, vecadd/1). Full setup, task tables, and archived artifacts: App.~\ref{app:exp}.
+
+\subsection{Main Results (DeepSeek V4 Pro)}
+
+\begin{table*}[t]
+\centering
+\caption{End-to-end results on all six tasks (DeepSeek V4 Pro, best archived run per task). All correctness gates pass (6/6 = 100\%).}
+\label{tab:results}
+\footnotesize
+\begin{tabular}{llclrrrrr}
+\toprule
+\textbf{Task} & \textbf{Type} & \textbf{Diff.} & \textbf{SCORE} & \textbf{Base lat.} & \textbf{Cand lat.} & \textbf{Accel.} & \textbf{Credits} & \textbf{Tokens} \\
+\midrule
+projection & repair & 2 & \textbf{1.400} & 0$^\dagger$ & 0$^\dagger$ & --- & 5 & 3,629 \\
+residual & structural & 4 & \textbf{4.000} & 135 & 10 & 13.5$\times$ & 65 & 77,754 \\
+dotProduct & optimize & 3 & \textbf{3.000} & 1,027 & 20 & 51.35$\times$ & 40 & 67,253 \\
+matmul & optimize & 3 & \textbf{2.691} & 16,422 & 3,126 & 5.25$\times$ & 35 & 50,729 \\
+fir & optimize & 2 & \textbf{2.000} & 16,529 & 542 & 30.5$\times$ & 40 & 127,162 \\
+vecadd & optimize & 1 & \textbf{1.000} & 4,102 & 20 & 205$\times$ & 20 & 46,924 \\
+\bottomrule
+\end{tabular}
+\\[3pt]
+\footnotesize $^\dagger$Combinational logic (II=1, latency=0). Scoring's \texttt{if cand\_lat and base\_lat:} treats 0 as falsy, so acceleration=None and the 0.3 PPA slice is unreachable; SCORE = $2\times(0.5+0.2+0)=1.400$ (see App.~\ref{app:discussion}).
+\end{table*}
+
+Table~\ref{tab:results} reports end-to-end results. Correctness is \textbf{6/6 = 100\%} (csim + cosim + synth all pass); two tasks achieve perfect scores (residual 4.000/4.000, dotProduct 3.000/3.000), and acceleration reaches 205$\times$ (vecadd). All candidates close timing (conservative Fmax 200--353\,MHz) at $\leq$3.5\% resource utilization---latency-first optimization did not trade away implementability (full PPA table: App.~\ref{app:exp}).
+
+\subsection{Multi-Model Comparison (Contest Rule 6)}
+\label{sec:multimodel}
+
+\begin{table*}[t]
+\centering
+\caption{Multi-model comparison on the six-task suite (one run per model/task, token-mode \texttt{full}). SCORE uses the official hidden-testbench grading; tokens count prompt+completion (incl.\ reasoning).}
+\label{tab:multimodel}
+\footnotesize
+\begin{tabular}{ll rrr rrr rrr}
+\toprule
+& & \multicolumn{3}{c}{\textbf{DeepSeek V4 Pro}} & \multicolumn{3}{c}{\textbf{Qwen3.5 122B A10B}} & \multicolumn{3}{c}{\textbf{Qwen3.6 27B}} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-8} \cmidrule(lr){9-11}
+\textbf{Task} & \textbf{Diff.} & \textbf{SCORE} & \textbf{Cr.} & \textbf{Tokens} & \textbf{SCORE} & \textbf{Cr.} & \textbf{Tokens} & \textbf{SCORE} & \textbf{Cr.} & \textbf{Tokens} \\
+\midrule
+projection (repair) & 2 & 1.400 & 5 & 3,629 & 1.400 & 5 & 15,077 & 1.400 & 5 & 13,896 \\
+residual (struct.) & 4 & 4.000 & 65 & 77,754 & 3.098 & 30 & 41,959 & 3.396 & 60 & 68,365 \\
+dotProduct (opt.) & 3 & 3.000 & 40 & 67,253 & \textbf{3.000} & 15 & 72,763 & 2.325 & 10 & 38,458 \\
+matmul (opt.) & 3 & 2.691 & 35 & 50,729 & 2.156 & 10 & 67,484 & \textbf{3.000} & 30 & 54,526 \\
+fir (opt.) & 2 & 2.000 & 40 & 127,162 & \textbf{2.000} & 30 & 152,157 & 1.476 & 25 & 64,349 \\
+vecadd (opt.) & 1 & 1.000 & 20 & 46,924 & 0.500 & 20 & 59,725 & 0.738 & 20 & 37,699 \\
+\midrule
+\multicolumn{2}{l}{\textbf{Correct (csim gate) / 6}} & \multicolumn{3}{c}{6 / 6} & \multicolumn{3}{c}{6 / 6} & \multicolumn{3}{c}{6 / 6} \\
+\multicolumn{2}{l}{\textbf{Synth pass / 6}} & \multicolumn{3}{c}{6 / 6} & \multicolumn{3}{c}{5 / 6} & \multicolumn{3}{c}{6 / 6} \\
+\multicolumn{2}{l}{\textbf{Total SCORE}} & \multicolumn{3}{r}{14.091} & \multicolumn{3}{r}{12.154} & \multicolumn{3}{r}{12.335} \\
+\multicolumn{2}{l}{\textbf{Total tokens}} & \multicolumn{3}{r}{373,451} & \multicolumn{3}{r}{409,165} & \multicolumn{3}{r}{277,293} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Table~\ref{tab:multimodel} compares the three models on the full suite (identical prompts, budgets, token-mode). \emph{Correctness transfers; optimization does not}: all three models clear the csim gate on all six tasks (18/18), but optimization quality is neither monotone in model size nor consistent across tasks---Qwen3.6 27B, the smallest model, produced the \emph{only} perfect matmul yet left vecadd essentially unoptimized, and Qwen3.5's two sub-par runs expose distinct failure modes (synthesis timeouts; an overzealous reviewer mutating a known-correct baseline). \emph{Token cost is not monotone in size}: Qwen3.6 277k $<$ DeepSeek 373k $<$ Qwen3.5 409k; DeepSeek V4 Pro offers the best score-per-token (full analysis: App.~\ref{app:exp}).
+
+\subsection{Token Efficiency and Run Variance}
+
+A graded \texttt{-{}-token-mode} switch controlling reasoning effort saves 8--31\% tokens (mean 22.7\%) with no score degradation in an A/B study; \texttt{balanced} mode is the recommended default (App.~\ref{sec:tokens}). Across 15 archived repeat runs, correctness is stable in 15/15---variance is confined to optimization quality (App.~\ref{app:exp}); case studies for dotProduct, residual, and projection are in App.~\ref{app:cases}.
+
+% ============================================================
+\section{Related Work}
+% ============================================================
+
+ReAct~\cite{react} interleaves reasoning traces with environment actions and SWE-agent~\cite{sweagent} shows the agent--computer interface materially affects performance; following Anthropic's agent guidance~\cite{anthropicagents}, our agent is deliberately a simple, composable \emph{workflow} with LLM steps, not a free-running planner. Among LLM hardware-design systems (AutoChip~\cite{autochip}, RTLFixer~\cite{rtlfixer}, HLS-Repair~\cite{hlsrepair}, HLSPilot~\cite{hlspilot}) we are closest to HLS-Repair and HLSPilot but differ by operating under a \emph{hard tool-call budget}, coupling repair with \emph{PPA optimization} end-to-end, and using a monotone score-aligned checkpoint. AMD's LLM4HLS case study~\cite{amdllm4hls} proposes a human-in-the-loop four-phase workflow and names pragma interaction as a key LLM weakness; we engineer it into a fully autonomous loop with a reviewer-AI dual-confirmation gate plus deterministic mechanical checks.
+
+% ============================================================
+\section{Conclusion}
+% ============================================================
+
+Under constrained tool-call budgets, our agent repaired and optimized Vitis HLS code across six tasks and three task types, achieving a 100\% correctness pass rate with all three competition-recommended open-weight models (18/18 csim gates). With DeepSeek V4 Pro it achieved two perfect scores and up to 205$\times$ latency reduction, with all candidates closing timing (Fmax 200--353\,MHz) at $\leq$3.5\% resource utilization, while a balanced token mode saves $\sim$23\% tokens at no score cost. The full system, prompts, logs, and a reproducible Docker image accompany this report (App.~\ref{app:repro}); per-task details, case studies, and discussions are in the appendices.
+
+% ============================================================
+\bibliographystyle{IEEEtran}
+\bibliography{report}
+
+\appendix
+
+% ============================================================
+\section{Contest-Rule Compliance Checklist}
+\label{app:compliance}
+% ============================================================
+
+\begin{table}[h]
+\centering
+\caption{Mapping from the 10 submission rules~\cite{fpt26rules} to evidence.}
+\label{tab:compliance}
+\footnotesize
+\begin{tabular}{p{0.06\linewidth} p{0.5\linewidth} p{0.34\linewidth}}
+\toprule
+\textbf{\#} & \textbf{Rule} & \textbf{Evidence} \\
+\midrule
+1 & Alveo U55C target for cosim & Table~\ref{tab:ppa} (part \texttt{xcu55c}); App.~\ref{app:exp} \\
+2 & Vitis 2025.2 & App.~\ref{app:exp}; csynth reports in archive \\
+3 & Pass csim, cosim, synth + experimental report & Tables~\ref{tab:results}, \ref{tab:multimodel}; this report \\
+4 & Hardware runs at $\geq$100\,MHz & Table~\ref{tab:ppa}: Fmax 200--353\,MHz \\
+5 & Token consumption as evaluation factor & App.~\ref{sec:tokens}; token columns in all result tables \\
+6 & Evaluate three recommended models & \S\ref{sec:multimodel}, Table~\ref{tab:multimodel} \\
+7 & Hidden test benchmarks for final eval & Acknowledged; all grading via official hidden testbenches; App.~\ref{sec:limitations} \\
+8 & Docker build/run + Dockerfile & Appendix~\ref{app:repro}; in-container runs reproduced host scores \\
+9 & Source, testbenches, repro materials & Submission archive; \texttt{experiments/} data trail \\
+10 & $\leq$5-min demo video & Separate deliverable (TUI dashboard, Appendix~\ref{app:repro}) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================
+\section{Prompt and Trajectory Excerpts}
+\label{app:prompts}
+% ============================================================
+
+Full verbatim prompts and responses for every LLM call are archived as \texttt{prompts.jsonl} per run in the submission's \texttt{experiments/} directory. Representative excerpts:
+
+\paragraph{System prompt (all repair/review calls).}
+\begin{footnotesize}
+\begin{verbatim}
+You are a senior Vitis 2025.2 HLS engineer targeting
+Alveo U55C @ 200 MHz. Keep designs functionally correct
+first, optimized second. Prefer general HLS techniques
+(PIPELINE, UNROLL, ARRAY_PARTITION, DATAFLOW) ...
+\end{verbatim}
+\end{footnotesize}
+
+\paragraph{Reviewer AI rejection (Qwen3.6 27B, projection task).}
+\begin{footnotesize}
+\begin{verbatim}
+FAIL
+- **Missing default case for `angle == 3`**: `bit2` implies
+  a 0-3 range. The code lacks an `else`/default branch,
+  leaving `triangle_2d` uninitialized when `angle == 3`.
+  This causes undefined behavior ...
+\end{verbatim}
+\end{footnotesize}
+
+\paragraph{Optimization trajectory (dotProduct, DeepSeek V4 Pro).} See the transcript excerpt in App.~\ref{app:cases}.
+
+% ============================================================
+\section{Reproduction, Observability, and Docker}
+\label{app:repro}
+% ============================================================
+
+\paragraph{Docker.} The contest requires submissions to build and run in Docker. We provide a \texttt{Dockerfile} and \texttt{docker-run.sh}:
+\begin{itemize}
+    \item \textbf{Image contents}: Ubuntu 22.04 + official \texttt{vitis.dockerfile} dependency layer + Python 3.12 venv + textual/rich (TUI) + agent source + harness. \emph{Vitis itself is not baked in} ($\sim$92\,GB + license-bound); it is read-only mounted from the host at runtime.
+    \item \textbf{Key finding}: Vitis \texttt{settings64.sh} hard-codes sibling-directory absolute paths (DocNav/Vivado/Model\_Composer). The \emph{entire} Xilinx tree must be mounted to the \emph{same path} in the container (not remapped to \texttt{/opt/xilinx})---this matches the official \texttt{run-vitis.sh} model.
+\end{itemize}
+On the server, \texttt{docker build} succeeded, and in-container runs reproduced host results: projection (SCORE 1.400) and dotProduct (SCORE 3.000), with actual csim/synth execution.
+
+\paragraph{Commands.}
+\begin{footnotesize}
+\begin{verbatim}
+# 1. Build image (host needs Vitis 2025.2)
+docker build -t fpga-agent:0.7.4 .
+
+# 2. Run a task (scripted backend, no tokens)
+./docker-run.sh \
+    contest/fpt26-harness/tasks/projection_bugfix
+
+# 3. Real LLM run (needs API key in .env)
+./docker-run.sh \
+    contest/fpt26-harness/tasks/dotProduct_optimize \
+    --backend deepseek
+
+# 4. Model selection via env overrides (OpenAI-compatible)
+LLM_BASE_URL=<endpoint> LLM_MODEL=qwen3.6-27b \
+LLM_THINKING=enable_thinking \
+python3 scripts/run_agent.py <task_dir> --backend deepseek
+\end{verbatim}
+\end{footnotesize}
+
+\paragraph{Observability.} Each run produces three layers of logs, all archived under \texttt{experiments/}: (1) a JSONL event log (route, tool\_result, mechanical\_review, review, checkpoint, llm\_call, strategy\_select, optimize\_discard, submit), analyzable with \texttt{jq}; (2) a verbatim prompt log (full system/user prompt + response for every LLM call); (3) a score history (\texttt{scores.jsonl}) of cross-run SCORE/latency/credits/tokens trends. A heartbeat thread writes a heartbeat event every 10\,s (stage/age/credit\_remaining) for stall detection---Vitis cosim can run 15 minutes, and the heartbeat confirms the process is alive.
+
+\paragraph{TUI dashboard.} For interactive use, the agent ships a Textual/Rich terminal dashboard with four regions: a five-stage flow chart with live status glyphs and per-stage stats; a tool-error bar (gcc-style \texttt{file:line: error:}, Vitis \texttt{[SIM 211-2]} codes) that doubles as a strategy panel during optimization; a streaming LLM output panel (chain-of-thought in dim italic, C++ syntax-highlighted code); and a status bar with credit progress, cumulative tokens (with reasoning breakdown), and last review verdict. The demo video (rule 10) is recorded against this dashboard.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\linewidth]{tui-dashboard.jpg}
+\caption{TUI dashboard during a \texttt{dotProduct\_optimize} run: flow chart (Stage 3 optimize active), strategy panel, streaming LLM output, and credit/token status bar.}
+\label{fig:tui}
+\end{figure}
+
+% ============================================================
+\section{Architecture and Algorithm Details}
+\label{app:algo}
+% ============================================================
+
 \subsection{Router}
 
 The router runs once at entry at zero credit cost, reading only \texttt{task.toml}:
@@ -254,10 +406,6 @@ The checkpoint is the core data structure, mapping stage completion to a monoton
 \end{enumerate}
 
 The archive only moves forward (monotone non-decreasing level). A failed candidate that broke an earlier stage simply never enters the archive---\emph{best} stays at the last verified version, yielding automatic rollback with no extra logic.
-
-% ============================================================
-\section{Core Algorithms}
-% ============================================================
 
 \subsection{Stage 1: Correctness Repair Loop}
 \label{sec:correctness}
@@ -321,7 +469,9 @@ The selected subset is applied as one candidate (single strategy = $N{=}1$ speci
     \item Multi-strategy (combo) candidate fails $\to$ \emph{combo-attribution fallback}: retry with the subset's first strategy alone (injecting failure feedback so the LLM avoids repeating the mistake).
 \end{itemize}
 
-\textbf{Stopping policy} (credit-driven, not a fixed round cap):
+\subsection{Stopping Policy}
+
+Credit-driven, not a fixed round cap:
 \begin{itemize}
     \item \emph{Convergence}: a candidate that passes csim+synth but is not strictly faster than the archive (latency $\geq$ best) is treated as convergence---optimization stops.
     \item \emph{Credit exhaustion (no cosim required)}: keep optimizing until one csim + one synth can no longer be afforded.
@@ -340,8 +490,8 @@ After optimization changes the code, a final RTL-level sanity check runs for \em
 \end{itemize}
 
 % ============================================================
-\section{Knowledge Base (RAG)}
-\label{sec:kb}
+\section{Knowledge-Base Details}
+\label{app:kb}
 % ============================================================
 
 The knowledge base is a 22-entry bug$\to$fix corpus stored in \texttt{entries.json}. Each entry has: \texttt{id}, \texttt{symptom}, \texttt{root\_cause}, \texttt{fix}, \texttt{example}, and \texttt{signatures} (retrieval keywords). The retriever performs case-insensitive substring matching---signatures hold only short error-code/keyword strings (e.g., \texttt{[XFORM 203-313]}, \texttt{deadlock}); full-sentence queries never match. Table~\ref{tab:kb} breaks down the corpus; the pattern entries are distilled from the HLS-Repair, AutoChip, and RTLFixer literature~\cite{hlsrepair,autochip,rtlfixer}, capturing meta-strategies (e.g., ``retrieve before repair'' prevents the LLM from inventing fixes uninformed by prior error patterns).
@@ -364,20 +514,39 @@ other & 1 & DATA\_PACK interface misuse \\
 \end{tabular}
 \end{table}
 
-The KB is designed for generalization to hidden tasks: on our six public/self-built tasks the correctness and synth stages had zero failures (the pre-csim review passed first try), so KB retrieval was not naturally exercised (\S\ref{sec:limitations}).
+The KB is designed for generalization to hidden tasks: on our six public/self-built tasks the correctness and synth stages had zero failures (the pre-csim review passed first try), so KB retrieval was not naturally exercised (App.~\ref{sec:limitations}).
 
 % ============================================================
-\section{Experiments}
-\label{sec:results}
+\section{Extended Experiment Details}
+\label{app:exp}
 % ============================================================
 
-\subsection{Setup}
+\subsection{Full Setup}
 
 \paragraph{Hardware and software.} All runs execute on an Ubuntu 22.04 server (8-core / 32\,GB) with Vitis 2025.2~\cite{ug1399}, where csim, synth, and cosim run via \texttt{vitis-run --mode hls} (not mocked). Target: Alveo U55C \texttt{xcu55c-fsvh2892-2L-e}, 200\,MHz (5\,ns) clock. Scoring uses hidden testbenches outside the agent budget. Each run logs credit consumption, token consumption (prompt/completion/reasoning), latency trajectory, and SCORE; all raw artifacts are archived in the submission's \texttt{experiments/} directory.
 
 \paragraph{Models.} Per the contest guidelines, we evaluate three recommended open-weight models~\cite{fpt26rules,deepseek,qwen}: \textbf{DeepSeek V4 Pro} (1.6T MoE, FP8; official API), \textbf{Qwen3.5 122B A10B} (AWQ-4bit), and \textbf{Qwen3.6 27B} (FP8) (both via an OpenAI-compatible MaaS endpoint). All runs use \texttt{--token-mode full} (no reasoning restriction) unless stated otherwise, and temperature 0.2.
 
-\paragraph{Protocol.} Each (model, task) pair is run once end-to-end; for DeepSeek V4 Pro we additionally archive repeat runs from the A/B study, enabling the variance analysis of \S\ref{sec:variance}. Reported SCOREs are computed by the official \texttt{grade()} on hidden testbenches. One infrastructure exception: the first Qwen3.5 matmul run died to an LLM-API read timeout (the client has no HTTP-level retry; see \S\ref{sec:limitations}) and was re-run once with a longer timeout; the crashed run is archived for audit.
+\paragraph{Protocol.} Each (model, task) pair is run once end-to-end; for DeepSeek V4 Pro we additionally archive repeat runs from the A/B study, enabling the variance analysis of \S\ref{sec:variance}. Reported SCOREs are computed by the official \texttt{grade()} on hidden testbenches. One infrastructure exception: the first Qwen3.5 matmul run died to an LLM-API read timeout (the client has no HTTP-level retry; see App.~\ref{sec:limitations}) and was re-run once with a longer timeout; the crashed run is archived for audit.
+
+\paragraph{Task types.} The harness defines four task types with different correctness gates (Table~\ref{tab:tasktypes}). Our task suite (Table~\ref{tab:tasks}) covers three of the four types; \texttt{generate} is not covered and is listed as future work.
+
+\begin{table}[h]
+\centering
+\caption{Task types and their correctness gates.}
+\label{tab:tasktypes}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{task\_type} & \textbf{Typical initial state} & \textbf{Correctness gate} \\
+\midrule
+repair & csim fails (functional bug) & csim \\
+optimize & csim passes, just slow & csim \\
+structural & csim passes, cosim deadlocks & csim + cosim \\
+generate & generate from scratch & csim (+cosim) \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \paragraph{Task suite.} Table~\ref{tab:tasks} lists the six tasks: three official public tasks and three self-built generalization tasks in the official format (with hidden testbenches).
 
@@ -400,30 +569,9 @@ vecadd & optimize & 1 & 20 & vector add, no pragmas \\
 \end{tabular}
 \end{table}
 
-\subsection{Main Results and Full-PPA Reporting (DeepSeek V4 Pro)}
+\subsection{Full-PPA Report (DeepSeek V4 Pro)}
 
-Table~\ref{tab:results} gives the end-to-end results with DeepSeek V4 Pro (best archived run per task), and Table~\ref{tab:ppa} reports the complete PPA picture extracted from the Vitis synthesis reports of the submitted candidates: latency, estimated clock, conservative Fmax, and resource utilization.
-
-\begin{table*}[t]
-\centering
-\caption{End-to-end results on all six tasks (DeepSeek V4 Pro, best archived run per task). All correctness gates pass (6/6 = 100\%).}
-\label{tab:results}
-\small
-\begin{tabular}{llclrrrrr}
-\toprule
-\textbf{Task} & \textbf{Type} & \textbf{Diff.} & \textbf{SCORE} & \textbf{Base lat.} & \textbf{Cand lat.} & \textbf{Accel.} & \textbf{Credits} & \textbf{Tokens} \\
-\midrule
-projection & repair & 2 & \textbf{1.400} & 0$^\dagger$ & 0$^\dagger$ & --- & 5 & 3,629 \\
-residual & structural & 4 & \textbf{4.000} & 135 & 10 & 13.5$\times$ & 65 & 77,754 \\
-dotProduct & optimize & 3 & \textbf{3.000} & 1,027 & 20 & 51.35$\times$ & 40 & 67,253 \\
-matmul & optimize & 3 & \textbf{2.691} & 16,422 & 3,126 & 5.25$\times$ & 35 & 50,729 \\
-fir & optimize & 2 & \textbf{2.000} & 16,529 & 542 & 30.5$\times$ & 40 & 127,162 \\
-vecadd & optimize & 1 & \textbf{1.000} & 4,102 & 20 & 205$\times$ & 20 & 46,924 \\
-\bottomrule
-\end{tabular}
-\\[3pt]
-\footnotesize $^\dagger$Combinational logic (II=1, latency=0). Scoring's \texttt{if cand\_lat and base\_lat:} treats 0 as falsy, so acceleration=None and the 0.3 PPA slice is unreachable; SCORE = $2\times(0.5+0.2+0)=1.400$ (see \S\ref{sec:harness-quirk}).
-\end{table*}
+Table~\ref{tab:ppa} reports the complete PPA picture extracted from the Vitis synthesis reports of the submitted candidates: latency, estimated clock, conservative Fmax, and resource utilization. Two PPA observations stand out: (1) every candidate closes timing with comfortable margin---the slowest estimate (3.65\,ns) still leaves 27\% slack after uncertainty, so the $\geq$100\,MHz rule is met by a wide margin; (2) resource utilization never exceeds 3.5\% of the U55C, i.e., the latency-first optimization (\S\ref{sec:ppa-discussion}) did not trade away implementability.
 
 \begin{table*}[t]
 \centering
@@ -446,91 +594,15 @@ vecadd & 262$^\S$ & 2.98 & 231 & 3,612 (0.3\%) & 3,377 & 0 & 32 (0.4\%) & \check
 \footnotesize $^\ddagger$Latency 20 is the best archived run (tokens 67,253); the PPA row is extracted from the latest archived run of the same task (latency 36, identical resource/pragma structure). $^\S$vecadd row is from a clean archived re-run (SCORE 1.000, 15.7$\times$ capped acceleration, tokens 51,519); the best archived latency for this task is 20 cycles (205$\times$, Table~\ref{tab:results}).
 \end{table*}
 
-\textbf{Correctness pass rate: 6/6 = 100\%} (all tasks pass csim + cosim + synth). Two tasks achieve perfect scores (residual 4.000/4.000, dotProduct 3.000/3.000). Two PPA observations stand out: (1) every candidate closes timing with comfortable margin---the slowest estimate (3.65\,ns) still leaves 27\% slack after uncertainty, so the $\geq$100\,MHz rule is met by a wide margin; (2) resource utilization never exceeds 3.5\% of the U55C, i.e., the latency-first optimization (\S\ref{sec:ppa-discussion}) did not trade away implementability.
+\subsection{Cross-Model Analysis}
 
-\subsection{Multi-Model Comparison (Contest Rule 6)}
-\label{sec:multimodel}
-
-Table~\ref{tab:multimodel} compares the three recommended models on the full suite. All three runs share identical prompts, budgets, and token-mode (\texttt{full}); only the model endpoint differs.
-
-\begin{table*}[t]
-\centering
-\caption{Multi-model comparison on the six-task suite (one run per model/task, token-mode \texttt{full}). SCORE uses the official hidden-testbench grading; tokens count prompt+completion (incl.\ reasoning).}
-\label{tab:multimodel}
-\footnotesize
-\begin{tabular}{ll rrr rrr rrr}
-\toprule
-& & \multicolumn{3}{c}{\textbf{DeepSeek V4 Pro}} & \multicolumn{3}{c}{\textbf{Qwen3.5 122B A10B}} & \multicolumn{3}{c}{\textbf{Qwen3.6 27B}} \\
-\cmidrule(lr){3-5} \cmidrule(lr){6-8} \cmidrule(lr){9-11}
-\textbf{Task} & \textbf{Diff.} & \textbf{SCORE} & \textbf{Cr.} & \textbf{Tokens} & \textbf{SCORE} & \textbf{Cr.} & \textbf{Tokens} & \textbf{SCORE} & \textbf{Cr.} & \textbf{Tokens} \\
-\midrule
-projection (repair) & 2 & 1.400 & 5 & 3,629 & 1.400 & 5 & 15,077 & 1.400 & 5 & 13,896 \\
-residual (struct.) & 4 & 4.000 & 65 & 77,754 & 3.098 & 30 & 41,959 & 3.396 & 60 & 68,365 \\
-dotProduct (opt.) & 3 & 3.000 & 40 & 67,253 & \textbf{3.000} & 15 & 72,763 & 2.325 & 10 & 38,458 \\
-matmul (opt.) & 3 & 2.691 & 35 & 50,729 & 2.156 & 10 & 67,484 & \textbf{3.000} & 30 & 54,526 \\
-fir (opt.) & 2 & 2.000 & 40 & 127,162 & \textbf{2.000} & 30 & 152,157 & 1.476 & 25 & 64,349 \\
-vecadd (opt.) & 1 & 1.000 & 20 & 46,924 & 0.500 & 20 & 59,725 & 0.738 & 20 & 37,699 \\
-\midrule
-\multicolumn{2}{l}{\textbf{Correct (csim gate) / 6}} & \multicolumn{3}{c}{6 / 6} & \multicolumn{3}{c}{6 / 6} & \multicolumn{3}{c}{6 / 6} \\
-\multicolumn{2}{l}{\textbf{Synth pass / 6}} & \multicolumn{3}{c}{6 / 6} & \multicolumn{3}{c}{5 / 6} & \multicolumn{3}{c}{6 / 6} \\
-\multicolumn{2}{l}{\textbf{Total SCORE}} & \multicolumn{3}{r}{14.091} & \multicolumn{3}{r}{12.154} & \multicolumn{3}{r}{12.335} \\
-\multicolumn{2}{l}{\textbf{Total tokens}} & \multicolumn{3}{r}{373,451} & \multicolumn{3}{r}{409,165} & \multicolumn{3}{r}{277,293} \\
-\bottomrule
-\end{tabular}
-\end{table*}
-
-Three observations emerge from the cross-model data.
+Three observations emerge from the cross-model data (Table~\ref{tab:multimodel}).
 
 \paragraph{Correctness transfers; optimization does not.} All three models cleared the csim correctness gate on all six tasks (18/18), and two of three passed synthesis everywhere---the correctness-first architecture (dual gate + monotone checkpoint) is model-agnostic. Optimization quality, by contrast, is neither monotone in model size nor consistent across tasks: Qwen3.6 27B, the smallest model, produced the \emph{only} perfect matmul (210$\times$, capped) while DeepSeek V4 Pro stalled at 5.25$\times$ on the same task; conversely Qwen3.6 left vecadd essentially unoptimized (latency identical to baseline) where both larger models reached the score cap.
 
 \paragraph{Model behavior differs in failure mode, not just degree.} Qwen3.5 122B's two sub-par results expose distinct failure modes. On vecadd, its candidate timed out in synthesis four consecutive times (600\,s limit), exhausting the budget at SCORE 0.5---the agent lacks a ``back off to a simpler design'' reflex for synth timeouts. On matmul, its reviewer AI twice rejected the \emph{unmodified, known-correct baseline} during the pre-csim review and applied a ``fix'' that doubled latency (32,827 vs.\ 16,422 cycles) before the checkpoint anchored; the archive then faithfully optimized from a corrupted starting point. This failure mode---an overzealous reviewer mutating a good baseline before anchoring---was invisible in our single-model testing and motivates anchoring the archive on the unmodified baseline (future work).
 
 \paragraph{Token cost is not monotone in model size.} Total tokens: Qwen3.6 277k $<$ DeepSeek 373k $<$ Qwen3.5 409k. The 122B model is the most expensive per task (fir: 152k tokens) because its long reasoning chains fire on every call, while DeepSeek achieves the best score-per-token on the hardest task (residual 4.000 at 77.8k tokens). For a budget-conscious submission, DeepSeek V4 Pro offers the best score/token trade-off; Qwen3.6 27B is a viable low-cost option when paired with stronger optimization guidance. Across all 17 synthesizable candidates (all models), timing is met with conservative Fmax 200--353\,MHz; per-run synthesis reports (latency/resources/timing) are archived as \texttt{ppa.json} in the submission's \texttt{experiments/} directory.
-
-\subsection{Token Efficiency}
-\label{sec:tokens}
-
-Since token consumption is an explicit evaluation factor, we implemented a graded \texttt{-{}-token-mode} switch controlling the model's reasoning effort. In a reasoning model, $\sim$89\% of completion tokens are reasoning tokens---the dominant cost.
-
-\begin{table}[h]
-\centering
-\caption{Token-mode policy.}
-\label{tab:tokenmode}
-\small
-\begin{tabular}{lp{0.6\linewidth}}
-\toprule
-\textbf{Mode} & \textbf{Settings} \\
-\midrule
-full (default) & No effort override (byte-identical to pre-optimization behavior) \\
-balanced & \texttt{review=off}, \texttt{select=off} (verdict-class calls) \\
-aggressive & Above + \texttt{brief=off}, \texttt{propose=off} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\paragraph{A/B study.} We ran the same three tasks in \texttt{full} vs.\ \texttt{balanced} mode (Table~\ref{tab:ab}; all numbers from archived \texttt{scores.jsonl} histories).
-
-\begin{table}[h]
-\centering
-\caption{Token-mode A/B study (full vs.\ balanced; archived runs).}
-\label{tab:ab}
-\small
-\begin{tabular}{lrrll}
-\toprule
-\textbf{Task} & \textbf{full tok.} & \textbf{bal.\ tok.} & \textbf{$\Delta$} & \textbf{SCORE (f$\to$b)} \\
-\midrule
-vecadd & 68,279 & 46,924 & $-$31.3\% & 1.000 $\to$ 1.000 \\
-matmul & 55,357 & 50,729 & $-$8.4\% & 2.270 $\to$ 2.691 \\
-dotProduct & 67,253 & 48,146 & $-$28.4\% & 3.000 $\to$ 3.000 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Balanced mode saved 8--31\% tokens (mean 22.7\%) with no score degradation---and on matmul the score \emph{increased} (2.270$\to$2.691) because disabling the selector's reasoning made it more decisive in choosing the DATAFLOW strategy.
-
-\paragraph{Score--token frontier.} The \texttt{vecadd} task provides a three-point frontier: \texttt{full} 68,279 tokens $\to$ 1.000; \texttt{balanced} 46,924 $\to$ 1.000; \texttt{aggressive} 17,100 ($-$75.0\%) $\to$ 0.737. Score holds flat until reasoning is disabled on strategy-proposal calls, then drops sharply---the strategy-proposal reasoning is where optimization quality comes from.
-
-\textbf{Conclusion:} balanced mode is the recommended default, saving $\sim$23\% tokens on average with no score loss.
 
 \subsection{Run-to-Run Variance and Failure Modes}
 \label{sec:variance}
@@ -560,10 +632,15 @@ Three findings:
 \begin{enumerate}
     \item \textbf{Correctness is stable}: 15/15 archived runs passed every correctness gate. The correctness-first architecture (dual gate + monotone checkpoint) converts LLM stochasticity into \emph{optimization-quality} variance only.
     \item \textbf{Optimization quality varies with strategy randomness}: residual's final latency spans 10--32 cycles across runs (different strategy proposals lead to different local optima); matmul's full-mode run stalled at 10,881 cycles while its balanced-mode run reached 3,126. Mitigation (functional-pattern retrieval) is future work.
-    \item \textbf{The one sub-par score is self-inflicted}: vecadd's 0.737 came from the aggressive token-mode run (reasoning disabled on proposal calls), not from model randomness---consistent with the frontier analysis above.
+    \item \textbf{The one sub-par score is self-inflicted}: vecadd's 0.737 came from the aggressive token-mode run (reasoning disabled on proposal calls), not from model randomness---consistent with the frontier analysis in App.~\ref{sec:tokens}.
 \end{enumerate}
 
-\subsection{Case Study: dotProduct (Optimize, Perfect Score)}
+% ============================================================
+\section{Case Studies}
+\label{app:cases}
+% ============================================================
+
+\subsection{dotProduct (Optimize, Perfect Score)}
 
 \begin{figure}[t]
 \centering
@@ -608,13 +685,13 @@ The optimization loop reduced latency from 73 to 20 cycles over 4 rounds (3 effe
 \end{verbatim}
 \end{footnotesize}
 
-\subsection{Case Study: residual (Structural, Cosim Deadlock Repair)}
+\subsection{residual (Structural, Cosim Deadlock Repair)}
 
 This is the hardest task (difficulty 4). A DATAFLOW skip/residual connection has the producer write its entire main stream before the skip stream. C-simulation's unbounded FIFOs hide the problem, but co-simulation's depth-2 bounded FIFOs cannot buffer the burst, causing deadlock.
 
 The agent's pre-csim LLM review identified and fixed this pattern \emph{before} spending any cosim credit. Over 4 optimization rounds, latency dropped from 68 to 10 cycles, and the post-optimization cosim re-check passed, achieving a perfect 4.000. The three archived runs (Table~\ref{tab:variance}) all repaired the deadlock on the first attempt; they differ only in optimization depth.
 
-\subsection{Case Study: projection (Repair, Minimal Flow)}
+\subsection{projection (Repair, Minimal Flow)}
 
 The bug was a dropped vertex term in the \texttt{angle==0} branch:
 \begin{footnotesize}
@@ -626,17 +703,55 @@ The bug was a dropped vertex term in the \texttt{angle==0} branch:
 The pre-csim review caught this before the first csim credit was spent. The entire run used only 5 credits and 3,629 tokens. Interestingly, on the same task Qwen3.6 27B's reviewer AI twice rejected its own repair candidates for a robustness issue the original code never handled (no default branch for \texttt{angle==3} in the \texttt{bit2} range) before accepting a hardened version---the dual gate enforces defensive coding even on a minimal repair, at the cost of extra reasoning tokens (13,896 vs.\ DeepSeek's 3,629).
 
 % ============================================================
-\section{Related Work}
+\section{Token-Efficiency Study}
+\label{sec:tokens}
 % ============================================================
 
-\paragraph{LLM agents with tool feedback.} ReAct~\cite{react} interleaves reasoning traces with environment actions and shows large gains over act-only and chain-of-thought~\cite{cot} baselines; our agent follows this loop, with HLS tool results as observations and an explicit budget on actions. SWE-agent~\cite{sweagent} shows that the agent--computer interface materially affects performance on software-engineering tasks; similarly, our feedback distiller and structured tool phases shape how the LLM perceives Vitis output. Anthropic's agent guidance~\cite{anthropicagents} recommends simple, composable workflows over autonomous sprawl---our linear-with-backtracking flow is deliberately a \emph{workflow} with LLM steps, not a free-running planner.
+Since token consumption is an explicit evaluation factor, we implemented a graded \texttt{-{}-token-mode} switch controlling the model's reasoning effort. In a reasoning model, $\sim$89\% of completion tokens are reasoning tokens---the dominant cost.
 
-\paragraph{LLMs for hardware design.} AutoChip~\cite{autochip} generates HDL with compiler feedback; RTLFixer~\cite{rtlfixer} repairs RTL syntax errors with retrieval-augmented debugging; HLS-Repair~\cite{hlsrepair} repairs HLS C/C++ via LLMs; HLSPilot~\cite{hlspilot} automates HLS flows with LLMs. Our work is closest to HLS-Repair and HLSPilot but differs in three ways: (1) we operate under a \emph{hard tool-call budget} with a scoring-aligned stopping policy; (2) we couple repair with \emph{PPA optimization} in one end-to-end flow (repair-only systems stop at correctness); (3) our checkpoint archive gives monotone, score-aligned arbitration across stages. The KB pattern entries are distilled from this literature~\cite{hlsrepair,autochip,rtlfixer}.
+\begin{table}[h]
+\centering
+\caption{Token-mode policy.}
+\label{tab:tokenmode}
+\small
+\begin{tabular}{lp{0.6\linewidth}}
+\toprule
+\textbf{Mode} & \textbf{Settings} \\
+\midrule
+full (default) & No effort override (byte-identical to pre-optimization behavior) \\
+balanced & \texttt{review=off}, \texttt{select=off} (verdict-class calls) \\
+aggressive & Above + \texttt{brief=off}, \texttt{propose=off} \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\paragraph{Industrial methodology.} AMD's LLM4HLS case study~\cite{amdllm4hls} proposes a human-in-the-loop four-phase optimization workflow (context loading, strategy proposal, review, application) and names pragma interaction as a key LLM weakness. We engineer this methodology into a fully autonomous loop, replacing the human reviewer with a reviewer-AI dual-confirmation gate plus deterministic mechanical checks.
+\paragraph{A/B study.} We ran the same three tasks in \texttt{full} vs.\ \texttt{balanced} mode (Table~\ref{tab:ab}; all numbers from archived \texttt{scores.jsonl} histories).
+
+\begin{table}[h]
+\centering
+\caption{Token-mode A/B study (full vs.\ balanced; archived runs).}
+\label{tab:ab}
+\small
+\begin{tabular}{lrrll}
+\toprule
+\textbf{Task} & \textbf{full tok.} & \textbf{bal.\ tok.} & \textbf{$\Delta$} & \textbf{SCORE (f$\to$b)} \\
+\midrule
+vecadd & 68,279 & 46,924 & $-$31.3\% & 1.000 $\to$ 1.000 \\
+matmul & 55,357 & 50,729 & $-$8.4\% & 2.270 $\to$ 2.691 \\
+dotProduct & 67,253 & 48,146 & $-$28.4\% & 3.000 $\to$ 3.000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Balanced mode saved 8--31\% tokens (mean 22.7\%) with no score degradation---and on matmul the score \emph{increased} (2.270$\to$2.691) because disabling the selector's reasoning made it more decisive in choosing the DATAFLOW strategy.
+
+\paragraph{Score--token frontier.} The \texttt{vecadd} task provides a three-point frontier: \texttt{full} 68,279 tokens $\to$ 1.000; \texttt{balanced} 46,924 $\to$ 1.000; \texttt{aggressive} 17,100 ($-$75.0\%) $\to$ 0.737. Score holds flat until reasoning is disabled on strategy-proposal calls, then drops sharply---the strategy-proposal reasoning is where optimization quality comes from.
+
+\textbf{Conclusion:} balanced mode is the recommended default, saving $\sim$23\% tokens on average with no score loss.
 
 % ============================================================
 \section{Discussion}
+\label{app:discussion}
 % ============================================================
 
 \subsection{Design Decisions and Rationale}
@@ -694,126 +809,11 @@ The projection kernel synthesizes to combinational logic (latency 0). The offici
 \subsection{Future Work}
 
 \begin{itemize}
-    \item Anchor the checkpoint archive on the unmodified baseline (fixes the pre-csim corruption mode, \S\ref{sec:limitations}); add synth-timeout backoff and HTTP-level LLM retry.
+    \item Anchor the checkpoint archive on the unmodified baseline (fixes the pre-csim corruption mode, App.~\ref{sec:limitations}); add synth-timeout backoff and HTTP-level LLM retry.
     \item Functional-pattern retrieval (\S6.4 of the architecture spec) to reduce optimization variance.
     \item Controlled KB ablation (KB on/off on injected-failure tasks).
     \item Area/power-aware optimization objective if the metric evolves.
     \item Validate generalization on the hidden test set.
 \end{itemize}
-
-% ============================================================
-\section{Conclusion}
-% ============================================================
-
-We built a budgeted end-to-end LLM4HLS agent that repairs and optimizes AMD Vitis HLS code under constrained tool-call budgets. On six tasks spanning three task types (repair, structural, optimize), the agent achieved 100\% correctness pass rate (csim + cosim + synth all pass) with DeepSeek V4 Pro, two perfect scores, and up to 205$\times$ latency reduction, with all candidates closing timing (Fmax 200--353\,MHz) at $\leq$3.5\% resource utilization. The core design---correctness-first three-stage architecture, AMD four-phase optimization workflow, dual-gate review, and graded token saving---was validated with three competition-recommended open-weight models on real toolchains (Vitis 2025.2 + Alveo U55C @ 200\,MHz) and packaged as a reproducible Docker submission with a fully archived experiment trail.
-
-% ============================================================
-\bibliographystyle{IEEEtran}
-\bibliography{report}
-
-\appendix
-
-% ============================================================
-\section{Contest-Rule Compliance Checklist}
-\label{app:compliance}
-% ============================================================
-
-\begin{table}[h]
-\centering
-\caption{Mapping from the 10 submission rules~\cite{fpt26rules} to evidence.}
-\label{tab:compliance}
-\footnotesize
-\begin{tabular}{p{0.06\linewidth} p{0.5\linewidth} p{0.34\linewidth}}
-\toprule
-\textbf{\#} & \textbf{Rule} & \textbf{Evidence} \\
-\midrule
-1 & Alveo U55C target for cosim & Table~\ref{tab:ppa} (part \texttt{xcu55c}); \S\ref{sec:results}-A \\
-2 & Vitis 2025.2 & \S\ref{sec:results}-A; csynth reports in archive \\
-3 & Pass csim, cosim, synth + experimental report & Tables~\ref{tab:results}, \ref{tab:multimodel}; this report \\
-4 & Hardware runs at $\geq$100\,MHz & Table~\ref{tab:ppa}: Fmax 200--353\,MHz \\
-5 & Token consumption as evaluation factor & \S\ref{sec:tokens}; token columns in all result tables \\
-6 & Evaluate three recommended models & \S\ref{sec:multimodel}, Table~\ref{tab:multimodel} \\
-7 & Hidden test benchmarks for final eval & Acknowledged; all grading via official hidden testbenches; \S\ref{sec:limitations} \\
-8 & Docker build/run + Dockerfile & Appendix~\ref{app:repro}; in-container runs reproduced host scores \\
-9 & Source, testbenches, repro materials & Submission archive; \texttt{experiments/} data trail \\
-10 & $\leq$5-min demo video & Separate deliverable (TUI dashboard, Appendix~\ref{app:repro}) \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-% ============================================================
-\section{Prompt and Trajectory Excerpts}
-\label{app:prompts}
-% ============================================================
-
-Full verbatim prompts and responses for every LLM call are archived as \texttt{prompts.jsonl} per run in the submission's \texttt{experiments/} directory. Representative excerpts:
-
-\paragraph{System prompt (all repair/review calls).}
-\begin{footnotesize}
-\begin{verbatim}
-You are a senior Vitis 2025.2 HLS engineer targeting
-Alveo U55C @ 200 MHz. Keep designs functionally correct
-first, optimized second. Prefer general HLS techniques
-(PIPELINE, UNROLL, ARRAY_PARTITION, DATAFLOW) ...
-\end{verbatim}
-\end{footnotesize}
-
-\paragraph{Reviewer AI rejection (Qwen3.6 27B, projection task).}
-\begin{footnotesize}
-\begin{verbatim}
-FAIL
-- **Missing default case for `angle == 3`**: `bit2` implies
-  a 0-3 range. The code lacks an `else`/default branch,
-  leaving `triangle_2d` uninitialized when `angle == 3`.
-  This causes undefined behavior ...
-\end{verbatim}
-\end{footnotesize}
-
-\paragraph{Optimization trajectory (dotProduct, DeepSeek V4 Pro).} See the transcript excerpt in \S\ref{sec:results}-G.
-
-% ============================================================
-\section{Reproduction, Observability, and Docker}
-\label{app:repro}
-% ============================================================
-
-\paragraph{Docker.} The contest requires submissions to build and run in Docker. We provide a \texttt{Dockerfile} and \texttt{docker-run.sh}:
-\begin{itemize}
-    \item \textbf{Image contents}: Ubuntu 22.04 + official \texttt{vitis.dockerfile} dependency layer + Python 3.12 venv + textual/rich (TUI) + agent source + harness. \emph{Vitis itself is not baked in} ($\sim$92\,GB + license-bound); it is read-only mounted from the host at runtime.
-    \item \textbf{Key finding}: Vitis \texttt{settings64.sh} hard-codes sibling-directory absolute paths (DocNav/Vivado/Model\_Composer). The \emph{entire} Xilinx tree must be mounted to the \emph{same path} in the container (not remapped to \texttt{/opt/xilinx})---this matches the official \texttt{run-vitis.sh} model.
-\end{itemize}
-On the server, \texttt{docker build} succeeded, and in-container runs reproduced host results: projection (SCORE 1.400) and dotProduct (SCORE 3.000), with actual csim/synth execution.
-
-\paragraph{Commands.}
-\begin{footnotesize}
-\begin{verbatim}
-# 1. Build image (host needs Vitis 2025.2)
-docker build -t fpga-agent:0.7.4 .
-
-# 2. Run a task (scripted backend, no tokens)
-./docker-run.sh \
-    contest/fpt26-harness/tasks/projection_bugfix
-
-# 3. Real LLM run (needs API key in .env)
-./docker-run.sh \
-    contest/fpt26-harness/tasks/dotProduct_optimize \
-    --backend deepseek
-
-# 4. Model selection via env overrides (OpenAI-compatible)
-LLM_BASE_URL=<endpoint> LLM_MODEL=qwen3.6-27b \
-LLM_THINKING=enable_thinking \
-python3 scripts/run_agent.py <task_dir> --backend deepseek
-\end{verbatim}
-\end{footnotesize}
-
-\paragraph{Observability.} Each run produces three layers of logs, all archived under \texttt{experiments/}: (1) a JSONL event log (route, tool\_result, mechanical\_review, review, checkpoint, llm\_call, strategy\_select, optimize\_discard, submit), analyzable with \texttt{jq}; (2) a verbatim prompt log (full system/user prompt + response for every LLM call); (3) a score history (\texttt{scores.jsonl}) of cross-run SCORE/latency/credits/tokens trends. A heartbeat thread writes a heartbeat event every 10\,s (stage/age/credit\_remaining) for stall detection---Vitis cosim can run 15 minutes, and the heartbeat confirms the process is alive.
-
-\paragraph{TUI dashboard.} For interactive use, the agent ships a Textual/Rich terminal dashboard with four regions: a five-stage flow chart with live status glyphs and per-stage stats; a tool-error bar (gcc-style \texttt{file:line: error:}, Vitis \texttt{[SIM 211-2]} codes) that doubles as a strategy panel during optimization; a streaming LLM output panel (chain-of-thought in dim italic, C++ syntax-highlighted code); and a status bar with credit progress, cumulative tokens (with reasoning breakdown), and last review verdict. The demo video (rule 10) is recorded against this dashboard.
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.95\linewidth]{tui-dashboard.jpg}
-\caption{TUI dashboard during a \texttt{dotProduct\_optimize} run: flow chart (Stage 3 optimize active), strategy panel, streaming LLM output, and credit/token status bar.}
-\label{fig:tui}
-\end{figure}
 
 \end{document}
