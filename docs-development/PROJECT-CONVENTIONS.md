@@ -283,6 +283,8 @@ project-root/
 
 ### 7.1 技术债清单
 
+> 注：`internal-notes/` 目录已从开源版本移除，以下流程描述保留供参考。
+
 `internal-notes/tech-debt.md` 汇总项目当前已知的技术债，每条包含：
 
 - **编号**：`TD-<序号>`（如 `TD-07`）

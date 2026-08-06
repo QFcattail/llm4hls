@@ -12,7 +12,7 @@
 | **第3步** | "选一个深入" | 按角色选一个子系统 README | 该子系统的文件结构、调用链、知识点、构建方法 | 第4步 |
 | **第4步** | "能改代码了" | 对应代码目录的 `.doc.md` + 源码注释 | 单个文件/函数级实现细节 | 自由探索 |
 
-> **想看进度和已知问题**：[`engineering-plan`](../docs-development/engineering-plan/engineering-plan.md)（进度）、[`tech-debt.md`](../docs-development/internal-notes/tech-debt.md)（技术债）。
+> **想看进度和已知问题**：[`engineering-plan`](../docs-development/engineering-plan/engineering-plan.md)（进度）。（技术债清单原在 `internal-notes/tech-debt.md`，已随开源版移除。）
 >
 > **动手前必读的硬约束**：[`runtime-constraints.md`](../docs-development/runtime-constraints.md)--违反会卡死或返工。
 

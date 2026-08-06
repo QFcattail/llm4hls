@@ -90,8 +90,8 @@ fpga-agent/
 │   ├── dev-log/          开发日志（按日期）
 │   ├── reviews/          评审记录
 │   ├── test-plan/        测试用例
-│   ├── internal-notes/   技术债清单、踩坑笔记
-│   └── notes/            外部背景资料库（论文/工具文档）
+│   ├── internal-notes/   ⚠️ 已移除（开源版不含）
+│   └── notes/            ⚠️ 已移除（开源版不含）
 ├── agent/               Agent 本体代码（Python）
 │   ├── README.md          ← 读代码从这里开始
 │   ├── main_loop.py       主循环：correctness -> synth -> optimize
@@ -107,10 +107,9 @@ fpga-agent/
 │   └── knowledge_base/    知识库 Python 实现（下划线）
 ├── tui/                 TUI 仪表盘（Textual + Rich）
 ├── scripts/             CLI 入口（run_agent.py）
-├── contest/
-│   ├── fpt26-harness/    官方评估 harness（复用，不改）
-│   ├── fpl26_reference/  FPL'26 参考实现（仅供参考）
-│   └── *.md/*.docx       赛题规则与材料
+├── contest/             官方评估 harness + 基准任务（保留源码；规则/解读文档已移除）
+│   ├── fpt26-harness/    官方评估 harness（Python + 基准 cpp/h/tb，agent 运行时依赖）
+│   └── fpl26_reference/  FPL'26 参考源码（仅 .py + prompt，规则 md 已移除）
 ├── tools/               辅助脚本（web_fetch 等）
 ├── runs/                运行产物（已 gitignore）
 ├── fpga-agent.py        TUI 一行启动入口
@@ -154,7 +153,7 @@ fpga-agent/
 
 **第 5 步：看进度和已知问题**
 
-读 [`docs-development/engineering-plan/engineering-plan.md`](docs-development/engineering-plan/engineering-plan.md) 看项目进展；读 [`docs-development/internal-notes/tech-debt.md`](docs-development/internal-notes/tech-debt.md) 看已知技术债。
+读 [`docs-development/engineering-plan/engineering-plan.md`](docs-development/engineering-plan/engineering-plan.md) 看项目进展。（技术债清单原在 `internal-notes/tech-debt.md`，已随开源版移除。）
 
 **第 6 步：想看某天具体做了什么**
 
@@ -205,7 +204,7 @@ fpga-agent/
 
 ## 已知限制与技术债
 
-完整清单见 [`docs-development/internal-notes/tech-debt.md`](docs-development/internal-notes/tech-debt.md)。
+完整技术债清单原在 `docs-development/internal-notes/tech-debt.md`，已随开源版移除。
 
 当前在册技术债：无（既有 TD-01~TD-04 已全部废弃/迁移）。开发过程中发现的问题会及时登记。
 
@@ -251,6 +250,7 @@ fpga-agent/
 本项目采用 **MIT** 许可证，详见 [`LICENSE`](LICENSE)。
 
 - `agent/`、`tui/`、`scripts/`、`tools/` 目录下的代码为原创工作，版权归 Xinyu Fang 和 Qianhe Cheng 所有。
-- `contest/fpt26-harness/` 是 FPT'26 竞赛官方提供的参考评估 harness，按竞赛要求原样复用，版权归竞赛组织方所有。
-- `contest/fpl26_reference/` 仅供参考，不参与运行时。
+- `contest/fpt26-harness/` 是 FPT'26 竞赛官方提供的参考评估 harness（Python 源码 + 基准任务），按竞赛要求原样复用，版权归竞赛组织方所有。竞赛规则/解读文档（docx/html/jpg/md）已从开源版本中移除。
+- `contest/fpl26_reference/` 保留参考源码（.py），规则解读 md 已移除。
+- `docs-development/notes/` 和 `docs-development/internal-notes/`（外部论文摘要、备赛学习手册等内部资料）已从开源版本中移除。
 - 第三方依赖（textual、rich、IEEEtran 等）的归属与许可见 [`NOTICE`](NOTICE)。

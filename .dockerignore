@@ -48,11 +48,6 @@ docs-development/reviews/
 docs-development/test-plan/
 docs-overview/
 
-# ---- Reference / unrelated contest material ----
-contest/fpl26_reference/
-contest/*.docx
-contest/*.pdf
-
 # ---- Docker meta (avoid recursive context) ----
 Dockerfile
 .dockerignore

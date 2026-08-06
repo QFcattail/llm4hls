@@ -21,17 +21,20 @@ License:   No explicit license file was distributed with the harness. The
 Note:      This is a fork of the official harness, kept verbatim per the contest
            requirement that the evaluation interface remain locked to in-process
            Python calls. Any modifications are limited to packaging (sys.path
-           injection in entry scripts) and do not alter evaluation logic.
+           injection in entry scripts) and do not alter evaluation logic. The
+           harness source and benchmark task packages (.cpp/.h/.toml) are
+           included because the agent imports them at runtime.
 
 ===============================================================================
 2. FPL'26 Reference DCP Optimizer (Track B)
 ===============================================================================
-Location:  contest/fpl26_reference/
+Location:  contest/fpl26_reference/ (source code only; rule docs excluded)
 Source:    FPL'26 Agentic FPGA Contest reference materials.
 Copyright: (c) FPL'26 Contest Organizers
-License:   No explicit license distributed. Reference material only, not used
-           in the agent runtime. Excluded from the Docker image via
-           .dockerignore.
+License:   No explicit license distributed. The Python source files
+           (dcp_optimizer.py, validate_dcps.py) and SYSTEM_PROMPT.txt are
+           retained as reference material. The accompanying rule/FAQ markdown
+           files were excluded from this open-source release.
 
 ===============================================================================
 3. IEEEtran LaTeX class
@@ -61,10 +64,20 @@ the host at runtime. See AMD's license terms at:
   https://www.amd.com/en/products/software/adaptive-socs-and-fpgas/vitis/vitis-hls.html
 
 ===============================================================================
-6. Contest task materials
+6. Contest rule documents (excluded from this repository)
 ===============================================================================
-Location:  contest/*.md, contest/*.docx, contest/*.html, contest/*.jpg
+Status:    NOT included in this open-source repository. The following rule/
+           guideline materials were removed from the open-source release:
+             - contest/*.docx (submission guidelines Track-A / Track-B)
+             - contest/*.html (competition page, submission repo, AMD article,
+               Vitis HLS user guide)
+             - contest/*.jpg (contest overview, call-for-design images)
+             - contest/*.md  (FPL26 contest README, optimization example,
+               runtime notes, 选题要求)
+             - contest/fpt26-harness.zip (original harness archive)
+             - contest/fpl26_reference/*.md (FAQ, benchmarks, details, score)
 Source:    FPT'26 / FPL'26 Design Competition official documentation.
 Copyright: (c) Respective competition organizers.
-License:   Contest-provided reference materials. Used for development context
-           only; not part of the agent runtime.
+Note:      These are rule interpretations and guideline documents used during
+           development, not required to run the agent. The official evaluation
+           harness source code and benchmark tasks are retained (see item 1).
