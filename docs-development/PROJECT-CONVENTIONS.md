@@ -328,7 +328,7 @@ project-root/
 
 | 文档类型 | 语言 |
 |---|---|
-| 面向外部用户的文档（README、getting-started、design、experiments、子系统 README） | **`.md`（英文）+ `.cn.md`（中文）双文件**，互相跳转链接 |
+| 面向外部用户的文档（README、design、experiments、子系统 README） | **`.md`（英文）+ `.cn.md`（中文）双文件**，互相跳转链接 |
 | 代码配套文档（`.doc.md`） | **中英双语**：先中文，后英文翻译（内联，不拆分） |
 | 内部过程文档（dev-log、requirements、reviews、test-plan） | **中文为主**，关键术语标注英文 |
 | 代码注释 | **纯 ASCII 英文**（见 §9） |

@@ -10,7 +10,7 @@
 |---|---|---|---|---|
 | **Step 0** | "What problem does this project solve" | This doc §1-§3 | Project goals and use cases | Step 1 |
 | **Step 1** | "How is it put together overall" | This doc §4-§5 + the architecture diagram in the root [README.md](../README.md) | How the modules cooperate, how data flows | Step 2 |
-| **Step 2** | "How to run it" | [`getting-started.md`](../getting-started.md) | Installation, CLI usage, output interpretation | Step 3 |
+| **Step 2** | "How to run it" | [`README.md`](../README.md) (Quick Start section) | Installation, CLI usage, output interpretation | Step 3 |
 | **Step 3** | "Pick one to go deep" | Pick a subsystem README by role | That subsystem's file structure, call chain, knowledge points, build method | Step 4 |
 | **Step 4** | "Able to modify code now" | The `.doc.md` in the corresponding code directory + source comments | Single file/function-level implementation details | Free exploration |
 
