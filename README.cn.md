@@ -150,7 +150,17 @@ Agent 通过 **OpenAI 兼容 chat completions API** 与 LLM 通信。全部通�
 
 > \* `DEEPSEEK_API_KEY` 和 `LLM_API_KEY` 二选一。客户端先查 `LLM_API_KEY`，未设置则回退到 `DEEPSEEK_API_KEY`。
 
-### 快速配置：`.env` 文件（推荐）
+### 快速配置：交互式向导（推荐）
+
+```bash
+# 交互式 CLI：选模型、填 key、完成
+python3 scripts/setup_env.py
+
+# 校验配置 + 测试 API 连通性
+python3 scripts/check_env.py --test-api
+```
+
+或手动创建 `.env`：
 
 ```bash
 cp .env.example .env
@@ -470,7 +480,7 @@ A: 没装 Vitis 或没 source `settings64.sh`。Docker 中确认 `VITIS_ROOT` �
 
 ### Q: 报错 "API key missing"？
 
-A: 设置 `DEEPSEEK_API_KEY` 或 `LLM_API_KEY`。从模板创建 `.env`：`cp .env.example .env`。
+A: 设置 `DEEPSEEK_API_KEY` 或 `LLM_API_KEY`。最简单的方式：`python3 scripts/setup_env.py`（交互式向导），然后 `python3 scripts/check_env.py --test-api` 验证。
 
 ### Q: DeepSeek 返回空 content？
 

@@ -150,7 +150,17 @@ The agent talks to LLMs via an **OpenAI-compatible chat completions API**. You c
 
 > \* Set either `DEEPSEEK_API_KEY` or `LLM_API_KEY`. The client checks `LLM_API_KEY` first, then falls back to `DEEPSEEK_API_KEY`.
 
-### Quick config: `.env` file (recommended)
+### Quick config: interactive setup (recommended)
+
+```bash
+# Interactive CLI: choose provider, enter key, done
+python3 scripts/setup_env.py
+
+# Validate configuration + test API connectivity
+python3 scripts/check_env.py --test-api
+```
+
+Or create `.env` manually:
 
 ```bash
 cp .env.example .env
@@ -473,7 +483,7 @@ A: Vitis is not installed or `settings64.sh` was not sourced. In Docker, make su
 
 ### Q: "API key missing" error?
 
-A: Set `DEEPSEEK_API_KEY` or `LLM_API_KEY`. Create a `.env` file from the template: `cp .env.example .env`.
+A: Set `DEEPSEEK_API_KEY` or `LLM_API_KEY`. Easiest way: `python3 scripts/setup_env.py` (interactive guide), then verify with `python3 scripts/check_env.py --test-api`.
 
 ### Q: DeepSeek returns empty content?
 
