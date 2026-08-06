@@ -328,7 +328,7 @@ project-root/
 
 | 文档类型 | 语言 |
 |---|---|
-| 面向外部用户的文档（README、getting-started、design、runtime-constraints、experiments、子系统 README） | **`.md`（英文）+ `.cn.md`（中文）双文件**，互相跳转链接 |
+| 面向外部用户的文档（README、getting-started、design、experiments、子系统 README） | **`.md`（英文）+ `.cn.md`（中文）双文件**，互相跳转链接 |
 | 代码配套文档（`.doc.md`） | **中英双语**：先中文，后英文翻译（内联，不拆分） |
 | 内部过程文档（dev-log、requirements、reviews、test-plan） | **中文为主**，关键术语标注英文 |
 | 代码注释 | **纯 ASCII 英文**（见 §9） |
@@ -421,7 +421,7 @@ def route(task) -> RunPlan:
 
 ### 10.2 内容
 
-`runtime-constraints.md` 记录：
+`runtime-constraints.md`（内部文档，不含于开源版）记录：
 
 1. **机器与设备归属**：哪台机器干什么、怎么连、有什么权限、有什么限制。
 2. **端口与防火墙**：哪些端口已放行、新增端口的操作步骤。
@@ -534,7 +534,7 @@ chore: bump version to 0.1.1 for TUI release
 - [ ] `docs-overview/` 有项目介绍 + 架构图 + 术语表 + 阅读地图
 - [ ] `docs-development/README.md` 说明了目录结构和 SDLC 流程
 - [ ] `engineering-plan.md` 有里程碑总览 + 当前阶段 + 原子任务清单
-- [ ] `runtime-constraints.md` 记录了机器归属和硬约束
+- [ ] `runtime-constraints.md` 记录了机器归属和硬约束（内部文档，不含于开源版）
 - [ ] `dev-log/README.md` 有日志模板
 - [ ] `reviews/README.md` 有评审模板
 - [ ] `internal-notes/tech-debt.md` 初始化（即使暂时为空也要有占位）

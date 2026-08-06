@@ -16,7 +16,7 @@
 
 > **Want to see progress and known issues**: [`engineering-plan`](../docs-development/engineering-plan/engineering-plan.md) (progress). (The tech-debt list was originally in `internal-notes/tech-debt.md`, removed with the open-source release.)
 >
-> **Hard constraints you must read before starting**: [`runtime-constraints.md`](../docs-development/runtime-constraints.md) -- violating them causes hangs or rework.
+> **Hard constraints you must read before starting**: `docs-development/runtime-constraints.md` (in the full development repo, not included in this open-source release) -- violating them causes hangs or rework.
 
 ---
 

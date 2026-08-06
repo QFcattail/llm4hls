@@ -83,7 +83,7 @@ fpga-agent/
 ├── docs-overview/        Project intro, overall architecture, glossary (read first)
 ├── docs-development/     Requirements, design, engineering plan, dev logs, reviews, test cases, tech debt
 │   ├── PROJECT-CONVENTIONS.md  Engineering conventions master document
-│   ├── runtime-constraints.md  Hard runtime constraints (must-read before hands-on)
+│   ├── runtime-constraints.md  (removed in open-source; internal-only runtime constraints)
 │   ├── requirements/     Requirements analysis
 │   ├── design/           Detailed design
 │   ├── engineering-plan/ Engineering plan (single source of truth for progress)
@@ -185,7 +185,7 @@ Read [`docs-development/dev-log/`](docs-development/dev-log/) for development lo
 
 ### Runtime Constraints (Must Read)
 
-Before deploying, **must** read [`docs-development/runtime-constraints.md`](docs-development/runtime-constraints.md) -- machine ownership, Vitis environment, contest rules, credit budget, scoring formula, and other hard constraints. Violating these constraints causes stalls or rework.
+Before deploying, **must** read `docs-development/runtime-constraints.md` (available in the full development repo, not included in this open-source release) -- machine ownership, Vitis environment, contest rules, credit budget, scoring formula, and other hard constraints. Violating these constraints causes stalls or rework.
 
 ---
 

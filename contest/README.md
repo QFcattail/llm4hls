@@ -39,8 +39,8 @@
 - `scripts/run_poc.py`：harness 自带 driver（被项目 `scripts/run_agent.py` 模仿）
 - `vitis.dockerfile` / `run-vitis.sh`：Docker 环境规范
 
-详见 harness 自带 `README.md` 和 `docs-development/runtime-constraints.md` §二。
+详见 harness 自带 `README.md` 和 `docs-development/runtime-constraints.md` §二（后者在完整开发仓库中，开源版不含）。
 
 ## 状态
-- 赛题规则已全部入库，详见 `docs-development/runtime-constraints.md`
+- 赛题规则已全部入库，详见 `docs-development/runtime-constraints.md`（完整开发仓库，开源版不含）
 - 提交物待里程碑达成后整理。当前优先跑通 FPT'26 Track A 的 3 道公开题。

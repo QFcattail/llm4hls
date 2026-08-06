@@ -16,7 +16,7 @@
 
 > **想看进度和已知问题**：[`engineering-plan`](../docs-development/engineering-plan/engineering-plan.md)（进度）。（技术债清单原在 `internal-notes/tech-debt.md`，已随开源版移除。）
 >
-> **动手前必读的硬约束**：[`runtime-constraints.md`](../docs-development/runtime-constraints.cn.md)--违反会卡死或返工。
+> **动手前必读的硬约束**：`docs-development/runtime-constraints.md`（在完整开发仓库中，开源版不含）--违反会卡死或返工。
 
 ---
 

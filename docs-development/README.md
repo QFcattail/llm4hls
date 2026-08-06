@@ -9,7 +9,7 @@
 | 目录 | 内容 | 谁会看 |
 |---|---|---|
 | [`PROJECT-CONVENTIONS.md`](PROJECT-CONVENTIONS.md) | 项目工程规范总纲（目录结构、SDLC、文档/代码规范、人机协作模型） | 所有人，**必读** |
-| [`runtime-constraints.md`](runtime-constraints.md) | 运行环境硬约束（机器归属、赛题规则、Vitis 环境、版本号）--**违反会导致卡死或返工** | 所有人，动手前必读 |
+| `runtime-constraints.md` | 运行环境硬约束（机器归属、赛题规则、Vitis 环境、版本号）--**违反会导致卡死或返工**（已随开源版移除） | 所有人，动手前必读 |
 | [`requirements/`](requirements/) | 需求分析：赛道要求拆解 + 评审记录 | 所有人，尤其是新接手的人 |
 | [`design/`](design/) | 详细设计：agent 架构、TUI 设计、知识库 schema、控制循环 | 开发者 |
 | [`engineering-plan/`](engineering-plan/) | 工程计划：阶段划分 + 原子任务清单，**项目进度的唯一真相来源** | 所有人，最高频访问 |

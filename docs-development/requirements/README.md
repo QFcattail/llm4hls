@@ -6,9 +6,9 @@
 
 | 文档 | 内容 | 状态 |
 |---|---|---|
-| `requirements-analysis.md` | 总体需求分析（赛道要求拆解、用户故事、功能/非功能需求、边界、验收标准、风险） | ⚪ 待编写（当前以 `runtime-constraints.md` §一/§二 承接赛题规则） |
+| `requirements-analysis.md` | 总体需求分析（赛道要求拆解、用户故事、功能/非功能需求、边界、验收标准、风险） | ⚪ 待编写（当前以 `runtime-constraints.md` §一/§二 承接赛题规则（后者在完整开发仓库中，开源版不含）） |
 
-> **说明**：本项目是竞赛项目，"需求"主要由赛事方定义（FPT'26 Track A 赛题规则）。赛题规则、评估接口、credit 预算、评分公式等已全部记录在 [`../runtime-constraints.md`](../runtime-constraints.md) 中。正式的需求分析文档待 P3 里程碑前补充，届时将把分散在 runtime-constraints 中的规则整理为结构化需求。
+> **说明**：本项目是竞赛项目，"需求"主要由赛事方定义（FPT'26 Track A 赛题规则）。赛题规则、评估接口、credit 预算、评分公式等已全部记录在 `../runtime-constraints.md` 中（完整开发仓库，开源版不含）。正式的需求分析文档待 P3 里程碑前补充，届时将把分散在 runtime-constraints 中的规则整理为结构化需求。
 
 ## 需求分析文档结构
 

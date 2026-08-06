@@ -97,7 +97,7 @@
 | P1-05 | 读 HLS Repair 论文（arXiv 2407.03889） | 🟢 | 已读完，理解 bug 模式分类与 LLM 定向修复方法 |
 | P1-06 | 读 AutoChip / RTLFixer / HLSPilot 论文 | 🟢 | 已读完摘要，理解工具反馈迭代模式 |
 | P1-07 | 向队友要"Vitis HLS 日志样例包" | 🟢 | **harness 自带 3 道题（projection/dotProduct/residual），含 reference 答案，远超预期，不再需要队友单独造** |
-| P1-08a | 解压官方 harness，全量分析 | 🟢 | 11 个 py 文件 + 3 道 task 逐文件读完，接口/预算/评分/Docker 全部明确（见 runtime-constraints.md §二） |
+| P1-08a | 解压官方 harness，全量分析 | 🟢 | 11 个 py 文件 + 3 道 task 逐文件读完，接口/预算/评分/Docker 全部明确（见 runtime-constraints.md §二，该文件不含于开源版） |
 | P1-08b | 跑通 harness 离线链路（ScriptedClient） | 🟢 | `run_poc.py` 在本机 python3.13 跑通，task 加载/budget/transcript/评分卡全正常 |
 | P1-08c | agent 架构定稿 | 🟢 | `docs-development/design/agent-architecture.md` v2.2（Mermaid 流程图 + 存档逻辑 + 可观测性） |
 | P1-08d | 确定开发环境与部署方案 | 🟡 | 开发期用 ScriptedClient 离线（已完成）；Vitis 待云服务器（用户将给 SSH） |
@@ -264,7 +264,7 @@
 | 2026-07-14 | **P2/P3 大重写**：harness 解压是决定性发现。废弃 P2-01（mock）/P2-02（日志解析）/P3-01（接真接口）/P3-02（Vitis 命令行）/P3-04（预算止损）—— 全被官方实现解决。P2 重写为"搭 agent 骨架 + 最小闭环"（P2-03~P2-11），P3 重写为"接真 Vitis + cosim + milestone"（P3-03~P3-07）。新增 P1-08a~d（harness 分析/离线跑通/架构定稿/部署方案）标记完成。架构定稿见 agent-architecture.md v2.2。里程碑总览时间表压缩（P2→第2周、P3→第3-4周、P4→第5周起），因 harness 省去大量基础工作。 | 程千和 |
 | 2026-07-11 | P1-02/03/05/06 全部完成：用户读完所有背景论文（ReAct、Anthropic agents、SWE-agent、HLS Repair、AutoChip、RTLFixer、HLSPilot、AMD案例）。AMD四阶段工作流与LLM优缺点已写入 dev-log 2026-07-11-03。用户确认已报名，只做Track A。明天开始规划agent架构。 | 程千和 |
 | 2026-07-11 | **工程计划收回聚焦 Track A**：用户明确只做 FPT'26 Track A LLM4HLS。删除 FPL'26/Track B 相关内容，恢复 P0-P4 五阶段结构。补充 AMD 案例文章的四阶段工作流作为方法论参考。 | 程千和 |
-| 2026-07-11 | 工程计划据实重写（涉及两个竞赛三条赛道），现已因用户决策收回。赛题规则已全部回填至 runtime-constraints.md。 | 程千和 |
+| 2026-07-11 | 工程计划据实重写（涉及两个竞赛三条赛道），现已因用户决策收回。赛题规则已全部回填至 runtime-constraints.md（该文件不含于开源版）。 | 程千和 |
 | 2026-07-11 | P1-01 完成（手册全文通读）；P1-04 环境侧完成（web_fetch.py + Playwright MCP + 双 python）；tech-debt 全量废弃 | 程千和 |
 | 2026-07-11 | 补充手册路线图、汇合点表、P1/P2/P3 按人细化检查清单、P0-06~P0-08 完成 | 程千和 |
 | 2026-07-10 | 初始工程计划建立；P0 全部完成；P1 开始 | 程千和 |

@@ -85,7 +85,7 @@ fpga-agent/
 ├── docs-overview/        项目介绍、总体架构、术语表（所有人 first read）
 ├── docs-development/     需求、设计、工程计划、开发日志、评审、测试用例、技术债
 │   ├── PROJECT-CONVENTIONS.md  工程规范总纲
-│   ├── runtime-constraints.md  运行环境硬约束（动手前必读）
+│   ├── runtime-constraints.md  ⚠️ 已移除（开源版不含；完整开发仓库有）
 │   ├── requirements/     需求分析
 │   ├── design/           详细设计
 │   ├── engineering-plan/ 工程计划（进度唯一真相来源）
@@ -188,7 +188,7 @@ fpga-agent/
 
 ### 运行环境约束（必读）
 
-部署前**必须**读 [`docs-development/runtime-constraints.md`](docs-development/runtime-constraints.cn.md) -- 机器归属、Vitis 环境、赛题规则、credit 预算、评分公式等硬性约束。违反这些约束会导致卡死或返工。
+部署前**必须**读 `docs-development/runtime-constraints.md`（在完整开发仓库中，开源版不含）-- 机器归属、Vitis 环境、赛题规则、credit 预算、评分公式等硬性约束。违反这些约束会导致卡死或返工。
 
 ---
 
