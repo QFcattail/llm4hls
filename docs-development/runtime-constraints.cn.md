@@ -142,7 +142,7 @@ harness 提供 `vitis.dockerfile`（Vitis 2025.2 环境）和 `run-vitis.sh`（�
 
 ### 4.2 部署方案
 
-- **方案（已定）**：用户租用云 Linux 服务器（Ubuntu 22.04，8 核 / 32GB / 200GB SSD，无 GPU），由 HLS 域主负责 Vitis 安装。用户将提供 SSH 授权。
+- **方案（已定）**：用户租用云 Linux 服务器（Ubuntu 22.04，8 核 / 32GB / 200GB SSD，无 GPU），由 方欣语负责 Vitis 安装。用户将提供 SSH 授权。
 - **成本估算**：约 200 元/月，实际间歇使用更低。比赛周期不足一月，成本可控。
 - **离线开发（现在即可）**：ScriptedClient 跑通框架层（agent 主循环、知识库、prompt）不需 Vitis。
 

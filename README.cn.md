@@ -211,7 +211,7 @@ fpga-agent/
 当前在册技术债：无（既有 TD-01~TD-04 已全部废弃/迁移）。开发过程中发现的问题会及时登记。
 
 **已知限制**：
-- 知识库条目为空（待 P2-12 HLS 域主填充 >=10 条）
+- 知识库条目为空（待 P2-12 方欣语填充 >=10 条）
 - optimize 阶段为 stub（P4 实现）
 - 仅在 projection 题上验证过端到端（dotProduct/residual 待验证）
 
@@ -230,10 +230,10 @@ fpga-agent/
 
 ## 分工
 
-| 角色 | 背景 | 负责 |
-|---|---|---|
-| **Agent 主** | 机器人 / 大模型 Agent 落地经验 | `agent/`、`scripts/`、`tui/`、评估接口对接 |
-| **HLS 域主** | 信息工程 / 射频芯片 | `agent/knowledge-base/`、本地题集、correctness/PPA 验证 |
+| 姓名 | 角色 | 背景 | 负责 |
+|---|---|---|---|
+| **程千和** | 程千和 | 机器人 / 大模型 Agent 落地经验 | `agent/`、`scripts/`、`tui/`、评估接口对接 |
+| **方欣语** | 方欣语 | 信息工程 / 射频芯片 | `agent/knowledge-base/`、本地题集、correctness/PPA 验证 |
 
 ---
 

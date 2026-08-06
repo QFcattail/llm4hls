@@ -304,4 +304,4 @@ docker build -t fpga-agent:0.7.4 .
 
 | Date | Change | Author |
 |---|---|---|
-| 2026-07-15 | v1 initial draft. | Agent 主 |
+| 2026-07-15 | v1 initial draft. | Qianhe Cheng |

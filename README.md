@@ -228,10 +228,10 @@ See [`docs-development/PROJECT-CONVENTIONS.md`](docs-development/PROJECT-CONVENT
 
 ## Division of Labor
 
-| Role | Background | Responsible For |
-|---|---|---|
-| **Agent Lead** | Robotics / LLM Agent experience | `agent/`, `scripts/`, `tui/`, evaluation interface integration |
-| **HLS Domain Owner** | Information Engineering / RF chips | `agent/knowledge-base/`, local task set, correctness/PPA validation |
+| Name | Role | Background | Responsible For |
+|---|---|---|---|
+| **Qianhe Cheng** | Agent Lead | Robotics / LLM Agent experience | `agent/`, `scripts/`, `tui/`, evaluation interface integration |
+| **Xinyu Fang** | HLS Domain Owner | Information Engineering / RF chips | `agent/knowledge-base/`, local task set, correctness/PPA validation |
 
 ---
 
